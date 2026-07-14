@@ -1,0 +1,3 @@
+package com.babidndn.cart;
+import jakarta.validation.Valid;import org.springframework.web.bind.annotation.*;import java.util.List;
+@RestController @RequestMapping("/api/cart") public class CartController { private final CartService service; public CartController(CartService service){this.service=service;} @GetMapping public List<CartItem> findAll(){return service.findAll();} @PostMapping public CartItem add(@Valid @RequestBody CartItemRequest request){return service.add(request);} @PatchMapping("/{id}") public CartItem update(@PathVariable Long id,@Valid @RequestBody CartItemRequest request){return service.update(id,request);} @DeleteMapping("/{id}") public void delete(@PathVariable Long id){service.delete(id);} }

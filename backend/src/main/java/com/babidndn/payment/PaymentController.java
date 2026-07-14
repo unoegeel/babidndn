@@ -1,0 +1,2 @@
+package com.babidndn.payment; import jakarta.validation.Valid;import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/payments") public class PaymentController { private final PaymentGateway gateway; public PaymentController(PaymentGateway gateway){this.gateway=gateway;} @PostMapping public Payment request(@Valid @RequestBody PaymentRequest request){return gateway.request(request);} @PostMapping("/confirm") public Payment confirm(@Valid @RequestBody PaymentRequest request){return gateway.confirm(request);} }
