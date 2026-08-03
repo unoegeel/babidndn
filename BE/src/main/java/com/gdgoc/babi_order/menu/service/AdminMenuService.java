@@ -1,0 +1,291 @@
+package com.gdgoc.babi_order.menu.service;
+
+import com.gdgoc.babi_order.menu.dto.request.CategoryUpsertRequest;
+import com.gdgoc.babi_order.menu.dto.request.MenuOptionUpsertRequest;
+import com.gdgoc.babi_order.menu.dto.request.MenuUpsertRequest;
+import com.gdgoc.babi_order.menu.dto.response.CategoryResponse;
+import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
+import com.gdgoc.babi_order.menu.entity.Category;
+import com.gdgoc.babi_order.menu.entity.Menu;
+import com.gdgoc.babi_order.menu.entity.MenuOption;
+import com.gdgoc.babi_order.menu.entity.OptionGroupType;
+import com.gdgoc.babi_order.menu.entity.SaleStatus;
+import com.gdgoc.babi_order.menu.exception.MenuApiException;
+import com.gdgoc.babi_order.menu.exception.MenuNotFoundException;
+import com.gdgoc.babi_order.menu.repository.CategoryRepository;
+import com.gdgoc.babi_order.menu.repository.MenuOptionRepository;
+import com.gdgoc.babi_order.menu.repository.MenuRepository;
+import com.gdgoc.babi_order.order.repository.OrderItemOptionRepository;
+import com.gdgoc.babi_order.order.repository.OrderItemRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Set;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class AdminMenuService {
+
+    private static final List<OptionGroupType> TOPPING_GROUP_TYPES =
+            List.of(OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+    private static final List<DefaultTopping> DEFAULT_TOPPINGS = List.of(
+            new DefaultTopping("계란후라이", 700, 1),
+            new DefaultTopping("밥 추가", 1000, 2),
+            new DefaultTopping("고기 추가", 1000, 3),
+            new DefaultTopping("모짜렐라치즈", 1000, 4),
+            new DefaultTopping("체다치즈", 500, 5),
+            new DefaultTopping("스팸", 700, 6)
+    );
+
+    private final CategoryRepository categoryRepository;
+    private final MenuRepository menuRepository;
+    private final MenuOptionRepository menuOptionRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final OrderItemOptionRepository orderItemOptionRepository;
+
+    public List<CategoryResponse> getCategories() {
+        return categoryRepository.findAllByOrderByDisplayOrderAscIdAsc().stream()
+                .map(CategoryResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public CategoryResponse createCategory(CategoryUpsertRequest request) {
+        String name = request.getName().trim();
+        validateCategoryNameAvailable(name, null);
+        Category saved = categoryRepository.save(Category.builder()
+                .name(name)
+                .displayOrder(request.getDisplayOrder())
+                .build());
+        return CategoryResponse.from(saved);
+    }
+
+    @Transactional
+    public CategoryResponse updateCategory(Long categoryId, CategoryUpsertRequest request) {
+        Category category = findCategory(categoryId);
+        String name = request.getName().trim();
+        validateCategoryNameAvailable(name, categoryId);
+        category.update(name, request.getDisplayOrder());
+        return CategoryResponse.from(category);
+    }
+
+    @Transactional
+    public void deleteCategory(Long categoryId) {
+        Category category = findCategory(categoryId);
+        if (menuRepository.existsByCategoryId(categoryId)) {
+            throw conflict(
+                    "CATEGORY_NOT_EMPTY",
+                    "메뉴가 존재하는 카테고리는 삭제할 수 없습니다. categoryId=" + categoryId
+            );
+        }
+        categoryRepository.delete(category);
+    }
+
+    @Transactional
+    public MenuDetailResponse createMenu(MenuUpsertRequest request) {
+        Category category = findCategory(request.getCategoryId());
+        String name = request.getName().trim();
+        validateMenuNameAvailable(category.getId(), name, null);
+        Menu saved = menuRepository.save(Menu.builder()
+                .category(category)
+                .name(name)
+                .description(request.getDescription())
+                .basePrice(request.getBasePrice())
+                .imageUrl(request.getImageUrl())
+                .displayOrder(request.getDisplayOrder())
+                .saleStatus(request.getSaleStatus())
+                .build());
+        syncToppingOptions(saved, request.getToppingEnabled());
+        return detail(saved);
+    }
+
+    @Transactional
+    public MenuDetailResponse updateMenu(Long menuId, MenuUpsertRequest request) {
+        Menu menu = findMenu(menuId);
+        Category category = findCategory(request.getCategoryId());
+        String name = request.getName().trim();
+        validateMenuNameAvailable(category.getId(), name, menuId);
+        menu.update(
+                category,
+                name,
+                request.getDescription(),
+                request.getBasePrice(),
+                request.getImageUrl(),
+                request.getDisplayOrder(),
+                request.getSaleStatus()
+        );
+        syncToppingOptions(menu, request.getToppingEnabled());
+        return detail(menu);
+    }
+
+    @Transactional
+    public MenuDetailResponse updateSaleStatus(Long menuId, SaleStatus saleStatus) {
+        Menu menu = findMenu(menuId);
+        menu.changeSaleStatus(saleStatus);
+        return detail(menu);
+    }
+
+    @Transactional
+    public void deleteMenu(Long menuId) {
+        Menu menu = findMenu(menuId);
+        orderItemOptionRepository.detachMenuOptionsByMenu(menuId);
+        orderItemRepository.detachMenu(menuId);
+        menuOptionRepository.deleteAllByMenuId(menuId);
+        menuRepository.delete(menu);
+    }
+
+    @Transactional
+    public MenuDetailResponse createOption(Long menuId, MenuOptionUpsertRequest request) {
+        Menu menu = findMenu(menuId);
+        String name = request.getName().trim();
+        validateOptionNameAvailable(menuId, name, null);
+        menuOptionRepository.save(MenuOption.builder()
+                .menu(menu)
+                .groupType(request.getGroupType())
+                .name(name)
+                .additionalPrice(request.getAdditionalPrice())
+                .maxQuantity(request.getMaxQuantity())
+                .defaultSelected(request.isDefaultSelected())
+                .displayOrder(request.getDisplayOrder())
+                .build());
+        return detail(menu);
+    }
+
+    @Transactional
+    public MenuDetailResponse updateOption(
+            Long menuId, Long optionId, MenuOptionUpsertRequest request) {
+        Menu menu = findMenu(menuId);
+        MenuOption option = findOption(optionId);
+        validateOptionBelongsToMenu(menuId, option);
+        String name = request.getName().trim();
+        validateOptionNameAvailable(menuId, name, optionId);
+        option.update(
+                request.getGroupType(),
+                name,
+                request.getAdditionalPrice(),
+                request.getMaxQuantity(),
+                request.isDefaultSelected(),
+                request.getDisplayOrder()
+        );
+        return detail(menu);
+    }
+
+    @Transactional
+    public void deleteOption(Long menuId, Long optionId) {
+        findMenu(menuId);
+        MenuOption option = findOption(optionId);
+        validateOptionBelongsToMenu(menuId, option);
+        orderItemOptionRepository.detachMenuOption(optionId);
+        menuOptionRepository.delete(option);
+    }
+
+    private MenuDetailResponse detail(Menu menu) {
+        List<MenuOption> options = menuOptionRepository
+                .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menu.getId());
+        return MenuDetailResponse.of(menu, options);
+    }
+
+    private void syncToppingOptions(Menu menu, boolean toppingEnabled) {
+        List<MenuOption> currentToppings = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
+
+        if (!toppingEnabled) {
+            if (!currentToppings.isEmpty()) {
+                List<Long> optionIds = currentToppings.stream().map(MenuOption::getId).toList();
+                orderItemOptionRepository.detachMenuOptions(optionIds);
+                menuOptionRepository.deleteAll(currentToppings);
+            }
+            return;
+        }
+
+        Set<String> existingNames = currentToppings.stream()
+                .map(MenuOption::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        List<MenuOption> missingDefaults = DEFAULT_TOPPINGS.stream()
+                .filter(topping -> !existingNames.contains(topping.name()))
+                .map(topping -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.TOPPING_ADD)
+                        .name(topping.name())
+                        .additionalPrice(topping.additionalPrice())
+                        .maxQuantity(3)
+                        .defaultSelected(false)
+                        .displayOrder(topping.displayOrder())
+                        .build())
+                .toList();
+        if (!missingDefaults.isEmpty()) {
+            menuOptionRepository.saveAll(missingDefaults);
+        }
+    }
+
+    private Category findCategory(Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new MenuApiException(
+                        HttpStatus.NOT_FOUND,
+                        "CATEGORY_NOT_FOUND",
+                        "카테고리를 찾을 수 없습니다. id=" + categoryId
+                ));
+    }
+
+    private Menu findMenu(Long menuId) {
+        return menuRepository.findWithCategoryById(menuId)
+                .orElseThrow(() -> new MenuNotFoundException(menuId));
+    }
+
+    private MenuOption findOption(Long optionId) {
+        return menuOptionRepository.findById(optionId)
+                .orElseThrow(() -> new MenuApiException(
+                        HttpStatus.NOT_FOUND,
+                        "MENU_OPTION_NOT_FOUND",
+                        "메뉴 옵션을 찾을 수 없습니다. id=" + optionId
+                ));
+    }
+
+    private void validateCategoryNameAvailable(String name, Long categoryId) {
+        boolean duplicated = categoryId == null
+                ? categoryRepository.existsByName(name)
+                : categoryRepository.existsByNameAndIdNot(name, categoryId);
+        if (duplicated) {
+            throw conflict("DUPLICATE_CATEGORY_NAME", "이미 사용 중인 카테고리명입니다. name=" + name);
+        }
+    }
+
+    private void validateMenuNameAvailable(Long categoryId, String name, Long menuId) {
+        boolean duplicated = menuId == null
+                ? menuRepository.existsByCategoryIdAndName(categoryId, name)
+                : menuRepository.existsByCategoryIdAndNameAndIdNot(categoryId, name, menuId);
+        if (duplicated) {
+            throw conflict("DUPLICATE_MENU_NAME", "카테고리 내에 같은 메뉴명이 존재합니다. name=" + name);
+        }
+    }
+
+    private void validateOptionNameAvailable(Long menuId, String name, Long optionId) {
+        boolean duplicated = optionId == null
+                ? menuOptionRepository.existsByMenuIdAndName(menuId, name)
+                : menuOptionRepository.existsByMenuIdAndNameAndIdNot(menuId, name, optionId);
+        if (duplicated) {
+            throw conflict("DUPLICATE_MENU_OPTION_NAME", "메뉴 내에 같은 옵션명이 존재합니다. name=" + name);
+        }
+    }
+
+    private void validateOptionBelongsToMenu(Long menuId, MenuOption option) {
+        if (!option.getMenu().getId().equals(menuId)) {
+            throw new MenuApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_MENU_OPTION",
+                    "해당 메뉴에 속하지 않는 옵션입니다. optionId=" + option.getId()
+            );
+        }
+    }
+
+    private MenuApiException conflict(String code, String message) {
+        return new MenuApiException(HttpStatus.CONFLICT, code, message);
+    }
+
+    private record DefaultTopping(String name, int additionalPrice, int displayOrder) {
+    }
+}

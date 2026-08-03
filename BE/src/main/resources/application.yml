@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: babi-order
+
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:babi_order}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    username: ${DB_USERNAME:babi}
+    password: ${DB_PASSWORD:babi_local_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+
+toss:
+  payments:
+    secret-key: ${TOSS_SECRET_KEY:}
+    base-url: ${TOSS_BASE_URL:https://api.tosspayments.com}
+
+aws:
+  s3:
+    region: ${AWS_REGION:ap-northeast-2}
+    bucket: ${AWS_S3_BUCKET:babi-order-images}
+
+app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  admin:
+    login-id: ${ADMIN_LOGIN_ID:admin}
+    password: ${ADMIN_PASSWORD:admin_local_password}
+  jwt:
+    secret: ${JWT_SECRET:babi-local-jwt-secret-key-change-me-123456}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>결제 테스트</title>
+  <script src="https://js.tosspayments.com/v1/payment"></script>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; padding: 80px 40px; }
+    .container { width: 100%; max-width: 400px; text-align: center; }
+    h2 { margin-bottom: 8px; }
+    p { color: #666; margin-bottom: 32px; }
+    button {
+      width: 100%; padding: 16px;
+      background: #3182f6; color: white; border: none;
+      border-radius: 8px; font-size: 16px; cursor: pointer;
+    }
+    button:hover { background: #1c6ef3; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>바비오더 결제 테스트</h2>
+  <p>메뉴 ID 1번을 1개 주문 후 결제합니다.</p>
+  <button id="pay-btn">주문 생성 후 결제하기</button>
+</div>
+
+<script>
+  const clientKey = "test_ck_BX7zk2yd8y2AYdZmBK1Q3x9POLqK";
+  const tossPayments = TossPayments(clientKey);
+
+  document.getElementById("pay-btn").addEventListener("click", async function () {
+    try {
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: [{ menuId: 1, quantity: 1 }] }),
+      });
+      if (!orderResponse.ok) {
+        throw new Error("주문 생성 실패: " + (await orderResponse.text()));
+      }
+      const order = await orderResponse.json();
+
+      await tossPayments.requestPayment("카드", {
+        amount: order.totalAmount,
+        orderId: order.tossOrderId,
+        orderName: "바비오더 테스트 결제",
+        customerName: "테스트 고객",
+        successUrl: window.location.origin + "/api/payments/success",
+        failUrl: window.location.origin + "/api/payments/fail",
+      });
+    } catch (error) {
+      if (error.code !== "USER_CANCEL") {
+        alert("오류: " + error.message);
+      }
+    }
+  });
+</script>
+</body>
+</html>
