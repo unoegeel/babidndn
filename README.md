@@ -44,6 +44,15 @@ npm run dev
 - 관리자용: <http://localhost:5173/admin>
 - API 서버 주소 변경: `VITE_API_BASE_URL=http://localhost:8080 npm run dev`
 
+## 프론트엔드 배포 (Vercel)
+
+이 저장소는 `BE/`와 `FE/`가 함께 있는 모노레포라, Vercel이 저장소 루트를 그대로 정적 서빙하면 빌드 결과물(`FE/dist/index.html`)이 없어 `404: NOT_FOUND`가 납니다. 루트 `vercel.json`이 `FE`를 빌드하도록 지정하고, SPA 라우팅을 위해 모든 경로를 `/index.html`로 rewrite 합니다.
+
+Vercel 프로젝트 설정에서 **Root Directory**를 `FE`로 지정한 경우에는 루트 `vercel.json` 대신 `FE/vercel.json`이 적용됩니다. 두 경우 모두 동작하지만, 설정은 한쪽만 바꾸면 됩니다.
+
+- 환경 변수: `VITE_TOSS_CLIENT_KEY` (필수), `VITE_API_BASE_URL` (미설정 시 `https://babidndn.shop` 사용)
+- 커스텀 도메인 `www.babidndn.shop`은 Vercel(프론트), apex `babidndn.shop`은 API 서버를 가리킵니다.
+
 ## 주요 API 예시
 
 ### 메뉴 목록
