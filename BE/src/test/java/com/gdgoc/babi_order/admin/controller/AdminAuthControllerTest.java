@@ -83,4 +83,44 @@ class AdminAuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_ADMIN_CREDENTIALS"));
     }
+
+    @Test
+    void signupCreatesAccountAndReturnsAccessToken() throws Exception {
+        given(adminAuthService.signup(any())).willReturn(AdminLoginResponse.builder()
+                .accessToken("access-token")
+                .tokenType("Bearer")
+                .expiresIn(3600)
+                .build());
+
+        mockMvc.perform(post("/api/admin/auth/signup")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "loginId": "new-owner",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accessToken").value("access-token"));
+    }
+
+    @Test
+    void signupRejectsDuplicateLoginId() throws Exception {
+        given(adminAuthService.signup(any())).willThrow(new AdminAuthException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "DUPLICATE_LOGIN_ID",
+                "이미 사용 중인 아이디입니다."
+        ));
+
+        mockMvc.perform(post("/api/admin/auth/signup")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "loginId": "owner",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
+    }
 }
