@@ -74,6 +74,11 @@ export interface AdminLoginRequest {
   password: string;
 }
 
+export interface AdminSignupRequest {
+  loginId: string;
+  password: string;
+}
+
 export interface AdminLoginResponse {
   accessToken: string;
   tokenType: string;

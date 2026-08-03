@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.admin.service;
 
 import com.gdgoc.babi_order.admin.dto.request.AdminLoginRequest;
+import com.gdgoc.babi_order.admin.dto.request.AdminSignupRequest;
 import com.gdgoc.babi_order.admin.dto.response.AdminLoginResponse;
 import com.gdgoc.babi_order.admin.entity.Admin;
 import com.gdgoc.babi_order.admin.exception.AdminAuthException;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class AdminAuthServiceTest {
@@ -75,5 +77,32 @@ class AdminAuthServiceTest {
                 .isInstanceOf(AdminAuthException.class)
                 .extracting("code")
                 .isEqualTo("INVALID_ADMIN_CREDENTIALS");
+    }
+
+    @Test
+    void signupCreatesAdminAndReturnsAccessToken() {
+        given(adminRepository.existsByLoginId("new-owner")).willReturn(false);
+        given(passwordEncoder.encode("password123")).willReturn("encoded-password");
+        given(adminRepository.save(org.mockito.ArgumentMatchers.any(Admin.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+        given(jwtTokenProvider.createToken("new-owner")).willReturn("access-token");
+        given(jwtTokenProvider.getExpirationSeconds()).willReturn(3600L);
+
+        AdminLoginResponse result = adminAuthService.signup(
+                new AdminSignupRequest("new-owner", "password123"));
+
+        assertThat(result.getAccessToken()).isEqualTo("access-token");
+        verify(adminRepository).save(org.mockito.ArgumentMatchers.any(Admin.class));
+    }
+
+    @Test
+    void signupRejectsDuplicateLoginId() {
+        given(adminRepository.existsByLoginId("owner")).willReturn(true);
+
+        assertThatThrownBy(() -> adminAuthService.signup(
+                new AdminSignupRequest("owner", "password123")))
+                .isInstanceOf(AdminAuthException.class)
+                .extracting("code")
+                .isEqualTo("DUPLICATE_LOGIN_ID");
     }
 }
