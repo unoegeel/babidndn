@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.payment.service;
 
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.service.OrderService;
 import com.gdgoc.babi_order.payment.client.TossPaymentClient;
 import com.gdgoc.babi_order.payment.dto.request.PaymentCancelRequest;
 import com.gdgoc.babi_order.payment.dto.request.PaymentConfirmRequest;
@@ -47,11 +48,15 @@ class PaymentServiceTest {
     @Mock
     private TossPaymentClient tossPaymentClient;
 
+    @Mock
+    private OrderService orderService;
+
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService(paymentRepository, orderRepository, tossPaymentClient);
+        paymentService = new PaymentService(
+                paymentRepository, orderRepository, tossPaymentClient, orderService);
     }
 
     @Test
@@ -73,6 +78,7 @@ class PaymentServiceTest {
         assertThat(response.getTossOrderId()).isEqualTo("1");
         assertThat(response.getStatus()).isEqualTo("DONE");
         verify(tossPaymentClient, never()).cancel(anyString(), anyString());
+        verify(orderService).activateAfterPayment(1L);
     }
 
     @Test
@@ -136,6 +142,7 @@ class PaymentServiceTest {
 
         assertThat(response.getStatus()).isEqualTo("CANCELED");
         verify(tossPaymentClient).cancel("payKey", "고객 요청");
+        verify(orderService).cancelOrderDueToPaymentCancel(1L);
     }
 
     @Test

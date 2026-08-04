@@ -146,11 +146,11 @@ class AdminMenuServiceTest {
                 org.mockito.ArgumentCaptor.forClass(List.class);
         verify(menuOptionRepository, org.mockito.Mockito.times(2)).saveAll(captor.capture());
         assertThat(captor.getAllValues().get(0))
-                .hasSize(6)
                 .extracting(MenuOption::getName)
                 .containsExactly(
                         "계란후라이", "밥 추가", "고기 추가",
-                        "모짜렐라치즈", "체다치즈", "스팸");
+                        "모짜렐라치즈", "체다치즈", "스팸",
+                        "김치 제외", "고추장 소스 제외");
         assertThat(captor.getAllValues().get(1))
                 .hasSize(3)
                 .extracting(MenuOption::getName, MenuOption::getAdditionalPrice)

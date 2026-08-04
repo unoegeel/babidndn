@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MenuCategory, MenuDetail, MenuSummary, MenuOption } from "../../types/user";
 import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
 import MenuThumb from "../../components/user/MenuThumb";
+
+const SWIPE_THRESHOLD_PX = 56;
 
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +20,12 @@ export const MenuPage: React.FC = () => {
   // 모달 제어용 상태
   const [activeMenuDetail, setActiveMenuDetail] = useState<MenuDetail | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  const menuListRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeLockedRef = useRef(false);
+
+  const sortedCategories = [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
 
   // 전체 카테고리 로드
   useEffect(() => {
@@ -39,6 +47,63 @@ export const MenuPage: React.FC = () => {
     };
     fetchCategories();
   }, []);
+
+  // 헤더 "바비든든" 클릭 시 메뉴 목록 스크롤 최상단
+  useEffect(() => {
+    const handleScrollTop = () => {
+      menuListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("user-menu-scroll-top", handleScrollTop);
+    return () => window.removeEventListener("user-menu-scroll-top", handleScrollTop);
+  }, []);
+
+  // 카테고리 변경 시 목록 스크롤 리셋
+  useEffect(() => {
+    menuListRef.current?.scrollTo({ top: 0 });
+  }, [selectedCategoryId]);
+
+  const switchCategoryByOffset = useCallback(
+    (offset: number) => {
+      if (sortedCategories.length === 0 || selectedCategoryId === null) return;
+      const currentIndex = sortedCategories.findIndex((c) => c.categoryId === selectedCategoryId);
+      if (currentIndex < 0) return;
+      const nextIndex = currentIndex + offset;
+      if (nextIndex < 0 || nextIndex >= sortedCategories.length) return;
+      setSelectedCategoryId(sortedCategories[nextIndex].categoryId);
+    },
+    [sortedCategories, selectedCategoryId],
+  );
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeLockedRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || swipeLockedRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+
+    // 세로 스크롤이 우세하면 스와이프 카테고리 전환 잠금
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) {
+      swipeLockedRef.current = true;
+      return;
+    }
+
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) return;
+
+    // 손가락을 왼쪽으로 → 다음 카테고리, 오른쪽으로 → 이전 카테고리
+    switchCategoryByOffset(dx < 0 ? 1 : -1);
+    swipeLockedRef.current = true;
+    touchStartRef.current = null;
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+    swipeLockedRef.current = false;
+  };
 
   // 특정 메뉴 선택 시 상세 조회 → 토핑 불가면 바로 담기, 가능하면 옵션 시트 오픈
   const handleMenuSelect = async (menuId: number) => {
@@ -111,28 +176,33 @@ export const MenuPage: React.FC = () => {
     <div className="flex-1 flex flex-col bg-white relative overflow-hidden h-full">
       {/* 카테고리 가로 스크롤 탭 바 */}
       <div className="shrink-0 bg-white z-10 border-b border-gray-100 overflow-x-auto scrollbar-none flex px-4 gap-2 py-3.5">
-        {categories
-          .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map((cat) => {
-            const isSelected = cat.categoryId === selectedCategoryId;
-            return (
-              <button
-                key={cat.categoryId}
-                onClick={() => setSelectedCategoryId(cat.categoryId)}
-                className={`py-2 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
-                  isSelected
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {cat.categoryName}
-              </button>
-            );
-          })}
+        {sortedCategories.map((cat) => {
+          const isSelected = cat.categoryId === selectedCategoryId;
+          return (
+            <button
+              key={cat.categoryId}
+              onClick={() => setSelectedCategoryId(cat.categoryId)}
+              className={`py-2 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                isSelected
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {cat.categoryName}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 메뉴 카드 목록 영역 */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+      {/* 메뉴 카드 목록 영역 — 좌우 스와이프로 카테고리 전환 */}
+      <div
+        ref={menuListRef}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
         {sortedMenus.length === 0 ? (
           <div className="py-24 text-center text-gray-400 font-bold text-xs">
             이 카테고리에는 등록된 메뉴가 없습니다.

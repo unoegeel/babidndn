@@ -67,7 +67,7 @@ export interface Order {
   waitingTime: number;
 }
 
-export type NotificationType = "ORDER_CREATED" | "PREPARING" | "READY";
+export type NotificationType = "ORDER_CREATED" | "PREPARING" | "READY" | "CANCELED";
 
 export interface NotificationItem {
   id: string;

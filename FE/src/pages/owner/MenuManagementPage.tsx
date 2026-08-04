@@ -73,10 +73,10 @@ export default function MenuManagementPage() {
 
   return (
     <AdminShell>
-      <div className="flex h-full flex-col p-[20px] md:p-[32px]">
+      <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
         {/* 헤더 */}
-        <div className="mb-[24px] flex flex-wrap items-center justify-between gap-[12px]">
-          <h1 className="text-[24px] font-bold text-black">메뉴 관리</h1>
+        <div className="mb-[16px] flex shrink-0 flex-wrap items-center justify-between gap-[12px] short:mb-[10px]">
+          <h1 className="text-[22px] font-bold text-black short:text-[18px]">메뉴 관리</h1>
           <button
             onClick={openCreatePanel}
             className="h-[48px] rounded-[10px] border border-black/50 bg-black px-[20px] text-[15px] font-medium tracking-[1px] text-white"

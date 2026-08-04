@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
+import { orderService } from "../../services/user/orderService";
 
 declare global {
   interface Window {
@@ -52,12 +53,26 @@ export const CheckoutPage: React.FC = () => {
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
       if (!clientKey) {
         alert("Toss Payments Client Key (VITE_TOSS_CLIENT_KEY)가 설정되지 않았습니다.");
+        try {
+          await orderService.abandonUnpaidOrder(createdOrder.id);
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+        sessionStorage.removeItem("pendingOrder");
+        sessionStorage.removeItem("cartBackup");
         setIsProcessing(false);
         return;
       }
 
       if (!window.TossPayments) {
         alert("Toss Payments SDK가 로드되지 않았습니다.");
+        try {
+          await orderService.abandonUnpaidOrder(createdOrder.id);
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+        sessionStorage.removeItem("pendingOrder");
+        sessionStorage.removeItem("cartBackup");
         setIsProcessing(false);
         return;
       }
@@ -81,8 +96,15 @@ export const CheckoutPage: React.FC = () => {
             successUrl,
             failUrl,
           })
-          .catch((sdkErr: unknown) => {
+          .catch(async (sdkErr: unknown) => {
             console.error("Toss SDK 요청 거부/취소:", sdkErr);
+            try {
+              await orderService.abandonUnpaidOrder(createdOrder.id);
+            } catch (e) {
+              console.error("미결제 주문 삭제 실패:", e);
+            }
+            sessionStorage.removeItem("pendingOrder");
+            sessionStorage.removeItem("cartBackup");
             setIsProcessing(false);
           });
       } else {
@@ -106,12 +128,26 @@ export const CheckoutPage: React.FC = () => {
               flowMode: "DIRECT",
               easyPay: easyPayName,
             })
-            .catch((sdkErr: unknown) => {
+            .catch(async (sdkErr: unknown) => {
               console.error("Toss SDK 요청 거부/취소:", sdkErr);
+              try {
+                await orderService.abandonUnpaidOrder(createdOrder.id);
+              } catch (e) {
+                console.error("미결제 주문 삭제 실패:", e);
+              }
+              sessionStorage.removeItem("pendingOrder");
+              sessionStorage.removeItem("cartBackup");
               setIsProcessing(false);
             });
         } else {
           alert("지원되지 않는 결제 수단입니다.");
+          try {
+            await orderService.abandonUnpaidOrder(createdOrder.id);
+          } catch (e) {
+            console.error("미결제 주문 삭제 실패:", e);
+          }
+          sessionStorage.removeItem("pendingOrder");
+          sessionStorage.removeItem("cartBackup");
           setIsProcessing(false);
         }
       }

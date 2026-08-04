@@ -29,6 +29,9 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
 
+    /** 결제 완료 전 임시 주문 — 픽업번호 미발급 */
+    public static final int UNASSIGNED_PICKUP_NUMBER = 0;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -71,6 +74,14 @@ public class Order {
 
     public void changeStatus(OrderStatus nextStatus) {
         this.status = nextStatus;
+    }
+
+    public boolean hasPickupNumber() {
+        return pickupNumber != null && pickupNumber > UNASSIGNED_PICKUP_NUMBER;
+    }
+
+    public void assignPickupNumber(int pickupNumber) {
+        this.pickupNumber = pickupNumber;
     }
 
     // Toss 샌드박스는 orderId 유일성을 전체 테스트 계정 간에 공유하므로,

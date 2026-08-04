@@ -16,10 +16,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findAllByOrderByCreatedAtDescIdDesc();
 
-    /** 당일(구간) 가장 최근 주문 — 픽업번호 순환(1~99) 발급용 */
-    Optional<Order> findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+    /**
+     * 당일(구간) 픽업번호가 발급된 가장 최근 주문 — 픽업번호 순환(1~99) 발급용.
+     * 미결제(픽업번호 0) 주문은 제외합니다.
+     */
+    Optional<Order> findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
             LocalDateTime startInclusive,
-            LocalDateTime endExclusive);
+            LocalDateTime endExclusive,
+            Integer pickupNumberExclusive);
 
     @Query("""
             select count(o) from Order o

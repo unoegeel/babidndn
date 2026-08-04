@@ -45,6 +45,10 @@ public class AdminMenuService {
             new DefaultOption("체다치즈", 500, 5, false),
             new DefaultOption("스팸", 700, 6, false)
     );
+    private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
+            new DefaultOption("김치 제외", 0, 1, false),
+            new DefaultOption("고추장 소스 제외", 0, 2, false)
+    );
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
@@ -210,7 +214,9 @@ public class AdminMenuService {
         Set<String> existingToppingNames = currentToppings.stream()
                 .map(MenuOption::getName)
                 .collect(java.util.stream.Collectors.toSet());
-        List<MenuOption> missingToppings = DEFAULT_TOPPINGS.stream()
+
+        java.util.ArrayList<MenuOption> missingToppingOptions = new java.util.ArrayList<>();
+        DEFAULT_TOPPINGS.stream()
                 .filter(topping -> !existingToppingNames.contains(topping.name()))
                 .map(topping -> MenuOption.builder()
                         .menu(menu)
@@ -221,9 +227,21 @@ public class AdminMenuService {
                         .defaultSelected(topping.defaultSelected())
                         .displayOrder(topping.displayOrder())
                         .build())
-                .toList();
-        if (!missingToppings.isEmpty()) {
-            menuOptionRepository.saveAll(missingToppings);
+                .forEach(missingToppingOptions::add);
+        DEFAULT_TOPPING_REMOVES.stream()
+                .filter(remove -> !existingToppingNames.contains(remove.name()))
+                .map(remove -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.TOPPING_REMOVE)
+                        .name(remove.name())
+                        .additionalPrice(remove.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(remove.defaultSelected())
+                        .displayOrder(remove.displayOrder())
+                        .build())
+                .forEach(missingToppingOptions::add);
+        if (!missingToppingOptions.isEmpty()) {
+            menuOptionRepository.saveAll(missingToppingOptions);
         }
 
         List<MenuOption> currentSizes = menuOptionRepository
@@ -246,6 +264,15 @@ public class AdminMenuService {
         if (!missingSizes.isEmpty()) {
             menuOptionRepository.saveAll(missingSizes);
         }
+    }
+
+    /**
+     * 토핑 가능 메뉴에 누락된 기본 사이즈/토핑추가/토핑제외 옵션을 보강합니다.
+     * (기존 메뉴 상세 조회 시 자동 보정용)
+     */
+    @Transactional
+    public void ensureDefaultOptions(Menu menu) {
+        syncSizeAndToppingOptions(menu, true);
     }
 
     private Category findCategory(Long categoryId) {

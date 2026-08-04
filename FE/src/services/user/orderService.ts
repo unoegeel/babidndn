@@ -101,7 +101,10 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
     orderId: String(res.id),
     items,
     totalPrice: res.totalAmount,
-    status: res.status,
+    status:
+      res.paymentStatus === "CANCELED" || res.paymentStatus === "PARTIAL_CANCELED"
+        ? "CANCELED"
+        : res.status,
     createdAt: formattedDate,
     pickupNumber: String(res.pickupNumber),
     waitingCount,
@@ -177,5 +180,12 @@ export const orderService = {
    */
   async confirmPayment(data: PaymentConfirmRequest): Promise<PaymentConfirmResponse> {
     return api.post<PaymentConfirmResponse>("/api/payments/confirm", data);
+  },
+
+  /**
+   * 미결제 임시 주문 삭제 (DELETE /api/orders/{id}/unpaid)
+   */
+  async abandonUnpaidOrder(id: string | number): Promise<void> {
+    return api.delete<void>(`/api/orders/${id}/unpaid`);
   },
 };

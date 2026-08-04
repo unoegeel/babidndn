@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -35,15 +36,22 @@ public class OrderController {
     private final OrderEventService orderEventService;
 
     @PostMapping
-    @Operation(summary = "주문 생성", description = "메뉴와 옵션의 현재 가격을 기준으로 주문을 생성합니다.")
+    @Operation(summary = "주문 생성", description = "결제 전 임시 주문을 생성합니다. 픽업번호는 결제 승인 후 발급됩니다.")
     public ResponseEntity<OrderDetailResponse> createOrder(
             @Valid @RequestBody OrderCreateRequest request) {
         OrderDetailResponse response = orderService.createOrder(request);
         return ResponseEntity.created(URI.create("/api/orders/" + response.getId())).body(response);
     }
 
+    @DeleteMapping("/{id}/unpaid")
+    @Operation(summary = "미결제 주문 삭제", description = "결제 실패·취소 시 임시 주문을 삭제합니다.")
+    public ResponseEntity<Void> abandonUnpaidOrder(@PathVariable("id") Long id) {
+        orderService.abandonUnpaidOrder(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
-    @Operation(summary = "전체 주문 조회", description = "최근 생성된 주문부터 조회합니다.")
+    @Operation(summary = "전체 주문 조회", description = "결제 내역이 있는 주문을 최근순으로 조회합니다. 미결제 임시 주문은 제외됩니다.")
     public ResponseEntity<List<OrderSummaryResponse>> getOrders() {
         return ResponseEntity.ok(orderService.getOrders());
     }

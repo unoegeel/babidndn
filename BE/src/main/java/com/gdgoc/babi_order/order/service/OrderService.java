@@ -52,27 +52,84 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderEventService orderEventService;
 
+    /**
+     * 결제 전 임시 주문을 생성합니다.
+     * 픽업번호·SSE·주문 목록 노출은 결제 확정({@link #activateAfterPayment}) 이후에만 이루어집니다.
+     */
     @Transactional
     public OrderDetailResponse createOrder(OrderCreateRequest request) {
-        int pickupNumber = nextPickupNumber();
-        Order order = new Order(pickupNumber);
+        Order order = new Order(Order.UNASSIGNED_PICKUP_NUMBER);
 
         for (OrderItemRequest itemRequest : request.getItems()) {
             order.addItem(createOrderItem(itemRequest));
         }
 
         Order saved = orderRepository.save(order);
-        OrderDetailResponse response = toDetailResponse(saved, UNPAID);
+        return toDetailResponse(saved, UNPAID);
+    }
+
+    /**
+     * 결제 승인 직후 호출: 픽업번호를 발급하고 주문 생성 이벤트를 발행합니다.
+     */
+    @Transactional
+    public OrderDetailResponse activateAfterPayment(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        if (!order.hasPickupNumber()) {
+            order.assignPickupNumber(nextPickupNumber());
+        }
+        OrderDetailResponse response = toDetailResponse(order, PaymentStatus.DONE.name());
         publishAfterCommit("ORDER_CREATED", response);
         return response;
     }
 
+    /**
+     * 미결제 임시 주문을 삭제합니다. 결제가 이미 완료된 주문은 삭제하지 않습니다.
+     */
+    @Transactional
+    public void abandonUnpaidOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        boolean paid = paymentRepository.findByOrder_Id(orderId)
+                .filter(payment -> payment.getStatus() == PaymentStatus.DONE)
+                .isPresent();
+        if (paid) {
+            throw new OrderApiException(
+                    HttpStatus.CONFLICT,
+                    "ORDER_ALREADY_PAID",
+                    "결제 완료된 주문은 삭제할 수 없습니다. orderId=" + orderId
+            );
+        }
+        orderRepository.delete(order);
+    }
+
+    /**
+     * 결제 취소(환불)로 주문을 취소합니다.
+     * 이미 픽업 완료된 주문은 상태를 바꾸지 않습니다.
+     */
+    @Transactional
+    public OrderDetailResponse cancelOrderDueToPaymentCancel(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
+            return toDetailResponse(order, PaymentStatus.CANCELED.name());
+        }
+
+        order.changeStatus(OrderStatus.CANCELED);
+        OrderDetailResponse response = toDetailResponse(order, PaymentStatus.CANCELED.name());
+        publishAfterCommit("ORDER_STATUS_CHANGED", response);
+        return response;
+    }
+
+    /** 결제 내역이 있는 주문만 반환합니다. (미결제 임시 주문 제외) */
     public List<OrderSummaryResponse> getOrders() {
         List<Order> orders = orderRepository.findAllByOrderByCreatedAtDescIdDesc();
         Map<Long, PaymentStatus> paymentStatusByOrderId = paymentStatusByOrderId(
                 orders.stream().map(Order::getId).toList());
 
         return orders.stream()
+                .filter(order -> paymentStatusByOrderId.containsKey(order.getId()))
                 .map(order -> OrderSummaryResponse.from(order, toPaymentStatusName(
                         paymentStatusByOrderId.get(order.getId()))))
                 .toList();
@@ -147,8 +204,8 @@ public class OrderService {
         LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
 
         return orderRepository
-                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
-                        startOfDay, endOfDay)
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
+                        startOfDay, endOfDay, Order.UNASSIGNED_PICKUP_NUMBER)
                 .map(Order::getPickupNumber)
                 .map(last -> last >= MAX_PICKUP_NUMBER ? 1 : last + 1)
                 .orElse(1);

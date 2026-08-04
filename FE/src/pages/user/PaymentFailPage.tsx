@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import { orderService, type OrderDetailResponse } from "../../services/user/orderService";
 
 export const PaymentFailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -11,18 +12,35 @@ export const PaymentFailPage: React.FC = () => {
   const message = searchParams.get("message") || "결제 처리가 실패했거나 취소되었습니다.";
 
   useEffect(() => {
-    // 결제 실패/취소 시 백업해둔 장바구니 복원
-    try {
-      const savedCart = sessionStorage.getItem("cartBackup");
-      if (savedCart) {
-        restoreCart(JSON.parse(savedCart));
+    const cleanup = async () => {
+      // 결제 실패/취소 시 미결제 임시 주문 삭제
+      try {
+        const savedPending = sessionStorage.getItem("pendingOrder");
+        if (savedPending) {
+          const pending = JSON.parse(savedPending) as OrderDetailResponse;
+          if (pending?.id) {
+            await orderService.abandonUnpaidOrder(pending.id);
+          }
+        }
+      } catch (err) {
+        console.error("미결제 주문 삭제 실패:", err);
       }
-    } catch (err) {
-      console.error("장바구니 복원 실패:", err);
-    } finally {
-      sessionStorage.removeItem("pendingOrder");
-      sessionStorage.removeItem("cartBackup");
-    }
+
+      // 장바구니 복원
+      try {
+        const savedCart = sessionStorage.getItem("cartBackup");
+        if (savedCart) {
+          restoreCart(JSON.parse(savedCart));
+        }
+      } catch (err) {
+        console.error("장바구니 복원 실패:", err);
+      } finally {
+        sessionStorage.removeItem("pendingOrder");
+        sessionStorage.removeItem("cartBackup");
+      }
+    };
+
+    void cleanup();
   }, [restoreCart]);
 
   return (

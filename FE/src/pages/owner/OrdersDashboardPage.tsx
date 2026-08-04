@@ -88,12 +88,12 @@ export default function OrdersDashboardPage() {
 
   return (
     <AdminShell sidebarTop={orderDetail}>
-      <div className="flex h-full flex-col p-[20px] md:p-[32px]">
-        <h1 className="mb-[20px] text-[24px] font-bold text-black">
+      <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
+        <h1 className="mb-[16px] shrink-0 text-[22px] font-bold text-black short:mb-[10px] short:text-[18px]">
           주문 현황 대시보드
         </h1>
 
-        <div className="min-h-0 flex-1 overflow-auto rounded-[25px] bg-panel p-[16px] md:p-[24px]">
+        <div className="min-h-0 flex-1 overflow-auto rounded-[25px] bg-panel p-[16px] md:p-[24px] short:p-[12px]">
           {orders.length === 0 ? (
             <div className="flex h-full items-center justify-center text-[15px] text-black/50">
               진행 중인 주문이 없습니다.
@@ -148,9 +148,8 @@ function OrderDetailPanel({
   const allCooked = order.items.every((it) => it.cooked);
 
   return (
-    // h-full: 패널은 사이드바 상단 영역을 넘지 않고, 넘치는 메뉴 목록만 안에서 스크롤
-    // min-h-fit: 화면이 너무 낮아 목록 최소 높이조차 못 넣으면 패널째 스크롤(기존 동작)로 폴백
-    <div className="flex h-full min-h-fit flex-col rounded-[10px] bg-canvas p-[16px] short:p-[12px]">
+    // h-full + min-h-0: 사이드바 높이에 맞춰 패널이 줄어들고, 메뉴 목록만 내부 스크롤
+    <div className="flex h-full min-h-0 flex-col rounded-[10px] bg-canvas p-[16px] short:p-[12px]">
       <p className="text-[15px] font-medium text-black/75 short:text-[14px]">주문번호</p>
       <p
         className="mt-[2px] text-[36px] font-bold leading-none short:text-[28px]"

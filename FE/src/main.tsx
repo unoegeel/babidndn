@@ -2,6 +2,7 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import "./index.css";
+import { startAppHeightSync } from "./utils/appHeight";
 import { AdminDataProvider } from "./store/AdminDataContext";
 import RequireAdminAuth from "./components/RequireAdminAuth";
 import LoginPage from "./pages/owner/LoginPage";
@@ -22,6 +23,9 @@ import OrderCompletePage from "./pages/user/OrderCompletePage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
+
+// 태블릿/모바일 브라우저 상·하단 UI를 반영한 가시 높이 동기화
+startAppHeightSync();
 
 // 관리자 화면 공통 래퍼: 로그인 확인 + 서버 데이터 스토어
 function adminPage(page: ReactNode) {

@@ -41,24 +41,7 @@ export const UserShell: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // iOS Chrome 주소창/하단 툴바를 반영한 실제 가시 높이 동기화
-  useEffect(() => {
-    const syncAppHeight = () => {
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
-    };
-    syncAppHeight();
-    window.visualViewport?.addEventListener("resize", syncAppHeight);
-    window.visualViewport?.addEventListener("scroll", syncAppHeight);
-    window.addEventListener("resize", syncAppHeight);
-    window.addEventListener("orientationchange", syncAppHeight);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", syncAppHeight);
-      window.visualViewport?.removeEventListener("scroll", syncAppHeight);
-      window.removeEventListener("resize", syncAppHeight);
-      window.removeEventListener("orientationchange", syncAppHeight);
-    };
-  }, []);
+  // 가시 높이는 main.tsx 의 startAppHeightSync 로 전역 동기화됨
 
   // 브라우저 권한 설정 요청
   const handleRequestNotification = () => {
@@ -122,8 +105,19 @@ export const UserShell: React.FC = () => {
               )}
             </div>
 
-            {/* 타이틀 */}
-            <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{headerTitle}</h1>
+            {/* 타이틀 — 메뉴 페이지의 바비든든 클릭 시 목록 스크롤 최상단 */}
+            {isMenuPage ? (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("user-menu-scroll-top"))}
+                className="flex-1 text-center text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
+                aria-label="메뉴 맨 위로"
+              >
+                {headerTitle}
+              </button>
+            ) : (
+              <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{headerTitle}</h1>
+            )}
 
             {/* 오른쪽 영역 */}
             <div className="w-10 flex items-center justify-end">
@@ -290,6 +284,8 @@ export const UserShell: React.FC = () => {
                             ? "bg-green-500 animate-ping"
                             : notif.type === "PREPARING"
                             ? "bg-blue-500"
+                            : notif.type === "CANCELED"
+                            ? "bg-red-500"
                             : "bg-gray-400"
                         }`}
                       ></span>
