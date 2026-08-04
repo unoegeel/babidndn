@@ -40,7 +40,14 @@ public class OrderDetailResponse {
     @Schema(description = "주문 상품 목록")
     private List<OrderItemResponse> items;
 
+    @Schema(description = "내 앞 대기 주문 수 (진행 중이며 대기번호가 더 빠른 주문)", example = "2")
+    private Integer waitingAheadCount;
+
     public static OrderDetailResponse from(Order order, String paymentStatus) {
+        return from(order, paymentStatus, 0);
+    }
+
+    public static OrderDetailResponse from(Order order, String paymentStatus, int waitingAheadCount) {
         return OrderDetailResponse.builder()
                 .id(order.getId())
                 .tossOrderId(order.getTossOrderId())
@@ -51,6 +58,7 @@ public class OrderDetailResponse {
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .items(order.getItems().stream().map(OrderItemResponse::from).toList())
+                .waitingAheadCount(waitingAheadCount)
                 .build();
     }
 }

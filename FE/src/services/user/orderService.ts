@@ -47,6 +47,8 @@ export interface OrderDetailResponse {
   createdAt: string;
   updatedAt: string;
   items: OrderItemResponse[];
+  /** 진행 중이며 대기번호가 더 빠른 주문 수 (서버 계산) */
+  waitingAheadCount?: number;
 }
 
 export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
@@ -90,6 +92,11 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
     }
   }
 
+  const waitingCount =
+    res.status === "READY" || res.status === "COMPLETED"
+      ? 0
+      : Math.max(0, res.waitingAheadCount ?? 0);
+
   return {
     orderId: String(res.id),
     items,
@@ -97,8 +104,9 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
     status: res.status,
     createdAt: formattedDate,
     pickupNumber: String(res.pickupNumber),
-    waitingCount: res.status === "READY" || res.status === "COMPLETED" ? 0 : 2,
-    waitingTime: res.status === "READY" || res.status === "COMPLETED" ? 0 : 5,
+    waitingCount,
+    // 앞 대기 1건당 약 3분으로 단순 추정
+    waitingTime: waitingCount > 0 ? waitingCount * 3 : 0,
   };
 }
 

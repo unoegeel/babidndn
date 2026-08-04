@@ -61,7 +61,7 @@ interface AdminDataValue {
   /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (모두 완료되면 서버 상태 READY 로 변경) */
   cookItems: (orderId: string, itemIds: string[]) => Promise<void>;
   /** 주문 호출 → 주문번호가 초록색으로 표시 (여러 번 호출 가능) */
-  callOrder: (orderId: string) => void;
+  callOrder: (orderId: string) => Promise<void>;
   /** 픽업 완료 → 서버 상태 COMPLETED 로 변경 후 보드에서 제거 */
   pickupOrder: (orderId: string) => Promise<void>;
 
@@ -455,11 +455,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   );
 
   const callOrder = useCallback(
-    (orderId: string) => {
+    async (orderId: string) => {
       getUiState(orderId).called = true;
       rebuildOrders();
+
+      // 호출 = 손님 픽업 안내 → 서버 READY(준비 완료)로 변경해 유저 화면에 반영
+      try {
+        await adminOrderService.updateStatus(orderId, "READY");
+        await refreshOrders();
+      } catch (err) {
+        console.error("호출(준비 완료) 처리 실패:", err);
+        alert("호출 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        await refreshOrders();
+      }
     },
-    [rebuildOrders],
+    [rebuildOrders, refreshOrders],
   );
 
   const pickupOrder = useCallback(

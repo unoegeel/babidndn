@@ -57,7 +57,7 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
-        OrderDetailResponse response = OrderDetailResponse.from(saved, UNPAID);
+        OrderDetailResponse response = toDetailResponse(saved, UNPAID);
         publishAfterCommit("ORDER_CREATED", response);
         return response;
     }
@@ -79,7 +79,7 @@ public class OrderService {
         PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
                 .map(Payment::getStatus)
                 .orElse(null);
-        return OrderDetailResponse.from(order, toPaymentStatusName(paymentStatus));
+        return toDetailResponse(order, toPaymentStatusName(paymentStatus));
     }
 
     @Transactional
@@ -92,10 +92,20 @@ public class OrderService {
         PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
                 .map(Payment::getStatus)
                 .orElse(null);
-        OrderDetailResponse response = OrderDetailResponse.from(
-                order, toPaymentStatusName(paymentStatus));
+        OrderDetailResponse response = toDetailResponse(order, toPaymentStatusName(paymentStatus));
         publishAfterCommit("ORDER_STATUS_CHANGED", response);
         return response;
+    }
+
+    /** 관리자 대시보드의 진행 중 주문 중, 내 대기번호보다 빠른 주문 수를 계산합니다. */
+    private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
+        int waitingAheadCount = 0;
+        if (order.getStatus() == OrderStatus.PREPARING) {
+            waitingAheadCount = (int) orderRepository.countByStatusInAndPickupNumberLessThan(
+                    List.of(OrderStatus.PREPARING, OrderStatus.READY),
+                    order.getPickupNumber());
+        }
+        return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount);
     }
 
     private void publishAfterCommit(String eventName, OrderDetailResponse response) {

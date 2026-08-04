@@ -52,6 +52,8 @@ export interface OrderDetailResponse {
   createdAt: string;
   updatedAt: string;
   items: OrderItemResponse[];
+  /** 진행 중이며 대기번호가 더 빠른 주문 수 */
+  waitingAheadCount?: number;
 }
 
 export interface OrderSummaryResponse {
