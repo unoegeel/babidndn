@@ -4,6 +4,7 @@ import type { MenuCategory, MenuDetail, MenuSummary, MenuOption } from "../../ty
 import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
+import MenuThumb from "../../components/user/MenuThumb";
 
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export const MenuPage: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // 특정 메뉴 선택 시 상세 조회 및 모달 오픈
+  // 특정 메뉴 선택 시 상세 조회 → 토핑 불가면 바로 담기, 가능하면 옵션 시트 오픈
   const handleMenuSelect = async (menuId: number) => {
     try {
       setModalLoading(true);
@@ -48,6 +49,17 @@ export const MenuPage: React.FC = () => {
         alert("품절된 메뉴입니다.");
         return;
       }
+
+      // 관리자에서 토핑 선택을 불가능으로 둔 메뉴는 바텀시트 없이 즉시 담기
+      if (detail.toppingEnabled === false) {
+        const sizeOptions = detail.options.filter((o) => o.groupType === "SIZE");
+        const defaultSize =
+          sizeOptions.find((o) => o.defaultSelected) ?? sizeOptions[0] ?? null;
+        const selectedOptions = defaultSize ? [defaultSize] : [];
+        addToCart(detail, selectedOptions, 1);
+        return;
+      }
+
       setActiveMenuDetail(detail);
     } catch (err) {
       console.error(err);
@@ -138,12 +150,12 @@ export const MenuPage: React.FC = () => {
                     : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
                 }`}
               >
-                {/* 메뉴 사진 (피그마 '사진' 대체 텍스트 구성) */}
-                <div className="w-[84px] h-[84px] rounded-xl overflow-hidden bg-[#F8F9FA] border border-gray-100 flex-shrink-0 flex items-center justify-center relative">
-                  <span className="text-gray-400 font-bold text-xs">사진</span>
+                {/* 메뉴 사진 */}
+                <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
+                  <MenuThumb src={menu.imageUrl} alt={menu.name} />
                   {isSoldOut && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <span className="text-white text-xs font-extrabold">품절</span>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="text-xs font-extrabold text-white">품절</span>
                     </div>
                   )}
                 </div>

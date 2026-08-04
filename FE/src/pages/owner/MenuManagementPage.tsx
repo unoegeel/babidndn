@@ -552,9 +552,9 @@ function MenuForm({
           {mode === "edit" ? "메뉴 수정" : "새 메뉴 등록"}
         </h2>
 
-        {/* 사진 첨부: file input 을 label 안에 두어 클릭 시 네이티브로 파일 선택창이 열리게 함 */}
+        {/* 사진 첨부: 태블릿 flex 레이아웃에서 높이가 줄어들지 않도록 shrink-0 + min-h 고정 */}
         <label
-          className={`relative mt-[20px] flex h-[200px] cursor-pointer flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[25px] border border-dashed border-black/50 text-black/50 ${
+          className={`relative mt-[20px] flex h-[200px] min-h-[200px] w-full shrink-0 cursor-pointer flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[25px] border-2 border-dashed border-black/40 bg-black/[0.03] text-black/55 ${
             uploading ? "pointer-events-none opacity-60" : ""
           }`}
         >
@@ -562,7 +562,7 @@ function MenuForm({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             disabled={uploading}
-            className="absolute inset-0 z-20 cursor-pointer opacity-0"
+            className="absolute inset-0 z-20 h-full w-full cursor-pointer opacity-0"
             onChange={(e) => {
               onFileSelected(e.target.files?.[0]);
               e.target.value = "";
@@ -570,19 +570,23 @@ function MenuForm({
           />
           {imageUrl ? (
             <>
-              <img src={imageUrl} alt="메뉴 미리보기" className="absolute inset-0 z-0 h-full w-full object-cover" />
-              <span className="relative z-10 rounded bg-black/60 px-3 py-1 text-[13px] font-medium text-white">
+              <img
+                src={imageUrl}
+                alt="메뉴 미리보기"
+                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
+              />
+              <span className="pointer-events-none relative z-10 rounded bg-black/60 px-3 py-1 text-[13px] font-medium text-white">
                 {uploading ? "업로드 중…" : "사진 변경"}
               </span>
             </>
           ) : (
-            <>
+            <div className="pointer-events-none relative z-10 flex flex-col items-center gap-[8px]">
               <PhotoIcon />
               <span className="text-[18px] font-medium tracking-[1.5px]">
                 {uploading ? "업로드 중…" : "사진 첨부"}
               </span>
               <span className="text-[14px] tracking-[1px]">JPG, PNG (최대 5MB)</span>
-            </>
+            </div>
           )}
         </label>
         {imageUrl && (

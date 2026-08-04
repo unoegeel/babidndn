@@ -15,14 +15,16 @@ type Props = {
 };
 
 /**
- * 줌·드래그·비율 선택으로 이미지를 자르는 모달 (외부 라이브러리 없음).
- * 결과는 JPEG Blob 으로 반환합니다.
+ * 크롭 프레임 기준 contain(최소)~확대 줌.
+ * 최소 줌에서는 사진 전체가 프레임 안에 들어가고(최대 폭/높이 맞춤),
+ * 드래그·줌은 미리보기 영역 안에서만 동작합니다.
  */
 export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const [aspect, setAspect] = useState(1);
+  /** 1 = contain(전체 보기), 커질수록 확대 */
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -50,22 +52,6 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
     return () => ro.disconnect();
   }, []);
 
-  const baseScale = useMemo(() => {
-    if (!natural.w || !viewportSize.w) return 1;
-    return Math.min(viewportSize.w / natural.w, viewportSize.h / natural.h);
-  }, [natural, viewportSize]);
-
-  const display = useMemo(() => {
-    const w = natural.w * baseScale * zoom;
-    const h = natural.h * baseScale * zoom;
-    return {
-      w,
-      h,
-      left: (viewportSize.w - w) / 2 + offset.x,
-      top: (viewportSize.h - h) / 2 + offset.y,
-    };
-  }, [natural, baseScale, zoom, offset, viewportSize]);
-
   const frame = useMemo(() => {
     const pad = 24;
     const maxW = Math.max(0, viewportSize.w - pad * 2);
@@ -84,7 +70,59 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
     };
   }, [aspect, viewportSize]);
 
+  /** 프레임 안에 사진 전체가 들어가도록 맞추는 배율 (contain) */
+  const containScale = useMemo(() => {
+    if (!natural.w || !frame.w) return 1;
+    return Math.min(frame.w / natural.w, frame.h / natural.h);
+  }, [natural, frame]);
+
+  /** 프레임을 사진이 가득 채우도록 맞추는 배율 (cover) — 확대 기준점 */
+  const coverScale = useMemo(() => {
+    if (!natural.w || !frame.w) return 1;
+    return Math.max(frame.w / natural.w, frame.h / natural.h);
+  }, [natural, frame]);
+
+  // 슬라이더 1 → contain, 최대 → cover 의 약 3배까지 확대
+  const maxZoom = useMemo(() => {
+    if (!containScale) return 3;
+    return Math.max(3, (coverScale / containScale) * 3);
+  }, [containScale, coverScale]);
+
+  const displayScale = containScale * zoom;
+
+  const display = useMemo(() => {
+    const w = natural.w * displayScale;
+    const h = natural.h * displayScale;
+    return {
+      w,
+      h,
+      left: frame.x + (frame.w - w) / 2 + offset.x,
+      top: frame.y + (frame.h - h) / 2 + offset.y,
+    };
+  }, [natural, displayScale, frame, offset]);
+
+  /** 사진이 프레임을 완전히 벗어나 버리지 않도록 오프셋 제한 */
+  const clampOffset = (x: number, y: number) => {
+    const w = natural.w * displayScale;
+    const h = natural.h * displayScale;
+    const maxX = Math.abs(w - frame.w) / 2;
+    const maxY = Math.abs(h - frame.h) / 2;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    };
+  };
+
+  useEffect(() => {
+    setOffset((prev) => {
+      const next = clampOffset(prev.x, prev.y);
+      return next.x === prev.x && next.y === prev.y ? prev : next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, aspect, natural.w, frame.w, frame.h, displayScale]);
+
   const onPointerDown = (e: React.PointerEvent) => {
+    // 미리보기(뷰포트) 안에서만 드래그
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragging(true);
     dragStart.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
@@ -92,10 +130,12 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
-    setOffset({
-      x: dragStart.current.ox + (e.clientX - dragStart.current.x),
-      y: dragStart.current.oy + (e.clientY - dragStart.current.y),
-    });
+    setOffset(
+      clampOffset(
+        dragStart.current.ox + (e.clientX - dragStart.current.x),
+        dragStart.current.oy + (e.clientY - dragStart.current.y),
+      ),
+    );
   };
 
   const onPointerUp = () => setDragging(false);
@@ -106,10 +146,18 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
 
     setBusy(true);
     try {
-      const sx = ((frame.x - display.left) / display.w) * natural.w;
-      const sy = ((frame.y - display.top) / display.h) * natural.h;
-      const sw = (frame.w / display.w) * natural.w;
-      const sh = (frame.h / display.h) * natural.h;
+      // 프레임에 대응하는 원본 좌표 (프레임 밖이면 클램핑 + 흰 여백)
+      const rawSx = ((frame.x - display.left) / display.w) * natural.w;
+      const rawSy = ((frame.y - display.top) / display.h) * natural.h;
+      const rawSw = (frame.w / display.w) * natural.w;
+      const rawSh = (frame.h / display.h) * natural.h;
+
+      const sx = Math.max(0, rawSx);
+      const sy = Math.max(0, rawSy);
+      const sx2 = Math.min(natural.w, rawSx + rawSw);
+      const sy2 = Math.min(natural.h, rawSy + rawSh);
+      const sw = Math.max(0, sx2 - sx);
+      const sh = Math.max(0, sy2 - sy);
 
       const outW = 800;
       const outH = Math.round(outW / aspect);
@@ -121,7 +169,14 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
 
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, outW, outH);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+
+      if (sw > 0 && sh > 0) {
+        const dx = ((sx - rawSx) / rawSw) * outW;
+        const dy = ((sy - rawSy) / rawSh) * outH;
+        const dw = (sw / rawSw) * outW;
+        const dh = (sh / rawSh) * outH;
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
@@ -143,7 +198,9 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="flex w-full max-w-[520px] flex-col rounded-[16px] bg-canvas p-5 shadow-xl">
         <h3 className="text-[20px] font-medium text-black">사진 자르기</h3>
-        <p className="mt-1 text-[13px] text-black/60">드래그로 위치를, 슬라이더로 확대를 조절하세요.</p>
+        <p className="mt-1 text-[13px] text-black/60">
+          미리보기 안에서만 드래그·확대할 수 있습니다. 최소 크기에서는 사진 전체가 영역에 맞춰집니다.
+        </p>
 
         <div className="mt-4 flex gap-2">
           {ASPECT_OPTIONS.map((opt) => (
@@ -207,16 +264,19 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
         </div>
 
         <label className="mt-4 flex items-center gap-3 text-[14px] text-black">
-          <span className="w-10 shrink-0">확대</span>
+          <span className="w-14 shrink-0">크기</span>
           <input
             type="range"
             min={1}
-            max={3}
+            max={Number(maxZoom.toFixed(2))}
             step={0.01}
-            value={zoom}
+            value={Math.min(zoom, maxZoom)}
             onChange={(e) => setZoom(Number(e.target.value))}
             className="w-full"
           />
+          <span className="w-16 shrink-0 text-right text-[12px] text-black/50">
+            {zoom <= 1.02 ? "전체" : `${zoom.toFixed(1)}×`}
+          </span>
         </label>
 
         <div className="mt-5 flex gap-3">

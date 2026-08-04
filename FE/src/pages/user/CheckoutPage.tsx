@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import MenuThumb from "../../components/user/MenuThumb";
 
 declare global {
   interface Window {
@@ -134,8 +135,12 @@ export const CheckoutPage: React.FC = () => {
               const optionNames = item.selectedOptions.map((opt) => opt.name).join(" / ");
               return (
                 <div key={item.cartItemId} className="flex gap-4 items-start py-1">
-                  <div className="w-[50px] h-[50px] rounded-xl bg-[#F8F9FA] border border-gray-100 flex-shrink-0 flex items-center justify-center">
-                    <span className="text-gray-400 font-bold text-[10px]">사진</span>
+                  <div className="flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
+                    <MenuThumb
+                      src={item.imageUrl}
+                      alt={item.menuName}
+                      placeholderClassName="text-gray-400 font-bold text-[10px]"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-xs font-bold text-gray-800 truncate">{item.menuName}</h3>

@@ -38,6 +38,8 @@ export interface MenuDetail {
   imageUrl: string | null;
   displayOrder: number;
   saleStatus: SaleStatus;
+  /** 토핑 선택 가능 여부 (false 이면 옵션 시트 없이 바로 담기) */
+  toppingEnabled?: boolean;
   options: MenuOption[];
 }
 

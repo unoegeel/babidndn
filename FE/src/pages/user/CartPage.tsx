@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import MenuThumb from "../../components/user/MenuThumb";
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -55,14 +56,8 @@ export const CartPage: React.FC = () => {
               className="bg-white border border-gray-100 rounded-2xl p-4 flex gap-4 shadow-sm"
             >
               {/* 상품 이미지 */}
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.menuName} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold bg-gray-200">
-                    No Image
-                  </div>
-                )}
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100">
+                <MenuThumb src={item.imageUrl} alt={item.menuName} />
               </div>
 
               {/* 상품 정보 */}
