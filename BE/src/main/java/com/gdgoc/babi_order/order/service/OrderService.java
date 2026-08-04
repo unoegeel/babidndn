@@ -28,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +43,8 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private static final String UNPAID = "UNPAID";
+    private static final int MAX_PICKUP_NUMBER = 99;
+    private static final ZoneId STORE_ZONE = ZoneId.of("Asia/Seoul");
 
     private final OrderRepository orderRepository;
     private final MenuRepository menuRepository;
@@ -49,7 +54,7 @@ public class OrderService {
 
     @Transactional
     public OrderDetailResponse createOrder(OrderCreateRequest request) {
-        int pickupNumber = orderRepository.findMaxPickupNumber() + 1;
+        int pickupNumber = nextPickupNumber();
         Order order = new Order(pickupNumber);
 
         for (OrderItemRequest itemRequest : request.getItems()) {
@@ -132,13 +137,30 @@ public class OrderService {
         return response;
     }
 
-    /** 결제 완료된 진행 중 주문 중, 내 대기번호보다 빠른 주문 수를 계산합니다. */
+    /**
+     * 픽업번호는 당일 기준 1~99 순환.
+     * 당일 주문이 없거나(일자 변경), 직전 번호가 99면 1부터 다시 시작합니다.
+     */
+    private int nextPickupNumber() {
+        LocalDate today = LocalDate.now(STORE_ZONE);
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+
+        return orderRepository
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                        startOfDay, endOfDay)
+                .map(Order::getPickupNumber)
+                .map(last -> last >= MAX_PICKUP_NUMBER ? 1 : last + 1)
+                .orElse(1);
+    }
+
+    /** 결제 완료된 진행 중 주문 중, 나보다 먼저 생성된 주문 수를 계산합니다. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
         int waitingAheadCount = 0;
         if (order.getStatus() == OrderStatus.PREPARING) {
-            waitingAheadCount = (int) orderRepository.countByStatusInAndPickupNumberLessThanAndPaid(
+            waitingAheadCount = (int) orderRepository.countByStatusInAndIdLessThanAndPaid(
                     List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                    order.getPickupNumber(),
+                    order.getId(),
                     PaymentStatus.DONE);
         }
         return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount);

@@ -27,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,7 +72,7 @@ class OrderServiceTest {
     void createOrderCalculatesAmountFromServerPrices() {
         Menu menu = menu(1L, SaleStatus.AVAILABLE);
         MenuOption option = option(1L, menu, 1000, 2);
-        given(orderRepository.findMaxPickupNumber()).willReturn(7);
+        givenLatestPickupNumber(7);
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(option));
         given(orderRepository.save(any())).willAnswer(invocation -> {
@@ -108,7 +109,7 @@ class OrderServiceTest {
         Menu orderedMenu = menu(1L, SaleStatus.AVAILABLE);
         Menu anotherMenu = menu(2L, SaleStatus.AVAILABLE);
         MenuOption option = option(1L, anotherMenu, 1000, 1);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
+        givenNoOrdersToday();
         given(menuRepository.findById(1L)).willReturn(Optional.of(orderedMenu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(option));
 
@@ -126,7 +127,7 @@ class OrderServiceTest {
                 2L, menu, OptionGroupType.TOPPING_ADD, "계란후라이", 700, 3);
         MenuOption toppingRemove = option(
                 3L, menu, OptionGroupType.TOPPING_REMOVE, "김가루 제외", 0, 1);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
+        givenNoOrdersToday();
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(size));
         given(menuOptionRepository.findById(2L)).willReturn(Optional.of(toppingAdd));
@@ -168,7 +169,7 @@ class OrderServiceTest {
     @Test
     void createOrderRejectsSoldOutMenu() {
         Menu menu = menu(1L, SaleStatus.SOLDOUT);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
+        givenNoOrdersToday();
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
 
         assertThatThrownBy(() -> orderService.createOrder(OrderCreateRequest.builder()
@@ -181,6 +182,50 @@ class OrderServiceTest {
                 .isInstanceOf(OrderApiException.class)
                 .extracting("code")
                 .isEqualTo("MENU_SOLD_OUT");
+    }
+
+    @Test
+    void createOrderStartsPickupNumberFromOneWhenNoOrdersToday() {
+        Menu menu = menu(1L, SaleStatus.AVAILABLE);
+        givenNoOrdersToday();
+        given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
+        given(orderRepository.save(any())).willAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            ReflectionTestUtils.setField(order, "id", 1L);
+            return order;
+        });
+
+        OrderDetailResponse result = orderService.createOrder(OrderCreateRequest.builder()
+                .items(List.of(OrderItemRequest.builder()
+                        .menuId(1L)
+                        .quantity(1)
+                        .options(List.of())
+                        .build()))
+                .build());
+
+        assertThat(result.getPickupNumber()).isEqualTo(1);
+    }
+
+    @Test
+    void createOrderResetsPickupNumberToOneAfter99() {
+        Menu menu = menu(1L, SaleStatus.AVAILABLE);
+        givenLatestPickupNumber(99);
+        given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
+        given(orderRepository.save(any())).willAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            ReflectionTestUtils.setField(order, "id", 100L);
+            return order;
+        });
+
+        OrderDetailResponse result = orderService.createOrder(OrderCreateRequest.builder()
+                .items(List.of(OrderItemRequest.builder()
+                        .menuId(1L)
+                        .quantity(1)
+                        .options(List.of())
+                        .build()))
+                .build());
+
+        assertThat(result.getPickupNumber()).isEqualTo(1);
     }
 
     @Test
@@ -266,6 +311,22 @@ class OrderServiceTest {
                 .isInstanceOf(OrderApiException.class)
                 .extracting("code")
                 .isEqualTo("INVALID_ORDER_STATUS_TRANSITION");
+    }
+
+    private void givenNoOrdersToday() {
+        given(orderRepository
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                        any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(Optional.empty());
+    }
+
+    private void givenLatestPickupNumber(int pickupNumber) {
+        Order latest = order(10L, pickupNumber);
+        ReflectionTestUtils.setField(latest, "createdAt", LocalDateTime.now());
+        given(orderRepository
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDescIdDesc(
+                        any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(Optional.of(latest));
     }
 
     private Order order(Long id, Integer pickupNumber) {
