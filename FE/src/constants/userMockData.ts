@@ -81,7 +81,7 @@ export const MOCK_MENU_DETAILS: Record<number, MenuDetail> = {
       {
         id: 101,
         groupType: "SIZE",
-        name: "기본",
+        name: "싱글",
         additionalPrice: 0,
         maxQuantity: 1,
         defaultSelected: true,
@@ -144,7 +144,7 @@ export const MOCK_MENU_DETAILS: Record<number, MenuDetail> = {
       {
         id: 108,
         groupType: "TOPPING_REMOVE",
-        name: "고추장소스 제외",
+        name: "고추장 소스 제외",
         additionalPrice: 0,
         maxQuantity: 1,
         defaultSelected: false,
@@ -166,7 +166,7 @@ export const MOCK_MENU_DETAILS: Record<number, MenuDetail> = {
       {
         id: 201,
         groupType: "SIZE",
-        name: "기본",
+        name: "싱글",
         additionalPrice: 0,
         maxQuantity: 1,
         defaultSelected: true,
@@ -180,6 +180,15 @@ export const MOCK_MENU_DETAILS: Record<number, MenuDetail> = {
         maxQuantity: 1,
         defaultSelected: false,
         displayOrder: 2,
+      },
+      {
+        id: 203,
+        groupType: "SIZE",
+        name: "점보",
+        additionalPrice: 2000,
+        maxQuantity: 1,
+        defaultSelected: false,
+        displayOrder: 3,
       },
     ],
   },
