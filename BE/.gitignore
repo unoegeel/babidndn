@@ -37,9 +37,12 @@ out/
 .vscode/
 
 ### Application Properties ###
-# 공용 application.yml은 버전 관리하고, 개인/환경별 설정만 제외합니다.
-application-*.yaml
-application-*.yml
+# 공용/프로파일(application.yml, application-dev.yml, application-prod.yml)은 버전 관리합니다.
+# 개인 로컬 오버라이드만 제외합니다.
+application-local.yml
+application-local.yaml
+**/application-local.yml
+**/application-local.yaml
 
 ### Local Environment ###
 .env

@@ -128,8 +128,24 @@ docker compose up -d
 ./gradlew bootRun
 ```
 
-MySQL은 기본적으로 `localhost:3306`에서 실행되며, DB 이름은 `babi_order`입니다.
+MySQL은 기본적으로 `localhost:3306`에서 실행되며, 로컬 DB 이름은 `babi_order`입니다.
 개인별 접속 정보와 Toss Secret Key는 `.env`에서 변경하고 `.env`는 Git에 커밋하지 않습니다.
+
+### 운영 / 개발 DB 분리
+
+| 환경 | 브랜치 | EC2 env | DB 이름 | Spring 프로파일 | API 포트 |
+|------|--------|---------|---------|-----------------|----------|
+| 운영 | `main` | `/opt/babi-order/.env` | `babi_order` | `prod` | 8080 |
+| 개발 | `dev` | `/opt/babi-order-dev/.env` | `babi_order_dev` | `dev` | 8081 |
+
+배포 워크플로가 `DB_NAME`과 `SPRING_PROFILES_ACTIVE`를 환경별로 강제합니다.
+개발 DB가 아직 없다면 MySQL에서 아래를 한 번 실행하세요.
+
+```bash
+mysql -u root -p < scripts/create-dev-database.sql
+```
+
+그다음 EC2의 `/opt/babi-order-dev/.env`에서 `DB_NAME=babi_order_dev`로 맞춥니다.
 
 ### 종료
 

@@ -68,26 +68,38 @@ jobs:
 
             if [ "${{ github.ref_name }}" = "dev" ]; then
               test -f /opt/babi-order-dev/.env
-            
+
+              # 개발 환경은 운영 DB(babi_order)를 쓰지 않도록 강제
+              DEV_DB_NAME="$(grep -E '^DB_NAME=' /opt/babi-order-dev/.env | cut -d= -f2- | tr -d '\r')"
+              if [ -z "$DEV_DB_NAME" ] || [ "$DEV_DB_NAME" = "babi_order" ]; then
+                echo "ERROR: /opt/babi-order-dev/.env 의 DB_NAME 은 babi_order_dev 이어야 합니다. (현재: '${DEV_DB_NAME:-empty}')"
+                echo "MySQL에서 scripts/create-dev-database.sql 을 실행한 뒤 .env 의 DB_NAME 을 변경하세요."
+                exit 1
+              fi
+
               docker stop babi-order-dev || true
               docker rm babi-order-dev || true
 
               docker run -d \
                 --name babi-order-dev \
                 --env-file /opt/babi-order-dev/.env \
+                -e SPRING_PROFILES_ACTIVE=dev \
+                -e DB_NAME=babi_order_dev \
                 -e JAVA_OPTS="-Xmx512m" \
                 -p 8081:8080 \
                 --restart unless-stopped \
                 ${{ needs.build-and-push.outputs.image }}
             else
               test -f /opt/babi-order/.env
-              
+
               docker stop babi-order || true
               docker rm babi-order || true
 
               docker run -d \
                 --name babi-order \
                 --env-file /opt/babi-order/.env \
+                -e SPRING_PROFILES_ACTIVE=prod \
+                -e DB_NAME=babi_order \
                 -e JAVA_OPTS="-Xmx512m" \
                 -p 8080:8080 \
                 --restart unless-stopped \

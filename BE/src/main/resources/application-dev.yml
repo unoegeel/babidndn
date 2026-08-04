@@ -1,0 +1,6 @@
+# 개발 서버 (dev 브랜치 배포) 및 로컬 개발용 프로파일
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
