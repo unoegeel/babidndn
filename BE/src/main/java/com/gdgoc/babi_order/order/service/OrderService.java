@@ -97,6 +97,29 @@ public class OrderService {
         return response;
     }
 
+    /**
+     * 픽업 완료: PREPARING 이면 READY 를 거친 뒤 COMPLETED 로 변경합니다.
+     */
+    @Transactional(readOnly = false)
+    public OrderDetailResponse completeOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() == OrderStatus.PREPARING) {
+            validateStatusTransition(order.getStatus(), OrderStatus.READY);
+            order.changeStatus(OrderStatus.READY);
+        }
+        validateStatusTransition(order.getStatus(), OrderStatus.COMPLETED);
+        order.changeStatus(OrderStatus.COMPLETED);
+
+        PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
+                .map(Payment::getStatus)
+                .orElse(null);
+        OrderDetailResponse response = toDetailResponse(order, toPaymentStatusName(paymentStatus));
+        publishAfterCommit("ORDER_STATUS_CHANGED", response);
+        return response;
+    }
+
     /** 결제 완료된 진행 중 주문 중, 내 대기번호보다 빠른 주문 수를 계산합니다. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
         int waitingAheadCount = 0;

@@ -71,6 +71,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.updateStatus(id, OrderStatus.READY));
     }
 
+    @PostMapping("/{id}/complete")
+    @Operation(summary = "픽업 완료", description = "PREPARING/READY 주문을 COMPLETED로 변경합니다.")
+    public ResponseEntity<OrderDetailResponse> completeOrder(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(orderService.completeOrder(id));
+    }
+
     @GetMapping(value = "/stream", produces = "text/event-stream")
     @Operation(summary = "주문 실시간 알림 구독", description = "신규 주문과 주문 상태 변경 이벤트를 SSE로 전달합니다.")
     public ResponseEntity<SseEmitter> subscribeOrderEvents() {

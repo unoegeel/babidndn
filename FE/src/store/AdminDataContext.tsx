@@ -297,6 +297,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           categoryId: category.id,
           name: menu.name,
           basePrice: menu.price,
+          imageUrl: menu.imageUrl ?? null,
           displayOrder: nextOrder,
           saleStatus: menu.status === "품절" ? "SOLDOUT" : "AVAILABLE",
           toppingEnabled: menu.toppingAvailable,
@@ -333,7 +334,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           name: patch.name,
           description: detail.description,
           basePrice: patch.price,
-          imageUrl: detail.imageUrl,
+          imageUrl: patch.imageUrl !== undefined ? patch.imageUrl : detail.imageUrl,
           displayOrder,
           saleStatus: detail.saleStatus,
           toppingEnabled: patch.toppingAvailable,
@@ -484,22 +485,21 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const pickupOrder = useCallback(
     async (orderId: string) => {
-      // 보드에서 먼저 제거하고 서버 상태를 COMPLETED 로 변경
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
       try {
-        const current = activeSummariesRef.current.find((s) => String(s.id) === orderId);
-        // COMPLETED 는 READY 에서만 가능 → 조리 중이면 READY 후 완료 처리
-        if (current?.status === "PREPARING") {
-          await adminOrderService.updateStatus(orderId, "READY");
-        }
-        await adminOrderService.updateStatus(orderId, "COMPLETED");
+        await adminOrderService.complete(orderId);
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        await refreshOrders();
       } catch (err) {
         console.error("픽업 완료 처리 실패:", err);
-        alert("픽업 완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        const detail = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "";
+        alert(
+          detail
+            ? `픽업 완료 처리에 실패했습니다.\n${detail}`
+            : "픽업 완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        );
         await refreshOrders();
         throw err;
       }
-      await refreshOrders();
     },
     [refreshOrders],
   );

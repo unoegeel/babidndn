@@ -7,6 +7,11 @@ import type {
   MenuUpsertRequest,
 } from "../../types/api";
 
+export interface MenuImageUploadUrlResponse {
+  uploadUrl: string;
+  imageUrl: string;
+}
+
 /**
  * 관리자 메뉴/카테고리 API 서비스 (Bearer 토큰 필요)
  */
@@ -94,7 +99,15 @@ export const adminMenuService = {
     return api.patch<MenuDetail>(`/api/admin/menus/${menuId}/sale-status`, { saleStatus });
   },
 
-  /* ── 메뉴 옵션 관리 (옵션 편집 UI가 생기면 사용) ── */
+  /**
+   * 메뉴 이미지 업로드용 Presigned URL 발급
+   * POST /api/admin/menus/image-upload-url
+   */
+  createImageUploadUrl(contentType: string): Promise<MenuImageUploadUrlResponse> {
+    return api.post<MenuImageUploadUrlResponse>("/api/admin/menus/image-upload-url", {
+      contentType,
+    });
+  },
 
   /**
    * 메뉴 옵션 등록

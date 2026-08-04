@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import AdminShell from "../../components/AdminShell";
 import Toggle from "../../components/Toggle";
+import ImageCropModal from "../../components/ImageCropModal";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Menu, MenuCategory } from "../../types/admin";
 import type { CategoryResponse } from "../../types/api";
+import { uploadMenuImageBlob, validateMenuImageFile } from "../../utils/menuImageUpload";
 
 /** 우측 패널 상태: 닫힘 | 신규 등록 | 특정 메뉴 수정 */
 type PanelState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; menuId: string };
@@ -132,9 +134,19 @@ export default function MenuManagementPage() {
                 }`}
               >
                 {/* 사진 */}
-                <div className="flex h-[160px] flex-col items-center justify-center gap-[6px] rounded-[10px] border border-dashed border-black/50 text-black/50">
-                  <PhotoIcon />
-                  <span className="text-[18px] font-medium tracking-[1px]">사진</span>
+                <div className="flex h-[160px] flex-col items-center justify-center overflow-hidden rounded-[10px] border border-dashed border-black/50 text-black/50">
+                  {menu.imageUrl ? (
+                    <img
+                      src={menu.imageUrl}
+                      alt={menu.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <PhotoIcon />
+                      <span className="text-[18px] font-medium tracking-[1px]">사진</span>
+                    </>
+                  )}
                 </div>
 
                 <p className="mt-[20px] text-[28px] font-medium tracking-[1.5px] text-black">
@@ -462,6 +474,7 @@ function MenuForm({
     price: number;
     category: MenuCategory;
     toppingAvailable: boolean;
+    imageUrl?: string | null;
   }) => void;
   /** 수정 모드에서만 사용하는 메뉴 삭제 핸들러 */
   onDelete?: () => void;
@@ -474,6 +487,10 @@ function MenuForm({
   const [topping, setTopping] = useState(
     menu?.toppingAvailable === false ? "불가능" : "가능",
   );
+  const [imageUrl, setImageUrl] = useState<string | null>(menu?.imageUrl ?? null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 좁은 화면에서는 폼이 목록 아래에 배치되므로, 열릴 때 화면 안으로 스크롤
   const formRef = useRef<HTMLFormElement>(null);
@@ -481,105 +498,194 @@ function MenuForm({
     formRef.current?.scrollIntoView({ block: "start" });
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+    };
+  }, [cropSrc]);
+
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  const onFileSelected = (file: File | undefined) => {
+    if (!file) return;
+    const error = validateMenuImageFile(file);
+    if (error) {
+      alert(error);
+      return;
+    }
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    setUploading(true);
+    try {
+      const url = await uploadMenuImageBlob(blob);
+      setImageUrl(url);
+    } catch (err) {
+      console.error("메뉴 이미지 업로드 실패:", err);
+      alert(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !price) return;
+    if (!name.trim() || !price || uploading) return;
     onSubmit({
       name: name.trim(),
       price: Number(price),
       category,
       toppingAvailable: topping === "가능",
+      imageUrl,
     });
   };
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="flex w-full shrink-0 flex-col rounded-[25px] border border-black/50 bg-canvas p-[24px] lg:w-[340px] lg:overflow-auto"
-    >
-      <h2 className="text-[26px] font-medium tracking-[2px] text-black">
-        {mode === "edit" ? "메뉴 수정" : "새 메뉴 등록"}
-      </h2>
+    <>
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="flex w-full shrink-0 flex-col rounded-[25px] border border-black/50 bg-canvas p-[24px] lg:w-[340px] lg:overflow-auto"
+      >
+        <h2 className="text-[26px] font-medium tracking-[2px] text-black">
+          {mode === "edit" ? "메뉴 수정" : "새 메뉴 등록"}
+        </h2>
 
-      {/* 사진 첨부 */}
-      <div className="mt-[20px] flex h-[200px] flex-col items-center justify-center gap-[8px] rounded-[25px] border border-dashed border-black/50 text-black/50">
-        <PhotoIcon />
-        <span className="text-[18px] font-medium tracking-[1.5px]">사진 첨부</span>
-        <span className="text-[14px] tracking-[1px]">JPG, PNG (최대 5MB)</span>
-      </div>
-
-      <FormLabel>메뉴명</FormLabel>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="예) 참치마요 컵밥"
-        className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
-      />
-
-      <FormLabel>가격</FormLabel>
-      <div className="relative">
+        {/* 사진 첨부 */}
         <input
-          type="number"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          placeholder="예) 6800"
-          className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] pr-[48px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            onFileSelected(e.target.files?.[0]);
+            e.target.value = "";
+          }}
         />
-        <span className="absolute right-[20px] top-1/2 -translate-y-1/2 text-[15px] text-black/50">
-          원
-        </span>
-      </div>
-
-      <FormLabel>카테고리</FormLabel>
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value as MenuCategory)}
-        className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
-      >
-        {categories.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-
-      <FormLabel>토핑 선택</FormLabel>
-      <select
-        value={topping}
-        onChange={(e) => setTopping(e.target.value)}
-        className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
-      >
-        <option value="가능">가능</option>
-        <option value="불가능">불가능</option>
-      </select>
-
-      {mode === "edit" && onDelete && (
         <button
           type="button"
-          onClick={onDelete}
-          className="mt-[28px] h-[48px] w-full rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
+          onClick={openFilePicker}
+          disabled={uploading}
+          className="relative mt-[20px] flex h-[200px] flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[25px] border border-dashed border-black/50 text-black/50 disabled:opacity-60"
         >
-          메뉴 삭제
+          {imageUrl ? (
+            <>
+              <img src={imageUrl} alt="메뉴 미리보기" className="absolute inset-0 h-full w-full object-cover" />
+              <span className="relative z-10 rounded bg-black/60 px-3 py-1 text-[13px] font-medium text-white">
+                {uploading ? "업로드 중…" : "사진 변경"}
+              </span>
+            </>
+          ) : (
+            <>
+              <PhotoIcon />
+              <span className="text-[18px] font-medium tracking-[1.5px]">
+                {uploading ? "업로드 중…" : "사진 첨부"}
+              </span>
+              <span className="text-[14px] tracking-[1px]">JPG, PNG (최대 5MB)</span>
+            </>
+          )}
         </button>
+        {imageUrl && (
+          <button
+            type="button"
+            onClick={() => setImageUrl(null)}
+            disabled={uploading}
+            className="mt-2 self-end text-[13px] font-medium text-danger"
+          >
+            사진 제거
+          </button>
+        )}
+
+        <FormLabel>메뉴명</FormLabel>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="예) 참치마요 컵밥"
+          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+        />
+
+        <FormLabel>가격</FormLabel>
+        <div className="relative">
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="예) 6800"
+            className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] pr-[48px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+          />
+          <span className="absolute right-[20px] top-1/2 -translate-y-1/2 text-[15px] text-black/50">
+            원
+          </span>
+        </div>
+
+        <FormLabel>카테고리</FormLabel>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as MenuCategory)}
+          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
+        >
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <FormLabel>토핑 선택</FormLabel>
+        <select
+          value={topping}
+          onChange={(e) => setTopping(e.target.value)}
+          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
+        >
+          <option value="가능">가능</option>
+          <option value="불가능">불가능</option>
+        </select>
+
+        {mode === "edit" && onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mt-[28px] h-[48px] w-full rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
+          >
+            메뉴 삭제
+          </button>
+        )}
+
+        <div className={`${mode === "edit" && onDelete ? "mt-[12px]" : "mt-[28px]"} flex gap-[16px]`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[48px] flex-1 rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium tracking-[1px] text-black"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={uploading}
+            className="h-[48px] flex-[1.2] rounded-[10px] bg-black text-[15px] font-medium tracking-[1px] text-canvas disabled:opacity-50"
+          >
+            저장
+          </button>
+        </div>
+      </form>
+
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          onCancel={() => {
+            URL.revokeObjectURL(cropSrc);
+            setCropSrc(null);
+          }}
+          onConfirm={(blob) => {
+            void handleCropConfirm(blob);
+          }}
+        />
       )}
-
-      <div className={`${mode === "edit" && onDelete ? "mt-[12px]" : "mt-[28px]"} flex gap-[16px]`}>
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-[48px] flex-1 rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium tracking-[1px] text-black"
-        >
-          취소
-        </button>
-        <button
-          type="submit"
-          className="h-[48px] flex-[1.2] rounded-[10px] bg-black text-[15px] font-medium tracking-[1px] text-canvas"
-        >
-          저장
-        </button>
-      </div>
-    </form>
+    </>
   );
 }
 

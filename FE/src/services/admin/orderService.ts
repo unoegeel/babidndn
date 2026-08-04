@@ -42,6 +42,14 @@ export const adminOrderService = {
   call(orderId: number | string): Promise<OrderDetailResponse> {
     return api.post<OrderDetailResponse>(`/api/orders/${orderId}/call`, {});
   },
+
+  /**
+   * 픽업 완료 (COMPLETED)
+   * POST /api/orders/{id}/complete
+   */
+  complete(orderId: number | string): Promise<OrderDetailResponse> {
+    return api.post<OrderDetailResponse>(`/api/orders/${orderId}/complete`, {});
+  },
 };
 
 /**
