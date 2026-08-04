@@ -32,13 +32,18 @@ public class AdminMenuService {
 
     private static final List<OptionGroupType> TOPPING_GROUP_TYPES =
             List.of(OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
-    private static final List<DefaultTopping> DEFAULT_TOPPINGS = List.of(
-            new DefaultTopping("계란후라이", 700, 1),
-            new DefaultTopping("밥 추가", 1000, 2),
-            new DefaultTopping("고기 추가", 1000, 3),
-            new DefaultTopping("모짜렐라치즈", 1000, 4),
-            new DefaultTopping("체다치즈", 500, 5),
-            new DefaultTopping("스팸", 700, 6)
+    private static final List<DefaultOption> DEFAULT_SIZES = List.of(
+            new DefaultOption("싱글", 0, 1, true),
+            new DefaultOption("더블", 1000, 2, false),
+            new DefaultOption("점보", 2000, 3, false)
+    );
+    private static final List<DefaultOption> DEFAULT_TOPPINGS = List.of(
+            new DefaultOption("계란후라이", 700, 1, false),
+            new DefaultOption("밥 추가", 1000, 2, false),
+            new DefaultOption("고기 추가", 1000, 3, false),
+            new DefaultOption("모짜렐라치즈", 1000, 4, false),
+            new DefaultOption("체다치즈", 500, 5, false),
+            new DefaultOption("스팸", 700, 6, false)
     );
 
     private final CategoryRepository categoryRepository;
@@ -99,7 +104,7 @@ public class AdminMenuService {
                 .displayOrder(request.getDisplayOrder())
                 .saleStatus(request.getSaleStatus())
                 .build());
-        syncToppingOptions(saved, request.getToppingEnabled());
+        syncSizeAndToppingOptions(saved, request.getToppingEnabled());
         return detail(saved);
     }
 
@@ -118,7 +123,7 @@ public class AdminMenuService {
                 request.getDisplayOrder(),
                 request.getSaleStatus()
         );
-        syncToppingOptions(menu, request.getToppingEnabled());
+        syncSizeAndToppingOptions(menu, request.getToppingEnabled());
         return detail(menu);
     }
 
@@ -189,7 +194,7 @@ public class AdminMenuService {
         return MenuDetailResponse.of(menu, options);
     }
 
-    private void syncToppingOptions(Menu menu, boolean toppingEnabled) {
+    private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
         List<MenuOption> currentToppings = menuOptionRepository
                 .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
 
@@ -202,23 +207,44 @@ public class AdminMenuService {
             return;
         }
 
-        Set<String> existingNames = currentToppings.stream()
+        Set<String> existingToppingNames = currentToppings.stream()
                 .map(MenuOption::getName)
                 .collect(java.util.stream.Collectors.toSet());
-        List<MenuOption> missingDefaults = DEFAULT_TOPPINGS.stream()
-                .filter(topping -> !existingNames.contains(topping.name()))
+        List<MenuOption> missingToppings = DEFAULT_TOPPINGS.stream()
+                .filter(topping -> !existingToppingNames.contains(topping.name()))
                 .map(topping -> MenuOption.builder()
                         .menu(menu)
                         .groupType(OptionGroupType.TOPPING_ADD)
                         .name(topping.name())
                         .additionalPrice(topping.additionalPrice())
                         .maxQuantity(3)
-                        .defaultSelected(false)
+                        .defaultSelected(topping.defaultSelected())
                         .displayOrder(topping.displayOrder())
                         .build())
                 .toList();
-        if (!missingDefaults.isEmpty()) {
-            menuOptionRepository.saveAll(missingDefaults);
+        if (!missingToppings.isEmpty()) {
+            menuOptionRepository.saveAll(missingToppings);
+        }
+
+        List<MenuOption> currentSizes = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.SIZE));
+        Set<String> existingSizeNames = currentSizes.stream()
+                .map(MenuOption::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        List<MenuOption> missingSizes = DEFAULT_SIZES.stream()
+                .filter(size -> !existingSizeNames.contains(size.name()))
+                .map(size -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.SIZE)
+                        .name(size.name())
+                        .additionalPrice(size.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(size.defaultSelected())
+                        .displayOrder(size.displayOrder())
+                        .build())
+                .toList();
+        if (!missingSizes.isEmpty()) {
+            menuOptionRepository.saveAll(missingSizes);
         }
     }
 
@@ -286,6 +312,7 @@ public class AdminMenuService {
         return new MenuApiException(HttpStatus.CONFLICT, code, message);
     }
 
-    private record DefaultTopping(String name, int additionalPrice, int displayOrder) {
+    private record DefaultOption(
+            String name, int additionalPrice, int displayOrder, boolean defaultSelected) {
     }
 }

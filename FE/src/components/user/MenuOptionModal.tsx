@@ -198,38 +198,40 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 1) 사이즈 선택 (SIZE) - 토핑 추가와 동일한 1줄 카드 */}
           {sizeOptions.length > 0 && (
             <div>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
-              <div className="flex gap-2">
-                {[...sizeOptions]
-                  .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-                  .map((opt) => {
-                    const isSelected = selectedSizeId === opt.id;
-                    const sizeLabel = opt.name === "기본" ? "싱글" : opt.name;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleSizeChange(opt.id)}
-                        className={`relative flex h-[74px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white p-1.5 text-center transition-all ${
-                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
-                        }`}
-                      >
-                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1]">
-                          {sizeLabel}
-                        </div>
-                        <div className="mt-1 text-[8px] leading-none text-gray-400">
-                          {opt.additionalPrice > 0
-                            ? `+${opt.additionalPrice.toLocaleString()}원`
-                            : "\u00A0"}
-                        </div>
-                        {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
-                            ✓
+              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
+              <div className="pt-2">
+                <div className="flex gap-2 px-0.5">
+                  {[...sizeOptions]
+                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                    .map((opt) => {
+                      const isSelected = selectedSizeId === opt.id;
+                      const sizeLabel = opt.name === "기본" ? "싱글" : opt.name;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleSizeChange(opt.id)}
+                          className={`relative flex h-[74px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white p-1.5 text-center transition-all ${
+                            isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                          }`}
+                        >
+                          <div className="w-full text-center text-[9.5px] font-bold leading-[1.1]">
+                            {sizeLabel}
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          <div className="mt-1 text-[8px] leading-none text-gray-400">
+                            {opt.additionalPrice > 0
+                              ? `+${opt.additionalPrice.toLocaleString()}원`
+                              : "\u00A0"}
+                          </div>
+                          {isSelected && (
+                            <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                              ✓
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
             </div>
           )}
@@ -237,9 +239,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
-              <div className="-mx-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex w-max gap-2 px-1">
+              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto에 잘리지 않도록 여유 확보 */}
+              <div className="-mx-1 overflow-x-auto px-0.5 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max gap-2 px-1.5">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
                     const isSelected = qty > 0;
@@ -248,31 +251,30 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                       <div
                         key={opt.id}
                         onClick={() => handleOtherOptionToggle(opt)}
-                        className={`relative flex h-[74px] w-[88px] shrink-0 cursor-pointer flex-col items-center justify-between rounded-xl border bg-white p-1.5 text-center transition-all ${
+                        className={`relative flex h-[74px] w-[88px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white p-1.5 text-center transition-all ${
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
                         {isSelected ? (
-                          <div className="flex h-full w-full flex-col items-center justify-between">
-                            <div className="flex w-full items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-1 py-0.5">
+                          <div className="flex h-full w-full flex-col items-center justify-center">
+                            <div className="flex w-full items-center gap-0.5">
                               <button
                                 onClick={(e) => handleToppingQtyChange(opt, -1, e)}
-                                className="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded text-[9px] font-bold leading-none text-gray-500 hover:bg-gray-200 focus:outline-none"
+                                className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-[11px] font-bold leading-none text-gray-500 hover:bg-gray-100 focus:outline-none"
                               >
                                 -
                               </button>
-                              <span className="min-w-[6px] text-center text-[9px] font-bold text-gray-700">{qty}</span>
+                              <div className="min-w-0 flex-1 text-center text-[9.5px] font-bold leading-[1.1] line-clamp-2">
+                                {toppingName}
+                              </div>
                               <button
                                 onClick={(e) => handleToppingQtyChange(opt, 1, e)}
-                                className="flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded text-[9px] font-bold leading-none text-gray-500 hover:bg-gray-200 focus:outline-none"
+                                className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded text-[11px] font-bold leading-none text-gray-500 hover:bg-gray-100 focus:outline-none"
                               >
                                 +
                               </button>
                             </div>
-                            <div className="mt-0.5 w-full text-center text-[9.5px] font-bold leading-[1.1] line-clamp-2">
-                              {toppingName}
-                            </div>
-                            <div className="mt-0.5 text-[8px] leading-none text-gray-400">
+                            <div className="mt-1 text-[8px] leading-none text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
                           </div>
