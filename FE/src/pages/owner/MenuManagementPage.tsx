@@ -490,7 +490,6 @@ function MenuForm({
   const [imageUrl, setImageUrl] = useState<string | null>(menu?.imageUrl ?? null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 좁은 화면에서는 폼이 목록 아래에 배치되므로, 열릴 때 화면 안으로 스크롤
   const formRef = useRef<HTMLFormElement>(null);
@@ -503,8 +502,6 @@ function MenuForm({
       if (cropSrc) URL.revokeObjectURL(cropSrc);
     };
   }, [cropSrc]);
-
-  const openFilePicker = () => fileInputRef.current?.click();
 
   const onFileSelected = (file: File | undefined) => {
     if (!file) return;
@@ -555,26 +552,25 @@ function MenuForm({
           {mode === "edit" ? "메뉴 수정" : "새 메뉴 등록"}
         </h2>
 
-        {/* 사진 첨부 */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="hidden"
-          onChange={(e) => {
-            onFileSelected(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          onClick={openFilePicker}
-          disabled={uploading}
-          className="relative mt-[20px] flex h-[200px] flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[25px] border border-dashed border-black/50 text-black/50 disabled:opacity-60"
+        {/* 사진 첨부: file input 을 label 안에 두어 클릭 시 네이티브로 파일 선택창이 열리게 함 */}
+        <label
+          className={`relative mt-[20px] flex h-[200px] cursor-pointer flex-col items-center justify-center gap-[8px] overflow-hidden rounded-[25px] border border-dashed border-black/50 text-black/50 ${
+            uploading ? "pointer-events-none opacity-60" : ""
+          }`}
         >
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={uploading}
+            className="absolute inset-0 z-20 cursor-pointer opacity-0"
+            onChange={(e) => {
+              onFileSelected(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
           {imageUrl ? (
             <>
-              <img src={imageUrl} alt="메뉴 미리보기" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={imageUrl} alt="메뉴 미리보기" className="absolute inset-0 z-0 h-full w-full object-cover" />
               <span className="relative z-10 rounded bg-black/60 px-3 py-1 text-[13px] font-medium text-white">
                 {uploading ? "업로드 중…" : "사진 변경"}
               </span>
@@ -588,7 +584,7 @@ function MenuForm({
               <span className="text-[14px] tracking-[1px]">JPG, PNG (최대 5MB)</span>
             </>
           )}
-        </button>
+        </label>
         {imageUrl && (
           <button
             type="button"

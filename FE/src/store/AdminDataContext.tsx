@@ -486,12 +486,28 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   const pickupOrder = useCallback(
     async (orderId: string) => {
       try {
-        await adminOrderService.complete(orderId);
+        try {
+          await adminOrderService.complete(orderId);
+        } catch (firstErr) {
+          // complete API 실패 시 READY → COMPLETED 2단계로 재시도
+          console.warn("complete API 실패, status 전이로 재시도:", firstErr);
+          try {
+            await adminOrderService.updateStatus(orderId, "READY");
+          } catch {
+            // 이미 READY 이면 무시
+          }
+          await adminOrderService.updateStatus(orderId, "COMPLETED");
+        }
         setOrders((prev) => prev.filter((o) => o.id !== orderId));
         await refreshOrders();
       } catch (err) {
         console.error("픽업 완료 처리 실패:", err);
-        const detail = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "";
+        const detail =
+          err instanceof ApiError
+            ? `[${err.status}${err.code ? ` ${err.code}` : ""}] ${err.message || "응답 메시지 없음"}`
+            : err instanceof Error
+              ? err.message
+              : "";
         alert(
           detail
             ? `픽업 완료 처리에 실패했습니다.\n${detail}`

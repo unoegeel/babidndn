@@ -98,19 +98,31 @@ public class OrderService {
     }
 
     /**
-     * 픽업 완료: PREPARING 이면 READY 를 거친 뒤 COMPLETED 로 변경합니다.
+     * 픽업 완료: PREPARING/READY 주문을 COMPLETED 로 변경합니다.
+     * (일반 status API 와 달리 PREPARING 에서 COMPLETED 로 바로 전환을 허용)
      */
     @Transactional(readOnly = false)
     public OrderDetailResponse completeOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
-        if (order.getStatus() == OrderStatus.PREPARING) {
-            validateStatusTransition(order.getStatus(), OrderStatus.READY);
-            order.changeStatus(OrderStatus.READY);
+        OrderStatus current = order.getStatus();
+        if (current == OrderStatus.COMPLETED) {
+            PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
+                    .map(Payment::getStatus)
+                    .orElse(null);
+            return toDetailResponse(order, toPaymentStatusName(paymentStatus));
         }
-        validateStatusTransition(order.getStatus(), OrderStatus.COMPLETED);
+        if (current != OrderStatus.PREPARING && current != OrderStatus.READY) {
+            throw new OrderApiException(
+                    HttpStatus.CONFLICT,
+                    "INVALID_ORDER_STATUS_TRANSITION",
+                    "픽업 완료할 수 없는 주문 상태입니다. 현재 상태=" + current
+            );
+        }
+
         order.changeStatus(OrderStatus.COMPLETED);
+        orderRepository.saveAndFlush(order);
 
         PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
                 .map(Payment::getStatus)
