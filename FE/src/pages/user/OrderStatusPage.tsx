@@ -272,7 +272,9 @@ export const OrderStatusPage: React.FC = () => {
           <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
             <span className="text-[10px] font-bold text-gray-400 block mb-1">예상 대기 시간</span>
             <span className="text-xl font-black text-gray-800">
-              {order.waitingTime > 0 ? `약 ${order.waitingTime}분` : "조리 완료"}
+              {order.status === "READY" || order.status === "COMPLETED"
+                ? "조리 완료"
+                : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
             </span>
           </div>
         </div>

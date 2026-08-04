@@ -200,10 +200,10 @@ export const MenuPage: React.FC = () => {
 
       {/* 하단 퀵 장바구니 바 (장바구니 0개여도 항상 노출, shrink-0 하단 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 z-30"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-30 shrink-0 border-t border-gray-100 bg-white px-4 pt-3"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
-        <div className="bg-white border border-gray-100 shadow-xl rounded-2xl p-4 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-3 shadow-xl">
           <div className="flex items-center gap-3">
             <div className="relative bg-gray-50 p-2.5 rounded-xl border border-gray-100">
               <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

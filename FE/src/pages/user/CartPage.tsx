@@ -112,17 +112,17 @@ export const CartPage: React.FC = () => {
 
       {/* 하단 결제액 요약 및 버튼 (shrink-0 하단 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-lg space-y-3 z-30"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-30 shrink-0 space-y-2.5 border-t border-gray-100 bg-white px-4 pt-3 shadow-lg"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex justify-between items-center text-sm">
+        <div className="flex items-center justify-between text-sm">
           <span className="font-semibold text-gray-500">총 주문 금액</span>
-          <span className="font-bold text-gray-900 text-lg">{cartTotal.toLocaleString()}원</span>
+          <span className="text-lg font-bold text-gray-900">{cartTotal.toLocaleString()}원</span>
         </div>
 
         <button
           onClick={() => navigate("/user/checkout")}
-          className="w-full bg-black text-white py-4 rounded-xl font-bold text-base transition-colors hover:bg-gray-900 cursor-pointer"
+          className="w-full cursor-pointer rounded-xl bg-black py-3.5 text-base font-bold text-white transition-colors hover:bg-gray-900"
         >
           주문하기
         </button>

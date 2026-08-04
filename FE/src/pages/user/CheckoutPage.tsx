@@ -275,16 +275,16 @@ export const CheckoutPage: React.FC = () => {
 
       {/* 하단 고정 결제하기 버튼 (shrink-0 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 z-40"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-40 shrink-0 border-t border-gray-100 bg-white px-4 pt-3"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
         <button
           onClick={handlePayment}
           disabled={!isPaymentValid || isProcessing}
-          className={`w-full py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center border ${
+          className={`flex w-full items-center justify-center rounded-xl border py-3.5 text-sm font-bold transition-all ${
             isPaymentValid && !isProcessing
-              ? "bg-[#D8B47E] text-white border-[#D8B47E] hover:bg-[#C59B62] cursor-pointer shadow-md"
-              : "bg-[#D8B47E]/40 text-white/60 border-transparent cursor-not-allowed shadow-none"
+              ? "cursor-pointer border-[#D8B47E] bg-[#D8B47E] text-white shadow-md hover:bg-[#C59B62]"
+              : "cursor-not-allowed border-transparent bg-[#D8B47E]/40 text-white/60 shadow-none"
           }`}
         >
           {isProcessing ? (

@@ -41,6 +41,25 @@ export const UserShell: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // iOS Chrome 주소창/하단 툴바를 반영한 실제 가시 높이 동기화
+  useEffect(() => {
+    const syncAppHeight = () => {
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
+    };
+    syncAppHeight();
+    window.visualViewport?.addEventListener("resize", syncAppHeight);
+    window.visualViewport?.addEventListener("scroll", syncAppHeight);
+    window.addEventListener("resize", syncAppHeight);
+    window.addEventListener("orientationchange", syncAppHeight);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", syncAppHeight);
+      window.visualViewport?.removeEventListener("scroll", syncAppHeight);
+      window.removeEventListener("resize", syncAppHeight);
+      window.removeEventListener("orientationchange", syncAppHeight);
+    };
+  }, []);
+
   // 브라우저 권한 설정 요청
   const handleRequestNotification = () => {
     if (!("Notification" in window)) {
@@ -68,9 +87,12 @@ export const UserShell: React.FC = () => {
   };
 
   return (
-    <div className="h-screen h-[100dvh] bg-gray-50 flex items-center justify-center py-0 sm:py-6 overflow-hidden">
+    <div
+      className="flex items-center justify-center overflow-hidden bg-gray-50 py-0 sm:py-6"
+      style={{ height: "var(--app-height)", maxHeight: "var(--app-height)" }}
+    >
       {/* 430px 너비 제한 모바일 뷰 컨테이너 */}
-      <div className="w-full max-w-[430px] h-full sm:h-[850px] sm:rounded-3xl sm:shadow-lg bg-white border border-gray-100 flex flex-col overflow-hidden relative">
+      <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg">
         {showHeader && (
           <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
             {/* 왼쪽 영역 */}
