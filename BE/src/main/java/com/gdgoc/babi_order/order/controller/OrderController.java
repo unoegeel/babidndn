@@ -4,6 +4,7 @@ import com.gdgoc.babi_order.order.dto.request.OrderCreateRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderStatusUpdateRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
+import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.service.OrderEventService;
 import com.gdgoc.babi_order.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,15 +51,24 @@ public class OrderController {
     @GetMapping("/{id}")
     @Operation(summary = "주문 상세 조회", description = "주문 상품과 옵션 스냅샷을 함께 조회합니다.")
     public ResponseEntity<OrderDetailResponse> getOrder(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(orderService.getOrder(id));
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(orderService.getOrder(id));
     }
 
     @PatchMapping("/{id}/status")
+    @PutMapping("/{id}/status")
     @Operation(summary = "주문 상태 변경", description = "관리자 조작으로 주문 상태를 변경하고 DB에 반영합니다.")
     public ResponseEntity<OrderDetailResponse> updateOrderStatus(
             @PathVariable("id") Long id,
             @Valid @RequestBody OrderStatusUpdateRequest request) {
         return ResponseEntity.ok(orderService.updateStatus(id, request.getStatus()));
+    }
+
+    @PostMapping("/{id}/call")
+    @Operation(summary = "고객 호출", description = "주문을 READY(준비 완료)로 변경해 고객 화면에 반영합니다.")
+    public ResponseEntity<OrderDetailResponse> callOrder(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(orderService.updateStatus(id, OrderStatus.READY));
     }
 
     @GetMapping(value = "/stream", produces = "text/event-stream")

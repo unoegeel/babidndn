@@ -59,17 +59,25 @@ export default function OrdersDashboardPage() {
       pending={pending[active.id] ?? []}
       onToggle={(itemId) => togglePending(active.id, itemId)}
       onCook={() => handleCook(active)}
-      onCall={() => {
-        callOrder(active.id);
-        flash(
-          active.called
-            ? `${active.number}번 고객님을 다시 호출했습니다.`
-            : `${active.number}번 고객님을 호출했습니다.`,
-        );
+      onCall={async () => {
+        try {
+          await callOrder(active.id);
+          flash(
+            active.called
+              ? `${active.number}번 고객님을 다시 호출했습니다.`
+              : `${active.number}번 고객님을 호출했습니다.`,
+          );
+        } catch {
+          // 실패 알림은 callOrder 내부에서 처리
+        }
       }}
-      onPickup={() => {
-        pickupOrder(active.id);
-        flash(`${active.number}번 픽업이 완료되었습니다.`);
+      onPickup={async () => {
+        try {
+          await pickupOrder(active.id);
+          flash(`${active.number}번 픽업이 완료되었습니다.`);
+        } catch {
+          // 실패 알림은 pickupOrder 내부에서 처리
+        }
       }}
     />
   ) : (

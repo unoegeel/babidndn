@@ -28,10 +28,19 @@ export const adminOrderService = {
 
   /**
    * 주문 상태 변경
-   * PATCH /api/orders/{id}/status
+   * PUT /api/orders/{id}/status
    */
   updateStatus(orderId: number | string, status: ApiOrderStatus): Promise<OrderDetailResponse> {
-    return api.patch<OrderDetailResponse>(`/api/orders/${orderId}/status`, { status });
+    // 일부 프록시 환경에서 PATCH 가 누락되는 경우가 있어 PUT 사용
+    return api.put<OrderDetailResponse>(`/api/orders/${orderId}/status`, { status });
+  },
+
+  /**
+   * 고객 호출 (READY)
+   * POST /api/orders/{id}/call
+   */
+  call(orderId: number | string): Promise<OrderDetailResponse> {
+    return api.post<OrderDetailResponse>(`/api/orders/${orderId}/call`, {});
   },
 };
 

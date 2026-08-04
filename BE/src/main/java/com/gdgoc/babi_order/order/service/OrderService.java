@@ -82,7 +82,7 @@ public class OrderService {
         return toDetailResponse(order, toPaymentStatusName(paymentStatus));
     }
 
-    @Transactional
+    @Transactional(readOnly = false)
     public OrderDetailResponse updateStatus(Long orderId, OrderStatus nextStatus) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
@@ -97,13 +97,14 @@ public class OrderService {
         return response;
     }
 
-    /** 관리자 대시보드의 진행 중 주문 중, 내 대기번호보다 빠른 주문 수를 계산합니다. */
+    /** 결제 완료된 진행 중 주문 중, 내 대기번호보다 빠른 주문 수를 계산합니다. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
         int waitingAheadCount = 0;
         if (order.getStatus() == OrderStatus.PREPARING) {
-            waitingAheadCount = (int) orderRepository.countByStatusInAndPickupNumberLessThan(
+            waitingAheadCount = (int) orderRepository.countByStatusInAndPickupNumberLessThanAndPaid(
                     List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                    order.getPickupNumber());
+                    order.getPickupNumber(),
+                    PaymentStatus.DONE);
         }
         return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount);
     }

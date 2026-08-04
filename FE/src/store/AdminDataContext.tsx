@@ -103,9 +103,12 @@ function summarize(detail: OrderDetailResponse | undefined): string {
   return rest.length === 0 ? first.menuName : `${first.menuName} 외 ${rest.length}개`;
 }
 
-/** 대시보드에 표시할 주문인지 (완료/취소 제외) */
+/** 대시보드에 표시할 주문인지 (결제 완료 + 진행 중만) */
 function isActiveOrder(summary: OrderSummaryResponse): boolean {
-  return summary.status === "PREPARING" || summary.status === "READY";
+  return (
+    summary.paymentStatus === "DONE" &&
+    (summary.status === "PREPARING" || summary.status === "READY")
+  );
 }
 
 /** 화면 전용 상태 (서버에 없는 조리 체크·호출 여부) */
@@ -456,20 +459,27 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const callOrder = useCallback(
     async (orderId: string) => {
-      getUiState(orderId).called = true;
-      rebuildOrders();
-
-      // 호출 = 손님 픽업 안내 → 서버 READY(준비 완료)로 변경해 유저 화면에 반영
+      // 서버 READY 반영 성공 후에만 호출 UI를 켜서, 실패 시 고객/관리자 상태 불일치를 막습니다.
       try {
-        await adminOrderService.updateStatus(orderId, "READY");
+        const updated = await adminOrderService.call(orderId);
+        if (updated.status !== "READY" && updated.status !== "COMPLETED") {
+          throw new Error(`호출 후 상태가 READY가 아닙니다. (현재: ${updated.status})`);
+        }
+        getUiState(orderId).called = true;
         await refreshOrders();
       } catch (err) {
         console.error("호출(준비 완료) 처리 실패:", err);
-        alert("호출 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        const detail = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "";
+        alert(
+          detail
+            ? `호출 처리에 실패했습니다.\n${detail}`
+            : "호출 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        );
         await refreshOrders();
+        throw err;
       }
     },
-    [rebuildOrders, refreshOrders],
+    [refreshOrders],
   );
 
   const pickupOrder = useCallback(
@@ -477,10 +487,17 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       // 보드에서 먼저 제거하고 서버 상태를 COMPLETED 로 변경
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
       try {
+        const current = activeSummariesRef.current.find((s) => String(s.id) === orderId);
+        // COMPLETED 는 READY 에서만 가능 → 조리 중이면 READY 후 완료 처리
+        if (current?.status === "PREPARING") {
+          await adminOrderService.updateStatus(orderId, "READY");
+        }
         await adminOrderService.updateStatus(orderId, "COMPLETED");
       } catch (err) {
         console.error("픽업 완료 처리 실패:", err);
         alert("픽업 완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        await refreshOrders();
+        throw err;
       }
       await refreshOrders();
     },

@@ -105,8 +105,8 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
     createdAt: formattedDate,
     pickupNumber: String(res.pickupNumber),
     waitingCount,
-    // 앞 대기 1건당 약 3분으로 단순 추정
-    waitingTime: waitingCount > 0 ? waitingCount * 3 : 0,
+    // 앞 대기 1명당 약 2분으로 추정
+    waitingTime: waitingCount > 0 ? waitingCount * 2 : 0,
   };
 }
 

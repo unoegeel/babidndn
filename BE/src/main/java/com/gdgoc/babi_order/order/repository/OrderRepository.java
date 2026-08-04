@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.order.repository;
 
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.entity.OrderStatus;
+import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,8 +21,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             select count(o) from Order o
             where o.status in :statuses
               and o.pickupNumber < :pickupNumber
+              and exists (
+                select 1 from Payment p
+                where p.order = o and p.status = :paymentStatus
+              )
             """)
-    long countByStatusInAndPickupNumberLessThan(
+    long countByStatusInAndPickupNumberLessThanAndPaid(
             @Param("statuses") Collection<OrderStatus> statuses,
-            @Param("pickupNumber") Integer pickupNumber);
+            @Param("pickupNumber") Integer pickupNumber,
+            @Param("paymentStatus") PaymentStatus paymentStatus);
 }

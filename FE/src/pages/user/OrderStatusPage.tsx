@@ -119,8 +119,8 @@ export const OrderStatusPage: React.FC = () => {
     // 1. 진입 직후 1회 조회를 실행
     fetchOrderDetails();
 
-    // 2. 정확히 3초마다 1회만 조회하는 interval 등록
-    intervalId = setInterval(fetchOrderDetails, 3000);
+    // 2. 2초마다 폴링 (호출 직후 반영 지연 최소화)
+    intervalId = setInterval(fetchOrderDetails, 2000);
 
     // 3. cleanup에서 clearInterval 실행
     return () => {
