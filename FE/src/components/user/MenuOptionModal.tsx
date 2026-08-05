@@ -7,6 +7,24 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
+/** 토핑명을 1줄로 유지하기 위해 길이에 따라 글자 크기를 줄입니다. */
+function toppingNameFontClass(name: string, withQtyControls: boolean): string {
+  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음
+  const len = name.length;
+  if (withQtyControls) {
+    if (len <= 3) return "text-[10px]";
+    if (len <= 4) return "text-[9px]";
+    if (len <= 5) return "text-[8px]";
+    if (len <= 7) return "text-[7px]";
+    return "text-[6px]";
+  }
+  if (len <= 4) return "text-[10px]";
+  if (len <= 5) return "text-[9px]";
+  if (len <= 7) return "text-[8px]";
+  if (len <= 9) return "text-[7px]";
+  return "text-[6px]";
+}
+
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   menuDetail,
   onClose,
@@ -165,10 +183,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     <div className="absolute inset-0 bg-black/40 z-50 flex flex-col justify-end">
       <div className="flex-1" onClick={onClose}></div>
 
-      {/* 바텀시트 */}
-      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[85%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
+      {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
+      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
         {/* 헤더 */}
-        <div className="px-6 pt-6 pb-4 bg-white flex justify-between items-start border-b border-gray-100">
+        <div className="px-6 pt-5 pb-3 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{menuDetail.name}</h2>
             <p className="text-sm font-semibold text-gray-800 mt-1">
@@ -187,7 +205,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         </div>
 
         {/* 바디 */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* 메뉴 설명 */}
           {menuDetail.description && (
             <p className="text-xs text-gray-500 leading-relaxed bg-white p-3.5 rounded-2xl border border-gray-100">
@@ -240,58 +258,79 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
-              <div className="-mx-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex w-max gap-2 px-1">
+              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto·타이틀에 잘리지 않도록 여유 확보 */}
+              <div className="-mx-1 overflow-x-auto px-0.5 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max gap-2 px-1.5">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
                     const isSelected = qty > 0;
                     const toppingName = opt.name.replace(/^\+\s*/, "");
+                    const nameClass = toppingNameFontClass(toppingName, isSelected);
                     return (
                       <div
                         key={opt.id}
-                        onClick={() => handleOtherOptionToggle(opt)}
-                        className={`relative flex h-[56px] w-[80px] shrink-0 cursor-pointer flex-col items-center justify-between rounded-xl border bg-white p-1 text-center transition-all ${
-                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                        onClick={
+                          isSelected
+                            ? undefined
+                            : () => handleOtherOptionToggle(opt)
+                        }
+                        className={`relative flex h-[74px] w-[108px] shrink-0 flex-col items-center justify-center rounded-xl border bg-white p-1.5 text-center transition-all ${
+                          isSelected
+                            ? "border-black text-black"
+                            : "cursor-pointer border-gray-200 text-gray-400"
                         }`}
                       >
                         {isSelected ? (
-                          <div className="flex h-full w-full flex-col items-center justify-between">
-                            <div className="flex w-full items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-1 py-0.5">
-                              <button
-                                onClick={(e) => handleToppingQtyChange(opt, -1, e)}
-                                className="flex h-3 w-3 cursor-pointer items-center justify-center rounded text-[9px] font-bold leading-none text-gray-500 hover:bg-gray-200 focus:outline-none"
-                              >
+                          <div className="relative flex h-full w-full flex-col items-center justify-center">
+                            {/* 표시용 레이어 — 클릭은 좌/우 히트 영역이 처리 */}
+                            <div className="pointer-events-none flex w-full items-center gap-0.5">
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[11px] font-bold leading-none text-gray-500">
                                 -
-                              </button>
-                              <span className="min-w-[6px] text-center text-[9px] font-bold text-gray-700">{qty}</span>
-                              <button
-                                onClick={(e) => handleToppingQtyChange(opt, 1, e)}
-                                className="flex h-3 w-3 cursor-pointer items-center justify-center rounded text-[9px] font-bold leading-none text-gray-500 hover:bg-gray-200 focus:outline-none"
+                              </span>
+                              <div
+                                className={`min-w-0 flex-1 truncate text-center font-bold leading-none ${nameClass}`}
                               >
+                                {toppingName}
+                              </div>
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[11px] font-bold leading-none text-gray-500">
                                 +
-                              </button>
+                              </span>
                             </div>
-                            <div className="w-full text-center text-[9px] font-bold leading-[1.1] line-clamp-1">
-                              {toppingName}
-                            </div>
-                            <div className="text-[8px] leading-none text-gray-400">
+                            <div className="pointer-events-none mt-1 text-[8px] leading-none text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
+
+                            {/* 좌측 절반: 수량 감소 (1개일 때 선택 해제) */}
+                            <button
+                              type="button"
+                              aria-label={`${toppingName} 수량 감소`}
+                              onClick={(e) => handleToppingQtyChange(opt, -1, e)}
+                              className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer focus:outline-none"
+                            />
+                            {/* 우측 절반: 수량 증가 */}
+                            <button
+                              type="button"
+                              aria-label={`${toppingName} 수량 증가`}
+                              onClick={(e) => handleToppingQtyChange(opt, 1, e)}
+                              className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-pointer focus:outline-none"
+                            />
                           </div>
                         ) : (
-                          <div className="flex h-full w-full flex-col items-center justify-center gap-0.5">
-                            <div className="w-full text-center text-[9px] font-bold leading-[1.1] line-clamp-2">
+                          <div className="flex h-full w-full flex-col items-center justify-center">
+                            <div
+                              className={`w-full truncate text-center font-bold leading-none ${nameClass}`}
+                            >
                               {toppingName}
                             </div>
-                            <div className="text-[8px] leading-none text-gray-400">
+                            <div className="mt-1 text-[8px] leading-none text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
                           </div>
                         )}
 
                         {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[9px] font-bold text-white">
+                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[9px] font-bold text-white">
                             {qty}
                           </div>
                         )}

@@ -102,9 +102,9 @@ function SidebarClock() {
 
   return (
     // 화면이 낮을 때는 날짜/시각을 한 줄로 붙여 표시해 상단 상세 영역을 확보
-    <div className="mt-[12px] shrink-0 text-center text-[14px] font-medium leading-tight text-black short:mt-[6px] short:flex short:justify-center short:gap-[6px] short:text-[12px]">
-      <p>{date}</p>
-      <p>{time}</p>
+    <div className="mt-[12px] shrink-0 text-center font-medium leading-tight text-black short:mt-[6px] short:flex short:items-baseline short:justify-center short:gap-[8px]">
+      <p className="text-[16px] short:text-[14px]">{date}</p>
+      <p className="mt-[4px] text-[28px] font-bold tracking-wide short:mt-0 short:text-[22px]">{time}</p>
     </div>
   );
 }
