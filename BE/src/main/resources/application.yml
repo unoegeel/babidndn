@@ -43,6 +43,12 @@ app:
   jwt:
     secret: ${JWT_SECRET:babi-local-jwt-secret-key-change-me-123456}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+  # Web Push (VAPID). 운영에서는 환경변수로 교체하세요.
+  push:
+    enabled: ${PUSH_ENABLED:true}
+    subject: ${VAPID_SUBJECT:mailto:admin@babidndn.shop}
+    public-key: ${VAPID_PUBLIC_KEY:BL992SYJ0qlglk5wtoG8sKV-2IZD7S8oKzD3CvpY6_dhIv7l6RU5wPKMO6nnAzNvXu10tLIzmvNs8YeSkduKMAo}
+    private-key: ${VAPID_PRIVATE_KEY:lYVpwCFlzftJJDhCqr73_b4hkkPm_8_tTEtLflt7LaQ}
 
 server:
   port: ${SERVER_PORT:8080}

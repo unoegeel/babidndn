@@ -58,9 +58,9 @@ interface AdminDataValue {
   getMenuDetail: (id: string) => Promise<Menu>;
 
   // 주문 대시보드
-  /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (모두 완료되면 서버 상태 READY 로 변경) */
+  /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (화면 전용 — 서버 상태는 호출 시 READY) */
   cookItems: (orderId: string, itemIds: string[]) => Promise<void>;
-  /** 주문 호출 → 주문번호가 초록색으로 표시 (여러 번 호출 가능) */
+  /** 주문 호출 → 서버 READY 반영 + 주문번호 초록색 (여러 번 호출 가능) */
   callOrder: (orderId: string) => Promise<void>;
   /** 픽업 완료 → 서버 상태 COMPLETED 로 변경 후 보드에서 제거 */
   pickupOrder: (orderId: string) => Promise<void>;
@@ -436,26 +436,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const cookItems = useCallback(
     async (orderId: string, itemIds: string[]) => {
+      // 조리 체크는 주방 화면 전용. 고객 준비완료(READY)는 '호출'에서만 반영합니다.
+      // (이전에는 전체 조리완료 시 PUT /status → READY 를 호출해, 호출 API와 역할이 겹치고
+      //  상태 변경 실패 알림이 뜨는 문제가 있었습니다.)
       const uiState = getUiState(orderId);
       itemIds.forEach((id) => uiState.cookedItemIds.add(id));
       rebuildOrders();
-
-      // 모든 메뉴가 조리 완료되면 서버 상태를 READY(준비 완료)로 변경
-      const detail = orderDetailCacheRef.current.get(Number(orderId));
-      const allCooked = detail?.items.every((item) =>
-        uiState.cookedItemIds.has(String(item.id)),
-      );
-      if (allCooked) {
-        try {
-          await adminOrderService.updateStatus(orderId, "READY");
-          await refreshOrders();
-        } catch (err) {
-          console.error("주문 상태 변경 실패:", err);
-          alert("주문 상태 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-        }
-      }
     },
-    [rebuildOrders, refreshOrders],
+    [rebuildOrders],
   );
 
   const callOrder = useCallback(

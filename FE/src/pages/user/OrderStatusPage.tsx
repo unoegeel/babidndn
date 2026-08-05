@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
+import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import type { Order } from "../../types/user";
 
 export const OrderStatusPage: React.FC = () => {
@@ -39,6 +40,9 @@ export const OrderStatusPage: React.FC = () => {
       navigateRef.current("/user", { replace: true });
       return;
     }
+
+    // 준비완료 Web Push 대상 주문으로 현재 구독 연결
+    void linkPushSubscriptionToOrder(orderId);
 
     let isMounted = true;
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -77,19 +81,7 @@ export const OrderStatusPage: React.FC = () => {
             );
             alertSentRef.current.ready = true;
 
-            if (
-              typeof window !== "undefined" &&
-              "Notification" in window &&
-              Notification.permission === "granted"
-            ) {
-              try {
-                new Notification("바비든든", {
-                  body: `${updatedOrder.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
-                });
-              } catch (e) {
-                console.error("브라우저 알림 발송 실패:", e);
-              }
-            }
+            // Web Push는 서버(호출→READY)에서 발송. 포그라운드 폴링 중복 시스템 알림은 생략합니다.
           }
 
           if (intervalId) clearInterval(intervalId);

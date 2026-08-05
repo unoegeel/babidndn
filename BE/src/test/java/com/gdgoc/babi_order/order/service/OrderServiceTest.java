@@ -20,6 +20,7 @@ import com.gdgoc.babi_order.order.repository.OrderRepository;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
+import com.gdgoc.babi_order.push.service.PushNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -55,6 +57,9 @@ class OrderServiceTest {
     @Mock
     private OrderEventService orderEventService;
 
+    @Mock
+    private PushNotificationService pushNotificationService;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -64,7 +69,8 @@ class OrderServiceTest {
                 menuRepository,
                 menuOptionRepository,
                 paymentRepository,
-                orderEventService
+                orderEventService,
+                pushNotificationService
         );
     }
 
@@ -298,6 +304,7 @@ class OrderServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.READY);
         assertThat(result.getStatus()).isEqualTo("READY");
         verify(orderEventService).publish("ORDER_STATUS_CHANGED", result);
+        verify(pushNotificationService).notifyOrderReady(eq(1L), eq(1));
     }
 
     @Test

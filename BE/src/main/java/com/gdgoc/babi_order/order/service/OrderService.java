@@ -21,6 +21,7 @@ import com.gdgoc.babi_order.order.repository.OrderRepository;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
+import com.gdgoc.babi_order.push.service.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class OrderService {
     private final MenuOptionRepository menuOptionRepository;
     private final PaymentRepository paymentRepository;
     private final OrderEventService orderEventService;
+    private final PushNotificationService pushNotificationService;
 
     /**
      * 결제 전 임시 주문을 생성합니다.
@@ -156,7 +158,25 @@ public class OrderService {
                 .orElse(null);
         OrderDetailResponse response = toDetailResponse(order, toPaymentStatusName(paymentStatus));
         publishAfterCommit("ORDER_STATUS_CHANGED", response);
+        if (nextStatus == OrderStatus.READY) {
+            int pickupNumber = order.getPickupNumber() != null ? order.getPickupNumber() : 0;
+            publishPushAfterCommit(orderId, pickupNumber);
+        }
         return response;
+    }
+
+    private void publishPushAfterCommit(Long orderId, int pickupNumber) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            pushNotificationService.notifyOrderReady(orderId, pickupNumber);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                pushNotificationService.notifyOrderReady(orderId, pickupNumber);
+            }
+        });
     }
 
     /**

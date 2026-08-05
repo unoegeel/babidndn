@@ -10,12 +10,21 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // 개발 중에도 SW·Push 구독을 시험할 수 있도록 활성화
+      devOptions: {
+        enabled: true,
+      },
+      workbox: {
+        // 자동 생성 SW에 Web Push 핸들러를 합칩니다.
+        importScripts: ['push-sw.js'],
+      },
+      includeAssets: ['icon-192.png', 'icon-512.png', 'push-sw.js'],
       manifest: {
-        name: '바비든든 관리자',
+        name: '바비든든',
         short_name: '바비든든',
-        description: '바비든든 관리자',
+        description: '바비든든 주문·픽업 알림',
         display: 'standalone',
-        start_url: '/',
+        start_url: '/user',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         icons: [

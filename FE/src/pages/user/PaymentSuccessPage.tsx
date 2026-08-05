@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../../services/user/orderService";
 import { useUserData } from "../../store/UserDataContext";
+import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -78,6 +79,7 @@ export const PaymentSuccessPage: React.FC = () => {
 
         // 백엔드 숫자형 id (res.orderId) 기반 주문 현황 페이지 이동
         const backendOrderId = String(res.orderId);
+        void linkPushSubscriptionToOrder(backendOrderId);
         navigate(`/user/orders/${backendOrderId}`, { replace: true });
       })
       .catch(async (err: unknown) => {
