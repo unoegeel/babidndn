@@ -22,9 +22,10 @@ export default defineConfig({
       manifest: {
         name: '바비든든',
         short_name: '바비든든',
-        description: '바비든든 주문·픽업 알림',
+        description: '바비든든 주문·관리',
         display: 'standalone',
-        start_url: '/user',
+        // 단일 PWA 매니페스트 — 실제 분기는 / 에서 마지막 사용 모드(유저/관리자)로 처리
+        start_url: '/',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         icons: [

@@ -106,7 +106,8 @@ SET
     menu_option.display_order = 2,
     menu_option.updated_at = NOW(6)
 WHERE category.name IN ('컵밥', '세트')
-  AND menu_option.name = '밥 추가';
+  AND menu_option.name = '밥 추가'
+  AND menu_option.group_type = 'SIZE';
 
 -- 컵밥과 세트 메뉴에 사이즈 3종, 추가 토핑 6종, 제외 토핑 2종을 연결합니다.
 -- 세트 메뉴의 옵션은 세트에 포함된 컵밥에 적용합니다.

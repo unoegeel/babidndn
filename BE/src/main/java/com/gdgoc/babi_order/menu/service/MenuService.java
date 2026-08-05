@@ -52,6 +52,7 @@ public class MenuService {
     /**
      * 메뉴 상세 조회.
      * 토핑 가능 메뉴에 사이즈/토핑제외가 누락된 경우 기본값을 보강한 뒤 반환합니다.
+     * SIZE 로 잘못 저장된 '밥 추가' 등도 함께 교정합니다.
      */
     @Transactional
     public MenuDetailResponse getMenu(Long menuId) {
@@ -63,7 +64,10 @@ public class MenuService {
         boolean toppingEnabled = options.stream().anyMatch(option ->
                 option.getGroupType() == OptionGroupType.TOPPING_ADD
                         || option.getGroupType() == OptionGroupType.TOPPING_REMOVE);
-        if (toppingEnabled) {
+        boolean hasMisplacedToppingInSize = options.stream().anyMatch(option ->
+                option.getGroupType() == OptionGroupType.SIZE
+                        && AdminMenuService.isDefaultToppingAddName(option.getName()));
+        if (toppingEnabled || hasMisplacedToppingInSize) {
             adminMenuService.ensureDefaultOptions(menu);
             options = menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId);
         }
