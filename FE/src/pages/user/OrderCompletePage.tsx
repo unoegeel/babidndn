@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
-import type { MenuOption, Order } from "../../types/user";
+import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
+import type { Order } from "../../types/user";
 
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -44,27 +45,6 @@ export const OrderCompletePage: React.FC = () => {
       </div>
     );
   }
-
-  // 선택한 옵션 포맷터
-  const formatSelectedOptions = (options: MenuOption[]) => {
-    const counts: Record<string, number> = {};
-    const orderList: string[] = [];
-
-    options.forEach((opt) => {
-      if (!counts[opt.name]) {
-        counts[opt.name] = 0;
-        orderList.push(opt.name);
-      }
-      counts[opt.name]++;
-    });
-
-    return orderList
-      .map((name) => {
-        const qty = counts[name];
-        return qty > 1 ? `${name} x${qty}` : name;
-      })
-      .join(" / ");
-  };
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
