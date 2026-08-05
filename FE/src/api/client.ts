@@ -20,7 +20,7 @@ export class ApiError extends Error {
   readonly code?: string;
 
   constructor(status: number, code?: string, message?: string) {
-    super(message ?? `API 요청 실패: ${status}`);
+    super(message && message.trim() ? message : `API 요청 실패: ${status}`);
     this.name = "ApiError";
     this.status = status;
     this.code = code;

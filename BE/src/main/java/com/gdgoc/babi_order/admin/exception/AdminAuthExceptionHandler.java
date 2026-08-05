@@ -14,8 +14,8 @@ public class AdminAuthExceptionHandler {
 
     @ExceptionHandler(AdminAuthException.class)
     public ResponseEntity<AdminAuthErrorResponse> handleAuth(AdminAuthException exception) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AdminAuthErrorResponse(
-                HttpStatus.UNAUTHORIZED.value(),
+        return ResponseEntity.status(exception.getStatus()).body(new AdminAuthErrorResponse(
+                exception.getStatus().value(),
                 exception.getCode(),
                 exception.getMessage(),
                 LocalDateTime.now()

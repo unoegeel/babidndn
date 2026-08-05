@@ -47,6 +47,8 @@ export interface OrderDetailResponse {
   createdAt: string;
   updatedAt: string;
   items: OrderItemResponse[];
+  /** 진행 중이며 대기번호가 더 빠른 주문 수 (서버 계산) */
+  waitingAheadCount?: number;
 }
 
 export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
@@ -90,15 +92,24 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
     }
   }
 
+  const waitingCount =
+    res.status === "READY" || res.status === "COMPLETED"
+      ? 0
+      : Math.max(0, res.waitingAheadCount ?? 0);
+
   return {
     orderId: String(res.id),
     items,
     totalPrice: res.totalAmount,
-    status: res.status,
+    status:
+      res.paymentStatus === "CANCELED" || res.paymentStatus === "PARTIAL_CANCELED"
+        ? "CANCELED"
+        : res.status,
     createdAt: formattedDate,
     pickupNumber: String(res.pickupNumber),
-    waitingCount: res.status === "READY" || res.status === "COMPLETED" ? 0 : 2,
-    waitingTime: res.status === "READY" || res.status === "COMPLETED" ? 0 : 5,
+    waitingCount,
+    // 앞 대기 1명당 약 2분, 앞 대기가 없으면 약 1분
+    waitingTime: waitingCount > 0 ? waitingCount * 2 : res.status === "PREPARING" ? 1 : 0,
   };
 }
 
@@ -169,5 +180,12 @@ export const orderService = {
    */
   async confirmPayment(data: PaymentConfirmRequest): Promise<PaymentConfirmResponse> {
     return api.post<PaymentConfirmResponse>("/api/payments/confirm", data);
+  },
+
+  /**
+   * 미결제 임시 주문 삭제 (DELETE /api/orders/{id}/unpaid)
+   */
+  async abandonUnpaidOrder(id: string | number): Promise<void> {
+    return api.delete<void>(`/api/orders/${id}/unpaid`);
   },
 };

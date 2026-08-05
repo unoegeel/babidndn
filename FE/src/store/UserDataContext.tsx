@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo } from "react";
 import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, NotificationItem, NotificationType } from "../types/user";
-import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../services/user/orderService";
+import { orderService, type OrderDetailResponse } from "../services/user/orderService";
 
 interface UserDataContextType {
   cart: CartItem[];
@@ -143,11 +143,9 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [cart]);
 
   // 실제 API를 통한 주문 생성 (POST /api/orders)
+  // 결제 전 임시 주문이므로 로컬 주문 내역에는 넣지 않습니다.
   const createOrder = async (): Promise<OrderDetailResponse> => {
-    const res = await orderService.createOrder(cart);
-    const orderObj = mapOrderDetailToOrder(res);
-    saveOrderToState(orderObj);
-    return res;
+    return orderService.createOrder(cart);
   };
 
   const saveOrderToState = (orderObj: Order) => {

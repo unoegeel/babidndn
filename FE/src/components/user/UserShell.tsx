@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import {
+  ensurePushSubscription,
+  requestPermissionAndSubscribe,
+} from "../../utils/webPush";
+
+const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
@@ -9,6 +15,8 @@ export const UserShell: React.FC = () => {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  const [notifPromptBusy, setNotifPromptBusy] = useState(false);
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -35,25 +43,62 @@ export const UserShell: React.FC = () => {
       if (e.key === "Escape") {
         setIsDrawerOpen(false);
         setIsNotifOpen(false);
+        setShowNotifPrompt(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // 브라우저 권한 설정 요청
-  const handleRequestNotification = () => {
+  // 유저 페이지 진입 시 알림 권한 안내 팝업 / 기존 허용 시 구독 보장
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+
+    if (Notification.permission === "granted") {
+      void ensurePushSubscription();
+      return;
+    }
+
+    if (Notification.permission !== "default") return;
+    if (sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1") return;
+
+    // 첫 페인트 직후 팝업 (브라우저 제스처 요구는 버튼 클릭에서 충족)
+    const timer = window.setTimeout(() => setShowNotifPrompt(true), 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const dismissNotifPrompt = () => {
+    sessionStorage.setItem(NOTIF_PROMPT_SESSION_KEY, "1");
+    setShowNotifPrompt(false);
+  };
+
+  const handleAllowNotifications = async () => {
+    setNotifPromptBusy(true);
+    try {
+      const granted = await requestPermissionAndSubscribe();
+      dismissNotifPrompt();
+      if (!granted && Notification.permission === "denied") {
+        alert("알림이 차단되었습니다. 브라우저 설정에서 허용으로 변경할 수 있습니다.");
+      }
+    } finally {
+      setNotifPromptBusy(false);
+    }
+  };
+
+  // 브라우저 권한 설정 요청 (드로어 수동)
+  const handleRequestNotification = async () => {
     if (!("Notification" in window)) {
       alert("이 브라우저에서는 시스템 알림을 지원하지 않습니다.");
       return;
     }
-    Notification.requestPermission().then((permission) => {
-      if (permission === "granted") {
-        alert("브라우저 알림 권한이 허용되었습니다.");
-      } else {
-        alert("브라우저 알림 권한이 거부되었습니다.");
-      }
-    });
+    const granted = await requestPermissionAndSubscribe();
+    if (granted) {
+      alert("브라우저 알림 권한이 허용되었습니다. 준비 완료 시 푸시로 알려드립니다.");
+    } else if (Notification.permission === "denied") {
+      alert("브라우저 알림 권한이 거부되었습니다.");
+    } else {
+      alert("알림 권한을 허용해 주세요.");
+    }
   };
 
   // 알림 클릭 핸들러 (개별 읽음 처리 후 리다이렉트)
@@ -68,9 +113,12 @@ export const UserShell: React.FC = () => {
   };
 
   return (
-    <div className="h-screen h-[100dvh] bg-gray-50 flex items-center justify-center py-0 sm:py-6 overflow-hidden">
+    <div
+      className="flex items-center justify-center overflow-hidden bg-gray-50 py-0 sm:py-6"
+      style={{ height: "var(--app-height)", maxHeight: "var(--app-height)" }}
+    >
       {/* 430px 너비 제한 모바일 뷰 컨테이너 */}
-      <div className="w-full max-w-[430px] h-full sm:h-[850px] sm:rounded-3xl sm:shadow-lg bg-white border border-gray-100 flex flex-col overflow-hidden relative">
+      <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg">
         {showHeader && (
           <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
             {/* 왼쪽 영역 */}
@@ -100,8 +148,19 @@ export const UserShell: React.FC = () => {
               )}
             </div>
 
-            {/* 타이틀 */}
-            <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{headerTitle}</h1>
+            {/* 타이틀 — 메뉴 페이지의 바비든든 클릭 시 목록 스크롤 최상단 */}
+            {isMenuPage ? (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("user-menu-scroll-top"))}
+                className="flex-1 text-center text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
+                aria-label="메뉴 맨 위로"
+              >
+                {headerTitle}
+              </button>
+            ) : (
+              <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{headerTitle}</h1>
+            )}
 
             {/* 오른쪽 영역 */}
             <div className="w-10 flex items-center justify-end">
@@ -268,6 +327,8 @@ export const UserShell: React.FC = () => {
                             ? "bg-green-500 animate-ping"
                             : notif.type === "PREPARING"
                             ? "bg-blue-500"
+                            : notif.type === "CANCELED"
+                            ? "bg-red-500"
                             : "bg-gray-400"
                         }`}
                       ></span>
@@ -285,6 +346,42 @@ export const UserShell: React.FC = () => {
               )}
             </div>
           </>
+        )}
+        {/* 3. 알림 권한 안내 팝업 (유저 페이지 첫 진입) */}
+        {showNotifPrompt && (
+          <div className="absolute inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="notif-prompt-title"
+              className="w-full max-w-[340px] rounded-2xl bg-white p-5 shadow-2xl animate-fade-in"
+            >
+              <h2 id="notif-prompt-title" className="text-base font-bold text-gray-900">
+                준비 완료 알림
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                주문이 준비되면 푸시 알림으로 알려드릴게요. 알림을 허용해 주세요.
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={dismissNotifPrompt}
+                  disabled={notifPromptBusy}
+                  className="flex-1 rounded-xl border border-gray-200 py-3 text-xs font-bold text-gray-600 cursor-pointer disabled:opacity-50"
+                >
+                  나중에
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleAllowNotifications()}
+                  disabled={notifPromptBusy}
+                  className="flex-1 rounded-xl bg-black py-3 text-xs font-bold text-white cursor-pointer disabled:opacity-50"
+                >
+                  {notifPromptBusy ? "설정 중..." : "알림 허용"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

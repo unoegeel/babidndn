@@ -1,6 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import MenuThumb from "../../components/user/MenuThumb";
+import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -47,22 +49,15 @@ export const CartPage: React.FC = () => {
       {/* 장바구니 목록 */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
         {cart.map((item) => {
-          // 옵션 텍스트 조합 (예: "기본 / 참치 토핑")
-          const optionNames = item.selectedOptions.map((opt) => opt.name).join(" / ");
+          const optionNames = formatSelectedOptions(item.selectedOptions);
           return (
             <div
               key={item.cartItemId}
               className="bg-white border border-gray-100 rounded-2xl p-4 flex gap-4 shadow-sm"
             >
               {/* 상품 이미지 */}
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.menuName} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold bg-gray-200">
-                    No Image
-                  </div>
-                )}
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100">
+                <MenuThumb src={item.imageUrl} alt={item.menuName} />
               </div>
 
               {/* 상품 정보 */}
@@ -117,17 +112,17 @@ export const CartPage: React.FC = () => {
 
       {/* 하단 결제액 요약 및 버튼 (shrink-0 하단 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-lg space-y-3 z-30"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-30 shrink-0 space-y-2.5 border-t border-gray-100 bg-white px-4 pt-3 shadow-lg"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex justify-between items-center text-sm">
+        <div className="flex items-center justify-between text-sm">
           <span className="font-semibold text-gray-500">총 주문 금액</span>
-          <span className="font-bold text-gray-900 text-lg">{cartTotal.toLocaleString()}원</span>
+          <span className="text-lg font-bold text-gray-900">{cartTotal.toLocaleString()}원</span>
         </div>
 
         <button
           onClick={() => navigate("/user/checkout")}
-          className="w-full bg-black text-white py-4 rounded-xl font-bold text-base transition-colors hover:bg-gray-900 cursor-pointer"
+          className="w-full cursor-pointer rounded-xl bg-black py-3.5 text-base font-bold text-white transition-colors hover:bg-gray-900"
         >
           주문하기
         </button>

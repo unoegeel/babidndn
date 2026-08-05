@@ -1,16 +1,55 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandLogo from "../../components/BrandLogo";
+import { ApiError } from "../../api/client";
+import { signInAdmin } from "../../constants/adminAccount";
+import { authService } from "../../services/admin/authService";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // 회원가입 API 미제공 — 가입 후 로그인 화면으로 이동 (UI 전용)
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate("/login");
+    if (submitting) return;
+
+    const loginId = id.trim();
+    if (!loginId) {
+      setError("아이디를 입력해 주세요.");
+      return;
+    }
+    if (pw.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
+      return;
+    }
+    if (pw !== passwordConfirmation) {
+      setError("비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      const { accessToken } = await authService.signup({
+        loginId,
+        password: pw,
+      });
+      signInAdmin(accessToken);
+      navigate("/admin/orders", { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.status === 409 ? "이미 사용 중인 아이디입니다." : err.message);
+      } else {
+        console.error("회원가입 실패:", err);
+        setError("회원가입 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -24,6 +63,7 @@ export default function SignupPage() {
           아이디
         </label>
         <input
+          required
           value={id}
           onChange={(e) => setId(e.target.value)}
           className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
@@ -33,18 +73,41 @@ export default function SignupPage() {
           비밀번호
         </label>
         <input
+          required
           type="password"
+          minLength={8}
           value={pw}
           onChange={(e) => setPw(e.target.value)}
-          className="mb-[28px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
+          className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
         />
+
+        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black">
+          비밀번호 확인
+        </label>
+        <input
+          required
+          type="password"
+          minLength={8}
+          value={passwordConfirmation}
+          onChange={(e) => setPasswordConfirmation(e.target.value)}
+          className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
+        />
+
+        {error ? (
+          <p className="mt-[10px] mb-[18px] text-[14px] font-medium tracking-[0.5px] text-danger">
+            {error}
+          </p>
+        ) : (
+          <div className="mb-[28px]" />
+        )}
 
         <button
           type="submit"
-          className="h-[48px] w-full rounded-[10px] text-[16px] font-medium tracking-[1px] text-canvas"
+          disabled={submitting}
+          className="h-[48px] w-full rounded-[10px] text-[16px] font-medium tracking-[1px] text-canvas disabled:opacity-60"
           style={{ backgroundColor: "rgba(189,146,59,0.75)" }}
         >
-          가입
+          {submitting ? "가입 중..." : "가입"}
         </button>
 
         <p className="mt-[36px] text-center text-[16px] font-medium tracking-[1px]">

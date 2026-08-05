@@ -1,0 +1,19 @@
+name: Check PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  check-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ ! "$PR_TITLE" =~ ^\[(FEAT|FIX|BUG|REFACTOR|DOCS|TEST|CHORE)\][[:space:]].+ ]]; then
+            echo "PR 제목은 [TYPE] 작업 내용 형식으로 작성해야 합니다."
+            echo "사용 가능한 TYPE: FEAT, FIX, BUG, REFACTOR, DOCS, TEST, CHORE"
+            exit 1
+          fi

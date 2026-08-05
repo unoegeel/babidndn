@@ -58,10 +58,10 @@ interface AdminDataValue {
   getMenuDetail: (id: string) => Promise<Menu>;
 
   // 주문 대시보드
-  /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (모두 완료되면 서버 상태 READY 로 변경) */
+  /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (화면 전용 — 서버 상태는 호출 시 READY) */
   cookItems: (orderId: string, itemIds: string[]) => Promise<void>;
-  /** 주문 호출 → 주문번호가 초록색으로 표시 (여러 번 호출 가능) */
-  callOrder: (orderId: string) => void;
+  /** 주문 호출 → 서버 READY 반영 + 주문번호 초록색 (여러 번 호출 가능) */
+  callOrder: (orderId: string) => Promise<void>;
   /** 픽업 완료 → 서버 상태 COMPLETED 로 변경 후 보드에서 제거 */
   pickupOrder: (orderId: string) => Promise<void>;
 
@@ -103,9 +103,12 @@ function summarize(detail: OrderDetailResponse | undefined): string {
   return rest.length === 0 ? first.menuName : `${first.menuName} 외 ${rest.length}개`;
 }
 
-/** 대시보드에 표시할 주문인지 (완료/취소 제외) */
+/** 대시보드에 표시할 주문인지 (결제 완료 + 진행 중만) */
 function isActiveOrder(summary: OrderSummaryResponse): boolean {
-  return summary.status === "PREPARING" || summary.status === "READY";
+  return (
+    summary.paymentStatus === "DONE" &&
+    (summary.status === "PREPARING" || summary.status === "READY")
+  );
 }
 
 /** 화면 전용 상태 (서버에 없는 조리 체크·호출 여부) */
@@ -294,6 +297,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           categoryId: category.id,
           name: menu.name,
           basePrice: menu.price,
+          imageUrl: menu.imageUrl ?? null,
           displayOrder: nextOrder,
           saleStatus: menu.status === "품절" ? "SOLDOUT" : "AVAILABLE",
           toppingEnabled: menu.toppingAvailable,
@@ -330,7 +334,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           name: patch.name,
           description: detail.description,
           basePrice: patch.price,
-          imageUrl: detail.imageUrl,
+          imageUrl: patch.imageUrl !== undefined ? patch.imageUrl : detail.imageUrl,
           displayOrder,
           saleStatus: detail.saleStatus,
           toppingEnabled: patch.toppingAvailable,
@@ -432,47 +436,74 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const cookItems = useCallback(
     async (orderId: string, itemIds: string[]) => {
+      // 조리 체크는 주방 화면 전용. 고객 준비완료(READY)는 '호출'에서만 반영합니다.
+      // (이전에는 전체 조리완료 시 PUT /status → READY 를 호출해, 호출 API와 역할이 겹치고
+      //  상태 변경 실패 알림이 뜨는 문제가 있었습니다.)
       const uiState = getUiState(orderId);
       itemIds.forEach((id) => uiState.cookedItemIds.add(id));
-      rebuildOrders();
-
-      // 모든 메뉴가 조리 완료되면 서버 상태를 READY(준비 완료)로 변경
-      const detail = orderDetailCacheRef.current.get(Number(orderId));
-      const allCooked = detail?.items.every((item) =>
-        uiState.cookedItemIds.has(String(item.id)),
-      );
-      if (allCooked) {
-        try {
-          await adminOrderService.updateStatus(orderId, "READY");
-          await refreshOrders();
-        } catch (err) {
-          console.error("주문 상태 변경 실패:", err);
-          alert("주문 상태 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-        }
-      }
-    },
-    [rebuildOrders, refreshOrders],
-  );
-
-  const callOrder = useCallback(
-    (orderId: string) => {
-      getUiState(orderId).called = true;
       rebuildOrders();
     },
     [rebuildOrders],
   );
 
+  const callOrder = useCallback(
+    async (orderId: string) => {
+      // 서버 READY 반영 성공 후에만 호출 UI를 켜서, 실패 시 고객/관리자 상태 불일치를 막습니다.
+      try {
+        const updated = await adminOrderService.call(orderId);
+        if (updated.status !== "READY" && updated.status !== "COMPLETED") {
+          throw new Error(`호출 후 상태가 READY가 아닙니다. (현재: ${updated.status})`);
+        }
+        getUiState(orderId).called = true;
+        await refreshOrders();
+      } catch (err) {
+        console.error("호출(준비 완료) 처리 실패:", err);
+        const detail = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "";
+        alert(
+          detail
+            ? `호출 처리에 실패했습니다.\n${detail}`
+            : "호출 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        );
+        await refreshOrders();
+        throw err;
+      }
+    },
+    [refreshOrders],
+  );
+
   const pickupOrder = useCallback(
     async (orderId: string) => {
-      // 보드에서 먼저 제거하고 서버 상태를 COMPLETED 로 변경
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
       try {
-        await adminOrderService.updateStatus(orderId, "COMPLETED");
+        try {
+          await adminOrderService.complete(orderId);
+        } catch (firstErr) {
+          // complete API 실패 시 READY → COMPLETED 2단계로 재시도
+          console.warn("complete API 실패, status 전이로 재시도:", firstErr);
+          try {
+            await adminOrderService.updateStatus(orderId, "READY");
+          } catch {
+            // 이미 READY 이면 무시
+          }
+          await adminOrderService.updateStatus(orderId, "COMPLETED");
+        }
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        await refreshOrders();
       } catch (err) {
         console.error("픽업 완료 처리 실패:", err);
-        alert("픽업 완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        const detail =
+          err instanceof ApiError
+            ? `[${err.status}${err.code ? ` ${err.code}` : ""}] ${err.message || "응답 메시지 없음"}`
+            : err instanceof Error
+              ? err.message
+              : "";
+        alert(
+          detail
+            ? `픽업 완료 처리에 실패했습니다.\n${detail}`
+            : "픽업 완료 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        );
+        await refreshOrders();
+        throw err;
       }
-      await refreshOrders();
     },
     [refreshOrders],
   );

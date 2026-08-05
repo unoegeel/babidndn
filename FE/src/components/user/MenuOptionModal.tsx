@@ -7,6 +7,24 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
+/** 토핑명을 1줄로 유지하기 위해 길이에 따라 글자 크기를 줄입니다. */
+function toppingNameFontClass(name: string, withQtyControls: boolean): string {
+  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음
+  const len = name.length;
+  if (withQtyControls) {
+    if (len <= 3) return "text-[10px]";
+    if (len <= 4) return "text-[9px]";
+    if (len <= 5) return "text-[8px]";
+    if (len <= 7) return "text-[7px]";
+    return "text-[6px]";
+  }
+  if (len <= 4) return "text-[10px]";
+  if (len <= 5) return "text-[9px]";
+  if (len <= 7) return "text-[8px]";
+  if (len <= 9) return "text-[7px]";
+  return "text-[6px]";
+}
+
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   menuDetail,
   onClose,
@@ -165,13 +183,13 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     <div className="absolute inset-0 bg-black/40 z-50 flex flex-col justify-end">
       <div className="flex-1" onClick={onClose}></div>
 
-      {/* 바텀시트 */}
-      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[85%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
+      {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
+      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
         {/* 헤더 */}
-        <div className="px-6 pt-6 pb-4 bg-white flex justify-between items-start border-b border-gray-100">
+        <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{menuDetail.name}</h2>
-            <p className="text-sm font-semibold text-gray-800 mt-1">
+            <h2 className="text-lg font-bold text-gray-900">{menuDetail.name}</h2>
+            <p className="text-sm font-semibold text-gray-800 mt-0.5">
               {menuDetail.basePrice.toLocaleString()}원
             </p>
           </div>
@@ -186,134 +204,175 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           </button>
         </div>
 
-        {/* 바디 */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        {/* 바디 — 세로 스크롤 없이 한 화면에 맞춤 */}
+        <div className="overflow-hidden px-6 py-3 space-y-3">
           {/* 메뉴 설명 */}
           {menuDetail.description && (
-            <p className="text-xs text-gray-500 leading-relaxed bg-white p-3.5 rounded-2xl border border-gray-100">
+            <p className="line-clamp-2 text-[11px] text-gray-500 leading-snug bg-white px-3 py-2 rounded-xl border border-gray-100">
               {menuDetail.description}
             </p>
           )}
 
-          {/* 1) 사이즈 선택 (SIZE) - 가로 3열 배치 */}
+          {/* 1) 사이즈 선택 (SIZE) - 토핑 추가와 동일한 1줄 카드 */}
           {sizeOptions.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">사이즈 선택</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
               <div className="flex gap-2">
-                {sizeOptions.map((opt) => {
-                  const isSelected = selectedSizeId === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleSizeChange(opt.id)}
-                      className={`flex-1 py-3 px-2 rounded-xl text-xs font-bold transition-all border relative cursor-pointer ${
-                        isSelected
-                          ? "bg-white border-black text-black"
-                          : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div>{opt.name}</div>
-                      {opt.additionalPrice > 0 && (
-                        <div className="text-[10px] mt-0.5">+{opt.additionalPrice.toLocaleString()}원</div>
-                      )}
-                      {/* 우측 상단 체크 뱃지 */}
-                      {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[9px] font-bold">
-                          ✓
+                {[...sizeOptions]
+                  .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                  .map((opt) => {
+                    const isSelected = selectedSizeId === opt.id;
+                    const sizeLabel = opt.name === "기본" ? "싱글" : opt.name;
+                    const hasSurcharge = opt.additionalPrice > 0;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleSizeChange(opt.id)}
+                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                          hasSurcharge ? "gap-0.5" : ""
+                        } ${
+                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                        }`}
+                      >
+                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1]">
+                          {sizeLabel}
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
+                        {hasSurcharge && (
+                          <div className="text-[8px] leading-none text-gray-400">
+                            +{opt.additionalPrice.toLocaleString()}원
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
 
-          {/* 2) 토핑 추가 (TOPPING_ADD) - 가로 3열 그리드 배치 */}
+          {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">토핑 추가</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {toppingAddOptions.map((opt) => {
-                  const qty = selectedOtherOptions[opt.id] || 0;
-                  const isSelected = qty > 0;
-                  return (
-                    <div
-                      key={opt.id}
-                      onClick={() => handleOtherOptionToggle(opt)}
-                      className={`rounded-xl border bg-white p-1.5 flex flex-col items-center justify-between text-center h-[74px] relative transition-all cursor-pointer ${
-                        isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
-                      }`}
-                    >
-                      {/* 수량 조작기 활성화 여부에 따라 UI 분기 (Figma 캡처 반영) */}
-                      {isSelected ? (
-                        <div className="flex items-center justify-between w-full h-full flex-col">
-                          {/* 개별 수량 증감 버튼 */}
-                          <div className="flex justify-between items-center w-full bg-gray-50 rounded-lg py-0.5 px-1 border border-gray-100">
-                            <button
-                              onClick={(e) => handleToppingQtyChange(opt, -1, e)}
-                              className="w-3.5 h-3.5 text-gray-500 font-bold focus:outline-none flex items-center justify-center hover:bg-gray-200 rounded cursor-pointer text-[9px] leading-none"
-                            >
-                              -
-                            </button>
-                            <span className="text-[9px] font-bold text-gray-700 min-w-[6px] text-center">{qty}</span>
-                            <button
-                              onClick={(e) => handleToppingQtyChange(opt, 1, e)}
-                              className="w-3.5 h-3.5 text-gray-500 font-bold focus:outline-none flex items-center justify-center hover:bg-gray-200 rounded cursor-pointer text-[9px] leading-none"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <div className="text-[9.5px] font-bold mt-0.5 leading-[1.1] line-clamp-2 text-center w-full">{opt.name}</div>
-                          <div className="text-[8px] text-gray-400 mt-0.5 leading-none">+{opt.additionalPrice.toLocaleString()}원</div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full w-full">
-                          <div className="text-[9.5px] font-bold leading-[1.1] line-clamp-2 text-center w-full">+ {opt.name}</div>
-                          <div className="text-[8px] text-gray-400 mt-1 leading-none">+{opt.additionalPrice.toLocaleString()}원</div>
-                        </div>
-                      )}
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto·타이틀에 잘리지 않도록 여유 확보 */}
+              <div className="-mx-1 overflow-x-auto px-0.5 pb-0.5 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max gap-2 px-1.5">
+                  {toppingAddOptions.map((opt) => {
+                    const qty = selectedOtherOptions[opt.id] || 0;
+                    const isSelected = qty > 0;
+                    const toppingName = opt.name.replace(/^\+\s*/, "");
+                    const nameClass = toppingNameFontClass(toppingName, isSelected);
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={
+                          isSelected
+                            ? undefined
+                            : () => handleOtherOptionToggle(opt)
+                        }
+                        className={`relative flex h-[56px] w-[108px] shrink-0 flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                          isSelected
+                            ? "border-black text-black"
+                            : "cursor-pointer border-gray-200 text-gray-400"
+                        }`}
+                      >
+                        {isSelected ? (
+                          <div className="relative flex h-full w-full flex-col items-center justify-center">
+                            {/* 표시용 레이어 — 클릭은 좌/우 히트 영역이 처리 */}
+                            <div className="pointer-events-none flex w-full items-center gap-0.5">
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[11px] font-bold leading-none text-gray-500">
+                                -
+                              </span>
+                              <div
+                                className={`min-w-0 flex-1 truncate text-center font-bold leading-none ${nameClass}`}
+                              >
+                                {toppingName}
+                              </div>
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[11px] font-bold leading-none text-gray-500">
+                                +
+                              </span>
+                            </div>
+                            <div className="pointer-events-none mt-0.5 text-[8px] leading-none text-gray-400">
+                              +{opt.additionalPrice.toLocaleString()}원
+                            </div>
 
-                      {/* 우측 상단 수량 뱃지 오버랩 */}
-                      {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-[#000000] text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[9px] font-bold">
-                          {qty}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            {/* 좌측 절반: 수량 감소 (1개일 때 선택 해제) */}
+                            <button
+                              type="button"
+                              aria-label={`${toppingName} 수량 감소`}
+                              onClick={(e) => handleToppingQtyChange(opt, -1, e)}
+                              className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-pointer focus:outline-none"
+                            />
+                            {/* 우측 절반: 수량 증가 */}
+                            <button
+                              type="button"
+                              aria-label={`${toppingName} 수량 증가`}
+                              onClick={(e) => handleToppingQtyChange(opt, 1, e)}
+                              className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-pointer focus:outline-none"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center">
+                            <div
+                              className={`w-full truncate text-center font-bold leading-none ${nameClass}`}
+                            >
+                              {toppingName}
+                            </div>
+                            <div className="mt-0.5 text-[8px] leading-none text-gray-400">
+                              +{opt.additionalPrice.toLocaleString()}원
+                            </div>
+                          </div>
+                        )}
+
+                        {isSelected && (
+                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[9px] font-bold text-white">
+                            {qty}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
-          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 가로 배치 */}
+          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈/토핑 추가와 동일한 1줄 카드 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">토핑 제외</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
               <div className="flex gap-2">
-                {toppingRemoveOptions.map((opt) => {
-                  const isSelected = !!selectedOtherOptions[opt.id];
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleOtherOptionToggle(opt)}
-                      className={`flex-1 py-3 px-2 rounded-xl text-xs font-bold transition-all border relative cursor-pointer bg-white ${
-                        isSelected
-                          ? "border-black text-black"
-                          : "border-gray-200 text-gray-400 hover:bg-gray-50"
-                      }`}
-                    >
-                      {opt.name}
-                      {/* 우측 상단 체크 뱃지 */}
-                      {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[9px] font-bold">
-                          ✓
+                {[...toppingRemoveOptions]
+                  .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                  .map((opt) => {
+                    const isSelected = !!selectedOtherOptions[opt.id];
+                    const removeLabel =
+                      opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleOtherOptionToggle(opt)}
+                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                        }`}
+                      >
+                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1] line-clamp-2">
+                          {removeLabel}
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
+                        {isSelected && (
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -321,7 +380,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 4) 기타 옵션 (groupType === null) */}
           {extraOptions.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">기타 선택</h3>
+              <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">기타 선택</h3>
               <div className="flex gap-2">
                 {extraOptions.map((opt) => {
                   const isSelected = !!selectedOtherOptions[opt.id];
@@ -351,7 +410,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         </div>
 
         {/* 푸터 */}
-        <div className="p-6 border-t border-gray-100 bg-white">
+        <div className="px-6 pt-4 pb-5 border-t border-gray-100 bg-white">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">수량</span>
             <div className="flex items-center gap-4 bg-gray-100 rounded-xl px-3.5 py-1.5">
@@ -375,7 +434,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           {/* 최대 수량 안내 영역 (고정 공간 확보 및 aria-live/role="status" 설정) */}
           <div
-            className="h-7 flex items-center justify-center mt-2.5 mb-1"
+            className="h-6 flex items-center justify-center mt-2 mb-1"
             role="status"
             aria-live="polite"
           >
@@ -388,7 +447,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           <button
             onClick={handleSubmit}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
+            className="w-full bg-black text-white py-3.5 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
           >
             장바구니 담기 · {totalPrice.toLocaleString()} 원
           </button>

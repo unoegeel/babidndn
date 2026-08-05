@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MenuCategory, MenuDetail, MenuSummary, MenuOption } from "../../types/user";
 import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
+import MenuThumb from "../../components/user/MenuThumb";
+
+const SWIPE_THRESHOLD_PX = 56;
 
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +20,12 @@ export const MenuPage: React.FC = () => {
   // 모달 제어용 상태
   const [activeMenuDetail, setActiveMenuDetail] = useState<MenuDetail | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  const menuListRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeLockedRef = useRef(false);
+
+  const sortedCategories = [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
 
   // 전체 카테고리 로드
   useEffect(() => {
@@ -39,7 +48,64 @@ export const MenuPage: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // 특정 메뉴 선택 시 상세 조회 및 모달 오픈
+  // 헤더 "바비든든" 클릭 시 메뉴 목록 스크롤 최상단
+  useEffect(() => {
+    const handleScrollTop = () => {
+      menuListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("user-menu-scroll-top", handleScrollTop);
+    return () => window.removeEventListener("user-menu-scroll-top", handleScrollTop);
+  }, []);
+
+  // 카테고리 변경 시 목록 스크롤 리셋
+  useEffect(() => {
+    menuListRef.current?.scrollTo({ top: 0 });
+  }, [selectedCategoryId]);
+
+  const switchCategoryByOffset = useCallback(
+    (offset: number) => {
+      if (sortedCategories.length === 0 || selectedCategoryId === null) return;
+      const currentIndex = sortedCategories.findIndex((c) => c.categoryId === selectedCategoryId);
+      if (currentIndex < 0) return;
+      const nextIndex = currentIndex + offset;
+      if (nextIndex < 0 || nextIndex >= sortedCategories.length) return;
+      setSelectedCategoryId(sortedCategories[nextIndex].categoryId);
+    },
+    [sortedCategories, selectedCategoryId],
+  );
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeLockedRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || swipeLockedRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+
+    // 세로 스크롤이 우세하면 스와이프 카테고리 전환 잠금
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) {
+      swipeLockedRef.current = true;
+      return;
+    }
+
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) return;
+
+    // 손가락을 왼쪽으로 → 다음 카테고리, 오른쪽으로 → 이전 카테고리
+    switchCategoryByOffset(dx < 0 ? 1 : -1);
+    swipeLockedRef.current = true;
+    touchStartRef.current = null;
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+    swipeLockedRef.current = false;
+  };
+
+  // 특정 메뉴 선택 시 상세 조회 → 토핑 불가면 바로 담기, 가능하면 옵션 시트 오픈
   const handleMenuSelect = async (menuId: number) => {
     try {
       setModalLoading(true);
@@ -48,6 +114,17 @@ export const MenuPage: React.FC = () => {
         alert("품절된 메뉴입니다.");
         return;
       }
+
+      // 관리자에서 토핑 선택을 불가능으로 둔 메뉴는 바텀시트 없이 즉시 담기
+      if (detail.toppingEnabled === false) {
+        const sizeOptions = detail.options.filter((o) => o.groupType === "SIZE");
+        const defaultSize =
+          sizeOptions.find((o) => o.defaultSelected) ?? sizeOptions[0] ?? null;
+        const selectedOptions = defaultSize ? [defaultSize] : [];
+        addToCart(detail, selectedOptions, 1);
+        return;
+      }
+
       setActiveMenuDetail(detail);
     } catch (err) {
       console.error(err);
@@ -99,28 +176,33 @@ export const MenuPage: React.FC = () => {
     <div className="flex-1 flex flex-col bg-white relative overflow-hidden h-full">
       {/* 카테고리 가로 스크롤 탭 바 */}
       <div className="shrink-0 bg-white z-10 border-b border-gray-100 overflow-x-auto scrollbar-none flex px-4 gap-2 py-3.5">
-        {categories
-          .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map((cat) => {
-            const isSelected = cat.categoryId === selectedCategoryId;
-            return (
-              <button
-                key={cat.categoryId}
-                onClick={() => setSelectedCategoryId(cat.categoryId)}
-                className={`py-2 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
-                  isSelected
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {cat.categoryName}
-              </button>
-            );
-          })}
+        {sortedCategories.map((cat) => {
+          const isSelected = cat.categoryId === selectedCategoryId;
+          return (
+            <button
+              key={cat.categoryId}
+              onClick={() => setSelectedCategoryId(cat.categoryId)}
+              className={`py-2 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                isSelected
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {cat.categoryName}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 메뉴 카드 목록 영역 */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+      {/* 메뉴 카드 목록 영역 — 좌우 스와이프로 카테고리 전환 */}
+      <div
+        ref={menuListRef}
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
         {sortedMenus.length === 0 ? (
           <div className="py-24 text-center text-gray-400 font-bold text-xs">
             이 카테고리에는 등록된 메뉴가 없습니다.
@@ -138,12 +220,12 @@ export const MenuPage: React.FC = () => {
                     : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
                 }`}
               >
-                {/* 메뉴 사진 (피그마 '사진' 대체 텍스트 구성) */}
-                <div className="w-[84px] h-[84px] rounded-xl overflow-hidden bg-[#F8F9FA] border border-gray-100 flex-shrink-0 flex items-center justify-center relative">
-                  <span className="text-gray-400 font-bold text-xs">사진</span>
+                {/* 메뉴 사진 */}
+                <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
+                  <MenuThumb src={menu.imageUrl} alt={menu.name} />
                   {isSoldOut && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <span className="text-white text-xs font-extrabold">품절</span>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="text-xs font-extrabold text-white">품절</span>
                     </div>
                   )}
                 </div>
@@ -188,10 +270,10 @@ export const MenuPage: React.FC = () => {
 
       {/* 하단 퀵 장바구니 바 (장바구니 0개여도 항상 노출, shrink-0 하단 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 z-30"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-30 shrink-0 border-t border-gray-100 bg-white px-4 pt-3"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
-        <div className="bg-white border border-gray-100 shadow-xl rounded-2xl p-4 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-3 shadow-xl">
           <div className="flex items-center gap-3">
             <div className="relative bg-gray-50 p-2.5 rounded-xl border border-gray-100">
               <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

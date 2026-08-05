@@ -121,7 +121,7 @@ class AdminMenuServiceTest {
     }
 
     @Test
-    void createMenuWithToppingEnabledCreatesSixDefaultToppings() {
+    void createMenuWithToppingEnabledCreatesDefaultSizesAndToppings() {
         Category category = category(1L);
         given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
         given(menuRepository.existsByCategoryIdAndName(1L, "삼겹소금")).willReturn(false);
@@ -133,6 +133,8 @@ class AdminMenuServiceTest {
         given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
                 OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
                 .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of());
         given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
                 .willReturn(List.of());
 
@@ -142,13 +144,20 @@ class AdminMenuServiceTest {
 
         org.mockito.ArgumentCaptor<List<MenuOption>> captor =
                 org.mockito.ArgumentCaptor.forClass(List.class);
-        verify(menuOptionRepository).saveAll(captor.capture());
-        assertThat(captor.getValue())
-                .hasSize(6)
+        verify(menuOptionRepository, org.mockito.Mockito.times(2)).saveAll(captor.capture());
+        assertThat(captor.getAllValues().get(0))
                 .extracting(MenuOption::getName)
                 .containsExactly(
                         "계란후라이", "밥 추가", "고기 추가",
-                        "모짜렐라치즈", "체다치즈", "스팸");
+                        "모짜렐라치즈", "체다치즈", "스팸",
+                        "김치 제외", "고추장 소스 제외");
+        assertThat(captor.getAllValues().get(1))
+                .hasSize(3)
+                .extracting(MenuOption::getName, MenuOption::getAdditionalPrice)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("싱글", 0),
+                        org.assertj.core.groups.Tuple.tuple("더블", 1000),
+                        org.assertj.core.groups.Tuple.tuple("점보", 2000));
     }
 
     @Test

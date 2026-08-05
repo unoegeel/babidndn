@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { orderService, type OrderDetailResponse } from "../../services/user/orderService";
+import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../../services/user/orderService";
 import { useUserData } from "../../store/UserDataContext";
+import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { clearCart, restoreCart } = useUserData();
+  const { clearCart, restoreCart, saveOrderToState } = useUserData();
 
   const paymentKey = searchParams.get("paymentKey");
   const tossOrderId = searchParams.get("orderId"); // Toss 문자열 orderId
@@ -61,18 +62,27 @@ export const PaymentSuccessPage: React.FC = () => {
         orderId: tossOrderId,
         amount,
       })
-      .then((res) => {
+      .then(async (res) => {
         // 승인 완료 시 임시 저장소 및 장바구니 비우기
         sessionStorage.removeItem("pendingOrder");
         sessionStorage.removeItem("cartBackup");
         sessionStorage.removeItem(sessionConfirmKey);
         clearCart();
 
+        // 결제 확정 후 발급된 픽업번호 포함 주문을 로컬 내역에 반영
+        try {
+          const detail = await orderService.getOrder(res.orderId);
+          saveOrderToState(mapOrderDetailToOrder(detail));
+        } catch (e) {
+          console.error("결제 완료 주문 조회 실패:", e);
+        }
+
         // 백엔드 숫자형 id (res.orderId) 기반 주문 현황 페이지 이동
         const backendOrderId = String(res.orderId);
+        void linkPushSubscriptionToOrder(backendOrderId);
         navigate(`/user/orders/${backendOrderId}`, { replace: true });
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         console.error("결제 승인 실패:", err);
         // 실패 시 중복 방지 세션 해제하여 재시도 가능하게 함
         sessionStorage.removeItem(sessionConfirmKey);
@@ -81,7 +91,19 @@ export const PaymentSuccessPage: React.FC = () => {
         const message = err instanceof Error ? err.message : "결제 승인 처리 중 오류가 발생했습니다.";
         setErrorMsg(message);
 
-        // 실패 시 장바구니 복원 시도
+        // 미결제 임시 주문 정리 + 장바구니 복원
+        try {
+          const savedPending = sessionStorage.getItem("pendingOrder");
+          if (savedPending) {
+            const pending = JSON.parse(savedPending) as OrderDetailResponse;
+            if (pending?.id) {
+              await orderService.abandonUnpaidOrder(pending.id);
+            }
+          }
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+
         try {
           const savedCart = sessionStorage.getItem("cartBackup");
           if (savedCart) {
@@ -89,9 +111,12 @@ export const PaymentSuccessPage: React.FC = () => {
           }
         } catch (e) {
           console.error("장바구니 복원 실패:", e);
+        } finally {
+          sessionStorage.removeItem("pendingOrder");
+          sessionStorage.removeItem("cartBackup");
         }
       });
-  }, [paymentKey, tossOrderId, amountStr, isInvalidParams, clearCart, restoreCart, navigate]);
+  }, [paymentKey, tossOrderId, amountStr, isInvalidParams, clearCart, restoreCart, saveOrderToState, navigate]);
 
   const displayError = isInvalidParams ? "결제 검증 파라미터가 유효하지 않습니다." : errorMsg;
 

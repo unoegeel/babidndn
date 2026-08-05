@@ -45,7 +45,7 @@ export interface OrderItem {
  * 조리 진행 상태
  * - waiting: 신규 접수 (서버 PREPARING)
  * - cooking: 일부 조리 완료 (화면 전용)
- * - done: 전체 조리 완료 (서버 READY)
+ * - done: 전체 조리 완료 (화면 전용) 또는 서버 READY(호출 후)
  */
 export type OrderStatus = "waiting" | "cooking" | "done";
 

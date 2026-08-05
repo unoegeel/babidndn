@@ -39,6 +39,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/admin/auth/signup").permitAll()
+                        .requestMatchers("/api/push/**").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -48,6 +50,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/orders/stream").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/orders").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/call").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/complete").hasRole("ADMIN")
                         .anyRequest().permitAll()
                 );
 

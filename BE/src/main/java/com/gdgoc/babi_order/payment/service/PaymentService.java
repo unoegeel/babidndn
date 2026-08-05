@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.payment.service;
 
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.service.OrderService;
 import com.gdgoc.babi_order.payment.client.TossPaymentClient;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
@@ -34,6 +35,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final TossPaymentClient tossPaymentClient;
+    private final OrderService orderService;
 
     @Transactional
     public PaymentConfirmResponse confirm(PaymentConfirmRequest request) {
@@ -67,6 +69,8 @@ public class PaymentService {
                 .build();
 
         Payment saved = paymentRepository.save(payment);
+        // 결제 확정 후에만 픽업번호 발급 + 주문 보드/내역 노출
+        orderService.activateAfterPayment(order.getId());
 
         return PaymentConfirmResponse.builder()
                 .id(saved.getId())
@@ -160,6 +164,9 @@ public class PaymentService {
 
         tossPaymentClient.cancel(paymentKey, request.getCancelReason());
         payment.cancel(request.getCancelReason());
+
+        // 준비 완료 전·후 환불 시 주문도 취소해 고객 실시간 현황에 반영
+        orderService.cancelOrderDueToPaymentCancel(payment.getOrder().getId());
 
         return toPaymentResponse(payment);
     }

@@ -23,22 +23,30 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
   const navigate = useNavigate();
 
   return (
-    // h-dvh: iOS Safari 등에서 주소창/툴바 높이를 제외한 실제 보이는 높이 사용
-    <div className="flex h-dvh w-full overflow-hidden bg-canvas">
-      {/* 사이드바 */}
-      {/* 주문 상세(2개 메뉴 기준)가 한 화면에 들어오도록 사이드바 폭 확대 */}
+    // --app-height: 태블릿 브라우저 상·하단 바를 제외한 실제 가시 높이
+    <div
+      className="flex w-full overflow-hidden bg-canvas"
+      style={{
+        height: "var(--app-height)",
+        maxHeight: "var(--app-height)",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}
+    >
+      {/* 사이드바 (기존 대비 폭 70%) — 하단 네비/시계가 항상 보이도록 상단 슬롯만 스크롤 */}
       <aside
-        className="flex w-[240px] shrink-0 flex-col overflow-hidden bg-panel px-[15px] py-[20px] short:py-[12px] md:w-[300px] lg:w-[340px]"
-        style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
+        className="flex w-[168px] shrink-0 flex-col overflow-hidden bg-panel px-[10px] pt-[16px] short:pt-[10px] md:w-[210px] lg:w-[238px]"
+        style={{
+          paddingBottom: "max(20px, env(safe-area-inset-bottom, 0px))",
+        }}
       >
         {/* 상단 슬롯 (내용이 길면 이 영역만 스크롤 → 하단 메뉴는 항상 보임) */}
-        <div className="min-h-0 flex-1 overflow-y-auto">{sidebarTop}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{sidebarTop}</div>
 
         {/* 구분선 */}
-        <div className="my-[14px] shrink-0 border-t border-black/40 short:my-[8px]" />
+        <div className="my-[12px] shrink-0 border-t border-black/40 short:my-[6px]" />
 
-        {/* 네비게이션 */}
-        <nav className="flex shrink-0 flex-col gap-[10px] short:gap-[4px]">
+        {/* 네비게이션 (버튼 150%, 간격 200%) */}
+        <nav className="flex shrink-0 flex-col gap-[20px] short:gap-[8px]">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} className="block">
               {({ isActive }) => <NavPill label={item.label} active={isActive} />}
@@ -61,7 +69,7 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
       </aside>
 
       {/* 메인 */}
-      <main className="min-w-0 flex-1 overflow-auto">{children}</main>
+      <main className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">{children}</main>
     </div>
   );
 }
@@ -94,9 +102,9 @@ function SidebarClock() {
 
   return (
     // 화면이 낮을 때는 날짜/시각을 한 줄로 붙여 표시해 상단 상세 영역을 확보
-    <div className="mt-[14px] shrink-0 text-center text-[14px] font-medium leading-tight text-black short:mt-[8px] short:flex short:justify-center short:gap-[6px] short:text-[13px]">
-      <p>{date}</p>
-      <p>{time}</p>
+    <div className="mt-[12px] shrink-0 text-center font-medium leading-tight text-black short:mt-[6px] short:flex short:items-baseline short:justify-center short:gap-[8px]">
+      <p className="text-[16px] short:text-[14px]">{date}</p>
+      <p className="mt-[4px] text-[28px] font-bold tracking-wide short:mt-0 short:text-[22px]">{time}</p>
     </div>
   );
 }
@@ -104,11 +112,11 @@ function SidebarClock() {
 function NavPill({ label, active }: { label: string; active: boolean }) {
   return (
     <span
-      className={`flex h-[44px] items-center gap-[12px] rounded-[10px] px-[16px] text-[15px] font-medium tracking-[0.5px] short:h-[34px] short:gap-[8px] short:text-[14px] ${
+      className={`flex h-[66px] items-center gap-[18px] rounded-[15px] px-[16px] text-[22px] font-medium tracking-[0.5px] short:h-[51px] short:gap-[12px] short:rounded-[12px] short:px-[12px] short:text-[21px] ${
         active ? "bg-black text-canvas" : "bg-canvas text-black"
       }`}
     >
-      <span className="size-[14px] shrink-0 rounded-full bg-danger" />
+      <span className="size-[21px] shrink-0 rounded-full bg-danger short:size-[18px]" />
       {label}
     </span>
   );

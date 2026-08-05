@@ -25,6 +25,12 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
+	implementation 'nl.martijndwars:web-push:5.1.2'
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+	// web-push POM 이 jose4j/httpclient 를 runtime 으로만 두어 컴파일 클래스패스에 없음
+	implementation 'org.bitbucket.b_c:jose4j:0.7.9'
+	implementation 'org.apache.httpcomponents:httpasyncclient:4.1.5'
+	implementation 'org.apache.httpcomponents:httpclient:4.5.14'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'com.mysql:mysql-connector-j'

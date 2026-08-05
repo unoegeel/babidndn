@@ -20,6 +20,7 @@ import com.gdgoc.babi_order.order.repository.OrderRepository;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
+import com.gdgoc.babi_order.push.service.PushNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,12 +28,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -54,6 +57,9 @@ class OrderServiceTest {
     @Mock
     private OrderEventService orderEventService;
 
+    @Mock
+    private PushNotificationService pushNotificationService;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -63,7 +69,8 @@ class OrderServiceTest {
                 menuRepository,
                 menuOptionRepository,
                 paymentRepository,
-                orderEventService
+                orderEventService,
+                pushNotificationService
         );
     }
 
@@ -71,7 +78,6 @@ class OrderServiceTest {
     void createOrderCalculatesAmountFromServerPrices() {
         Menu menu = menu(1L, SaleStatus.AVAILABLE);
         MenuOption option = option(1L, menu, 1000, 2);
-        given(orderRepository.findMaxPickupNumber()).willReturn(7);
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(option));
         given(orderRepository.save(any())).willAnswer(invocation -> {
@@ -92,7 +98,7 @@ class OrderServiceTest {
 
         OrderDetailResponse result = orderService.createOrder(request);
 
-        assertThat(result.getPickupNumber()).isEqualTo(8);
+        assertThat(result.getPickupNumber()).isEqualTo(0);
         assertThat(result.getTotalAmount()).isEqualTo(18000);
         assertThat(result.getPaymentStatus()).isEqualTo("UNPAID");
         assertThat(result.getItems().getFirst().getMenuName()).isEqualTo("바비 비빔밥");
@@ -100,7 +106,7 @@ class OrderServiceTest {
                 .isEqualTo(1000);
         assertThat(result.getItems().getFirst().getOptions().getFirst().getGroupType())
                 .isEqualTo("SIZE");
-        verify(orderEventService).publish("ORDER_CREATED", result);
+        verify(orderEventService, org.mockito.Mockito.never()).publish(any(), any());
     }
 
     @Test
@@ -108,7 +114,6 @@ class OrderServiceTest {
         Menu orderedMenu = menu(1L, SaleStatus.AVAILABLE);
         Menu anotherMenu = menu(2L, SaleStatus.AVAILABLE);
         MenuOption option = option(1L, anotherMenu, 1000, 1);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
         given(menuRepository.findById(1L)).willReturn(Optional.of(orderedMenu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(option));
 
@@ -126,7 +131,6 @@ class OrderServiceTest {
                 2L, menu, OptionGroupType.TOPPING_ADD, "계란후라이", 700, 3);
         MenuOption toppingRemove = option(
                 3L, menu, OptionGroupType.TOPPING_REMOVE, "김가루 제외", 0, 1);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(size));
         given(menuOptionRepository.findById(2L)).willReturn(Optional.of(toppingAdd));
@@ -168,7 +172,6 @@ class OrderServiceTest {
     @Test
     void createOrderRejectsSoldOutMenu() {
         Menu menu = menu(1L, SaleStatus.SOLDOUT);
-        given(orderRepository.findMaxPickupNumber()).willReturn(0);
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
 
         assertThatThrownBy(() -> orderService.createOrder(OrderCreateRequest.builder()
@@ -181,6 +184,66 @@ class OrderServiceTest {
                 .isInstanceOf(OrderApiException.class)
                 .extracting("code")
                 .isEqualTo("MENU_SOLD_OUT");
+    }
+
+    @Test
+    void activateAfterPaymentAssignsPickupNumberFromOneWhenNoOrdersToday() {
+        Order unpaid = order(1L, Order.UNASSIGNED_PICKUP_NUMBER);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(unpaid));
+        givenNoPaidOrdersToday();
+
+        OrderDetailResponse result = orderService.activateAfterPayment(1L);
+
+        assertThat(result.getPickupNumber()).isEqualTo(1);
+        assertThat(result.getPaymentStatus()).isEqualTo("DONE");
+        verify(orderEventService).publish("ORDER_CREATED", result);
+    }
+
+    @Test
+    void activateAfterPaymentResetsPickupNumberToOneAfter99() {
+        Order unpaid = order(100L, Order.UNASSIGNED_PICKUP_NUMBER);
+        given(orderRepository.findById(100L)).willReturn(Optional.of(unpaid));
+        givenLatestPickupNumber(99);
+
+        OrderDetailResponse result = orderService.activateAfterPayment(100L);
+
+        assertThat(result.getPickupNumber()).isEqualTo(1);
+        verify(orderEventService).publish("ORDER_CREATED", result);
+    }
+
+    @Test
+    void activateAfterPaymentContinuesFromLatestPaidPickupNumber() {
+        Order unpaid = order(11L, Order.UNASSIGNED_PICKUP_NUMBER);
+        given(orderRepository.findById(11L)).willReturn(Optional.of(unpaid));
+        givenLatestPickupNumber(7);
+
+        OrderDetailResponse result = orderService.activateAfterPayment(11L);
+
+        assertThat(result.getPickupNumber()).isEqualTo(8);
+    }
+
+    @Test
+    void abandonUnpaidOrderDeletesTemporaryOrder() {
+        Order unpaid = order(1L, Order.UNASSIGNED_PICKUP_NUMBER);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(unpaid));
+        given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.empty());
+
+        orderService.abandonUnpaidOrder(1L);
+
+        verify(orderRepository).delete(unpaid);
+    }
+
+    @Test
+    void abandonUnpaidOrderRejectsPaidOrder() {
+        Order paid = order(1L, 3);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(paid));
+        given(paymentRepository.findByOrder_Id(1L))
+                .willReturn(Optional.of(payment(paid, PaymentStatus.DONE)));
+
+        assertThatThrownBy(() -> orderService.abandonUnpaidOrder(1L))
+                .isInstanceOf(OrderApiException.class)
+                .extracting("code")
+                .isEqualTo("ORDER_ALREADY_PAID");
     }
 
     @Test
@@ -215,9 +278,9 @@ class OrderServiceTest {
     }
 
     @Test
-    void getOrdersMapsPaymentStatusPerOrderIncludingUnpaidOrders() {
+    void getOrdersExcludesUnpaidOrders() {
         Order paidOrder = order(1L, 1);
-        Order unpaidOrder = order(2L, 2);
+        Order unpaidOrder = order(2L, 0);
         Payment payment = payment(paidOrder, PaymentStatus.DONE);
         given(orderRepository.findAllByOrderByCreatedAtDescIdDesc())
                 .willReturn(List.of(paidOrder, unpaidOrder));
@@ -227,9 +290,7 @@ class OrderServiceTest {
 
         assertThat(result)
                 .extracting(OrderSummaryResponse::getId, OrderSummaryResponse::getPaymentStatus)
-                .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(1L, "DONE"),
-                        org.assertj.core.groups.Tuple.tuple(2L, "UNPAID"));
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1L, "DONE"));
     }
 
     @Test
@@ -243,6 +304,7 @@ class OrderServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.READY);
         assertThat(result.getStatus()).isEqualTo("READY");
         verify(orderEventService).publish("ORDER_STATUS_CHANGED", result);
+        verify(pushNotificationService).notifyOrderReady(eq(1L), eq(1));
     }
 
     @Test
@@ -266,6 +328,22 @@ class OrderServiceTest {
                 .isInstanceOf(OrderApiException.class)
                 .extracting("code")
                 .isEqualTo("INVALID_ORDER_STATUS_TRANSITION");
+    }
+
+    private void givenNoPaidOrdersToday() {
+        given(orderRepository
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
+                        any(LocalDateTime.class), any(LocalDateTime.class), any(Integer.class)))
+                .willReturn(Optional.empty());
+    }
+
+    private void givenLatestPickupNumber(int pickupNumber) {
+        Order latest = order(10L, pickupNumber);
+        ReflectionTestUtils.setField(latest, "createdAt", LocalDateTime.now());
+        given(orderRepository
+                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
+                        any(LocalDateTime.class), any(LocalDateTime.class), any(Integer.class)))
+                .willReturn(Optional.of(latest));
     }
 
     private Order order(Long id, Integer pickupNumber) {

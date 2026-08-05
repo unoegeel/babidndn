@@ -30,8 +30,10 @@ export default function PaymentHistoryPage() {
 
   return (
     <AdminShell>
-      <div className="flex h-full flex-col p-[20px] md:p-[32px]">
-        <h1 className="mb-[24px] text-[24px] font-bold text-black">결제 내역</h1>
+      <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
+        <h1 className="mb-[16px] shrink-0 text-[22px] font-bold text-black short:mb-[10px] short:text-[18px]">
+          결제 내역
+        </h1>
 
         {/* 필터 */}
         <div className="mb-[24px] flex flex-wrap items-center gap-[12px] md:gap-[16px]">

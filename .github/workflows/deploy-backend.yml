@@ -1,0 +1,107 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [main, dev]
+    paths:
+      - "BE/**"
+      - ".github/workflows/deploy-backend.yml"
+
+concurrency:
+  group: babi-order-ec2
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: babi-order
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      registry: ${{ steps.ecr-login.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          IMAGE_TAG="${GITHUB_REF_NAME}-${GITHUB_SHA}"
+          IMAGE_URI="$REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
+          docker build -f BE/Dockerfile -t "$IMAGE_URI" BE
+          docker push "$IMAGE_URI"
+          echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ needs.build-and-push.outputs.registry }}
+            docker pull ${{ needs.build-and-push.outputs.image }}
+            docker image prune -f
+
+            if [ "${{ github.ref_name }}" = "dev" ]; then
+              test -f /opt/babi-order-dev/.env
+
+              # 개발 환경은 운영 DB(babi_order)를 쓰지 않도록 강제
+              DEV_DB_NAME="$(grep -E '^DB_NAME=' /opt/babi-order-dev/.env | cut -d= -f2- | tr -d '\r')"
+              if [ -z "$DEV_DB_NAME" ] || [ "$DEV_DB_NAME" = "babi_order" ]; then
+                echo "ERROR: /opt/babi-order-dev/.env 의 DB_NAME 은 babi_order_dev 이어야 합니다. (현재: '${DEV_DB_NAME:-empty}')"
+                echo "MySQL에서 scripts/create-dev-database.sql 을 실행한 뒤 .env 의 DB_NAME 을 변경하세요."
+                exit 1
+              fi
+
+              docker stop babi-order-dev || true
+              docker rm babi-order-dev || true
+
+              docker run -d \
+                --name babi-order-dev \
+                --env-file /opt/babi-order-dev/.env \
+                -e SPRING_PROFILES_ACTIVE=dev \
+                -e DB_NAME=babi_order_dev \
+                -e JAVA_OPTS="-Xmx512m" \
+                -p 8081:8080 \
+                --restart unless-stopped \
+                ${{ needs.build-and-push.outputs.image }}
+            else
+              test -f /opt/babi-order/.env
+
+              docker stop babi-order || true
+              docker rm babi-order || true
+
+              docker run -d \
+                --name babi-order \
+                --env-file /opt/babi-order/.env \
+                -e SPRING_PROFILES_ACTIVE=prod \
+                -e DB_NAME=babi_order \
+                -e JAVA_OPTS="-Xmx512m" \
+                -p 8080:8080 \
+                --restart unless-stopped \
+                ${{ needs.build-and-push.outputs.image }}
+            fi

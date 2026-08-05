@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import MenuThumb from "../../components/user/MenuThumb";
+import { orderService } from "../../services/user/orderService";
+import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 
 declare global {
   interface Window {
@@ -51,12 +54,26 @@ export const CheckoutPage: React.FC = () => {
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
       if (!clientKey) {
         alert("Toss Payments Client Key (VITE_TOSS_CLIENT_KEY)가 설정되지 않았습니다.");
+        try {
+          await orderService.abandonUnpaidOrder(createdOrder.id);
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+        sessionStorage.removeItem("pendingOrder");
+        sessionStorage.removeItem("cartBackup");
         setIsProcessing(false);
         return;
       }
 
       if (!window.TossPayments) {
         alert("Toss Payments SDK가 로드되지 않았습니다.");
+        try {
+          await orderService.abandonUnpaidOrder(createdOrder.id);
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+        sessionStorage.removeItem("pendingOrder");
+        sessionStorage.removeItem("cartBackup");
         setIsProcessing(false);
         return;
       }
@@ -80,8 +97,15 @@ export const CheckoutPage: React.FC = () => {
             successUrl,
             failUrl,
           })
-          .catch((sdkErr: unknown) => {
+          .catch(async (sdkErr: unknown) => {
             console.error("Toss SDK 요청 거부/취소:", sdkErr);
+            try {
+              await orderService.abandonUnpaidOrder(createdOrder.id);
+            } catch (e) {
+              console.error("미결제 주문 삭제 실패:", e);
+            }
+            sessionStorage.removeItem("pendingOrder");
+            sessionStorage.removeItem("cartBackup");
             setIsProcessing(false);
           });
       } else {
@@ -105,12 +129,26 @@ export const CheckoutPage: React.FC = () => {
               flowMode: "DIRECT",
               easyPay: easyPayName,
             })
-            .catch((sdkErr: unknown) => {
+            .catch(async (sdkErr: unknown) => {
               console.error("Toss SDK 요청 거부/취소:", sdkErr);
+              try {
+                await orderService.abandonUnpaidOrder(createdOrder.id);
+              } catch (e) {
+                console.error("미결제 주문 삭제 실패:", e);
+              }
+              sessionStorage.removeItem("pendingOrder");
+              sessionStorage.removeItem("cartBackup");
               setIsProcessing(false);
             });
         } else {
           alert("지원되지 않는 결제 수단입니다.");
+          try {
+            await orderService.abandonUnpaidOrder(createdOrder.id);
+          } catch (e) {
+            console.error("미결제 주문 삭제 실패:", e);
+          }
+          sessionStorage.removeItem("pendingOrder");
+          sessionStorage.removeItem("cartBackup");
           setIsProcessing(false);
         }
       }
@@ -131,11 +169,15 @@ export const CheckoutPage: React.FC = () => {
           <h2 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-2">주문 요약</h2>
           <div className="space-y-3">
             {cart.map((item) => {
-              const optionNames = item.selectedOptions.map((opt) => opt.name).join(" / ");
+              const optionNames = formatSelectedOptions(item.selectedOptions);
               return (
                 <div key={item.cartItemId} className="flex gap-4 items-start py-1">
-                  <div className="w-[50px] h-[50px] rounded-xl bg-[#F8F9FA] border border-gray-100 flex-shrink-0 flex items-center justify-center">
-                    <span className="text-gray-400 font-bold text-[10px]">사진</span>
+                  <div className="flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
+                    <MenuThumb
+                      src={item.imageUrl}
+                      alt={item.menuName}
+                      placeholderClassName="text-gray-400 font-bold text-[10px]"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-xs font-bold text-gray-800 truncate">{item.menuName}</h3>
@@ -270,16 +312,16 @@ export const CheckoutPage: React.FC = () => {
 
       {/* 하단 고정 결제하기 버튼 (shrink-0 영역) */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 z-40"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="z-40 shrink-0 border-t border-gray-100 bg-white px-4 pt-3"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
       >
         <button
           onClick={handlePayment}
           disabled={!isPaymentValid || isProcessing}
-          className={`w-full py-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center border ${
+          className={`flex w-full items-center justify-center rounded-xl border py-3.5 text-sm font-bold transition-all ${
             isPaymentValid && !isProcessing
-              ? "bg-[#D8B47E] text-white border-[#D8B47E] hover:bg-[#C59B62] cursor-pointer shadow-md"
-              : "bg-[#D8B47E]/40 text-white/60 border-transparent cursor-not-allowed shadow-none"
+              ? "cursor-pointer border-[#D8B47E] bg-[#D8B47E] text-white shadow-md hover:bg-[#C59B62]"
+              : "cursor-not-allowed border-transparent bg-[#D8B47E]/40 text-white/60 shadow-none"
           }`}
         >
           {isProcessing ? (
