@@ -1,10 +1,11 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider, Outlet } from "react-router-dom";
 import "./index.css";
 import { startAppHeightSync } from "./utils/appHeight";
 import { AdminDataProvider } from "./store/AdminDataContext";
 import RequireAdminAuth from "./components/RequireAdminAuth";
+import { HomeRedirect, PwaEntryTracker } from "./components/PwaEntry";
 import LoginPage from "./pages/owner/LoginPage";
 import SignupPage from "./pages/owner/SignupPage";
 import OrdersDashboardPage from "./pages/owner/OrdersDashboardPage";
@@ -36,33 +37,47 @@ function adminPage(page: ReactNode) {
   );
 }
 
+function RootLayout() {
+  return (
+    <>
+      <PwaEntryTracker />
+      <Outlet />
+    </>
+  );
+}
+
 const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/login" replace /> },
-  { path: "/login", element: <LoginPage /> },
-  { path: "/signup", element: <SignupPage /> },
-  { path: "/admin", element: <Navigate to="/admin/orders" replace /> },
-  { path: "/admin/orders", element: adminPage(<OrdersDashboardPage />) },
-  { path: "/admin/menus", element: adminPage(<MenuManagementPage />) },
-  { path: "/admin/payments", element: adminPage(<PaymentHistoryPage />) },
-  { path: "/admin/settings", element: adminPage(<SettingsPage />) },
   {
-    path: "/user",
-    element: (
-      <UserDataProvider>
-        <UserShell />
-      </UserDataProvider>
-    ),
+    element: <RootLayout />,
     children: [
-      { index: true, element: <MenuPage /> },
-      { path: "cart", element: <CartPage /> },
-      { path: "checkout", element: <CheckoutPage /> },
-      { path: "payment/success", element: <PaymentSuccessPage /> },
-      { path: "payment/fail", element: <PaymentFailPage /> },
-      { path: "orders/:orderId", element: <OrderStatusPage /> },
-      { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
+      { path: "/", element: <HomeRedirect /> },
+      { path: "/login", element: <LoginPage /> },
+      { path: "/signup", element: <SignupPage /> },
+      { path: "/admin", element: <Navigate to="/admin/orders" replace /> },
+      { path: "/admin/orders", element: adminPage(<OrdersDashboardPage />) },
+      { path: "/admin/menus", element: adminPage(<MenuManagementPage />) },
+      { path: "/admin/payments", element: adminPage(<PaymentHistoryPage />) },
+      { path: "/admin/settings", element: adminPage(<SettingsPage />) },
+      {
+        path: "/user",
+        element: (
+          <UserDataProvider>
+            <UserShell />
+          </UserDataProvider>
+        ),
+        children: [
+          { index: true, element: <MenuPage /> },
+          { path: "cart", element: <CartPage /> },
+          { path: "checkout", element: <CheckoutPage /> },
+          { path: "payment/success", element: <PaymentSuccessPage /> },
+          { path: "payment/fail", element: <PaymentFailPage /> },
+          { path: "orders/:orderId", element: <OrderStatusPage /> },
+          { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
+        ],
+      },
+      { path: "*", element: <HomeRedirect /> },
     ],
   },
-  { path: "*", element: <Navigate to="/login" replace /> },
 ]);
 
 createRoot(document.getElementById("root")!).render(
@@ -70,4 +85,3 @@ createRoot(document.getElementById("root")!).render(
     <RouterProvider router={router} />
   </StrictMode>,
 );
-

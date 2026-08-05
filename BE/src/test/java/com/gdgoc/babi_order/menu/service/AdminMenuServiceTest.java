@@ -161,6 +161,34 @@ class AdminMenuServiceTest {
     }
 
     @Test
+    void ensureDefaultOptionsReclassifiesRiceAddFromSizeToToppingAdd() {
+        Menu menu = menu(10L, category(1L));
+        MenuOption riceAsSize = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.SIZE)
+                .name("밥 추가")
+                .additionalPrice(1000)
+                .maxQuantity(1)
+                .displayOrder(2)
+                .build();
+        ReflectionTestUtils.setField(riceAsSize, "id", 50L);
+
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of(riceAsSize), List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.TOPPING_ADD)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(riceAsSize));
+
+        adminMenuService.ensureDefaultOptions(menu);
+
+        assertThat(riceAsSize.getGroupType()).isEqualTo(OptionGroupType.TOPPING_ADD);
+        assertThat(riceAsSize.getMaxQuantity()).isEqualTo(3);
+        assertThat(riceAsSize.getDisplayOrder()).isEqualTo(2);
+    }
+
+    @Test
     void updateMenuWithToppingDisabledRemovesOnlyToppingOptions() {
         Category category = category(1L);
         Menu menu = menu(10L, category);

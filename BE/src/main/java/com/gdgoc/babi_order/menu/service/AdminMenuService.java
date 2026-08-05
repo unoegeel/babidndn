@@ -22,8 +22,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +53,8 @@ public class AdminMenuService {
             new DefaultOption("김치 제외", 0, 1, false),
             new DefaultOption("고추장 소스 제외", 0, 2, false)
     );
+    private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
+            .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
@@ -199,10 +205,9 @@ public class AdminMenuService {
     }
 
     private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
-        List<MenuOption> currentToppings = menuOptionRepository
-                .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
-
         if (!toppingEnabled) {
+            List<MenuOption> currentToppings = menuOptionRepository
+                    .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
             if (!currentToppings.isEmpty()) {
                 List<Long> optionIds = currentToppings.stream().map(MenuOption::getId).toList();
                 orderItemOptionRepository.detachMenuOptions(optionIds);
@@ -211,11 +216,17 @@ public class AdminMenuService {
             return;
         }
 
+        // 과거 데이터: '밥 추가' 등이 SIZE 로 저장된 경우 TOPPING_ADD 로 교정
+        reclassifyMisplacedToppingsFromSize(menu);
+
+        List<MenuOption> currentToppings = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
+
         Set<String> existingToppingNames = currentToppings.stream()
                 .map(MenuOption::getName)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
-        java.util.ArrayList<MenuOption> missingToppingOptions = new java.util.ArrayList<>();
+        ArrayList<MenuOption> missingToppingOptions = new ArrayList<>();
         DEFAULT_TOPPINGS.stream()
                 .filter(topping -> !existingToppingNames.contains(topping.name()))
                 .map(topping -> MenuOption.builder()
@@ -248,7 +259,7 @@ public class AdminMenuService {
                 .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.SIZE));
         Set<String> existingSizeNames = currentSizes.stream()
                 .map(MenuOption::getName)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
         List<MenuOption> missingSizes = DEFAULT_SIZES.stream()
                 .filter(size -> !existingSizeNames.contains(size.name()))
                 .map(size -> MenuOption.builder()
@@ -267,12 +278,62 @@ public class AdminMenuService {
     }
 
     /**
+     * SIZE 그룹에 잘못 들어간 기본 토핑(밥 추가 등)을 TOPPING_ADD 로 옮깁니다.
+     * 이미 같은 이름의 TOPPING_ADD 가 있으면 SIZE 쪽 중복 행만 삭제합니다.
+     */
+    private void reclassifyMisplacedToppingsFromSize(Menu menu) {
+        List<MenuOption> currentSizes = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.SIZE));
+        List<MenuOption> misplaced = currentSizes.stream()
+                .filter(option -> DEFAULT_TOPPING_ADD_BY_NAME.containsKey(option.getName()))
+                .toList();
+        if (misplaced.isEmpty()) {
+            return;
+        }
+
+        Set<String> existingToppingAddNames = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.TOPPING_ADD))
+                .stream()
+                .map(MenuOption::getName)
+                .collect(Collectors.toSet());
+
+        List<MenuOption> toDelete = new ArrayList<>();
+        for (MenuOption option : misplaced) {
+            DefaultOption def = DEFAULT_TOPPING_ADD_BY_NAME.get(option.getName());
+            if (existingToppingAddNames.contains(option.getName())) {
+                toDelete.add(option);
+                continue;
+            }
+            option.update(
+                    OptionGroupType.TOPPING_ADD,
+                    def.name(),
+                    def.additionalPrice(),
+                    3,
+                    def.defaultSelected(),
+                    def.displayOrder()
+            );
+            existingToppingAddNames.add(option.getName());
+        }
+
+        if (!toDelete.isEmpty()) {
+            List<Long> optionIds = toDelete.stream().map(MenuOption::getId).toList();
+            orderItemOptionRepository.detachMenuOptions(optionIds);
+            menuOptionRepository.deleteAll(toDelete);
+        }
+    }
+
+    /**
      * 토핑 가능 메뉴에 누락된 기본 사이즈/토핑추가/토핑제외 옵션을 보강합니다.
      * (기존 메뉴 상세 조회 시 자동 보정용)
      */
     @Transactional
     public void ensureDefaultOptions(Menu menu) {
         syncSizeAndToppingOptions(menu, true);
+    }
+
+    /** SIZE 에 잘못 들어간 기본 토핑명인지 (밥 추가 등) */
+    public static boolean isDefaultToppingAddName(String name) {
+        return DEFAULT_TOPPING_ADD_BY_NAME.containsKey(name);
     }
 
     private Category findCategory(Long categoryId) {
