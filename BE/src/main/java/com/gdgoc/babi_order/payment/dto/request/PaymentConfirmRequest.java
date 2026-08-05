@@ -28,4 +28,7 @@ public class PaymentConfirmRequest {
     @Positive(message = "amount는 0보다 커야 합니다.")
     @Schema(description = "결제 금액", example = "15000")
     private Integer amount;
+
+    @Schema(description = "백엔드 주문 PK (결제 승인 시 동일 DB 조회 보장, 선택)")
+    private Long internalOrderId;
 }

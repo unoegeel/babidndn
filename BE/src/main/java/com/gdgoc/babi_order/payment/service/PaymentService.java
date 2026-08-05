@@ -39,7 +39,7 @@ public class PaymentService {
 
     @Transactional
     public PaymentConfirmResponse confirm(PaymentConfirmRequest request) {
-        Order order = findOrderByTossOrderId(request.getOrderId());
+        Order order = resolveOrder(request);
         validateNotAlreadyPaid(order.getId());
         validateAmount(order.getTotalAmount(), request.getAmount());
 
@@ -83,7 +83,39 @@ public class PaymentService {
                 .build();
     }
 
+    private Order resolveOrder(PaymentConfirmRequest request) {
+        if (request.getInternalOrderId() != null) {
+            Order order = orderRepository.findById(request.getInternalOrderId())
+                    .orElseThrow(() -> new PaymentOrderNotFoundException(request.getOrderId()));
+            validateTossOrderIdMatches(order, request.getOrderId());
+            return order;
+        }
+        return findOrderByTossOrderId(request.getOrderId());
+    }
+
+    private void validateTossOrderIdMatches(Order order, String tossOrderId) {
+        if (order.getTossOrderId() != null && order.getTossOrderId().equals(tossOrderId)) {
+            return;
+        }
+        String idPart = tossOrderId.contains("-")
+                ? tossOrderId.substring(0, tossOrderId.indexOf('-'))
+                : tossOrderId;
+        try {
+            long parsed = Long.parseLong(idPart);
+            if (!order.getId().equals(parsed)) {
+                throw new PaymentOrderNotFoundException(tossOrderId);
+            }
+        } catch (NumberFormatException e) {
+            throw new PaymentOrderNotFoundException(tossOrderId);
+        }
+    }
+
     private Order findOrderByTossOrderId(String tossOrderId) {
+        return orderRepository.findByTossOrderId(tossOrderId)
+                .orElseGet(() -> findOrderByTossOrderIdPrefix(tossOrderId));
+    }
+
+    private Order findOrderByTossOrderIdPrefix(String tossOrderId) {
         // tossOrderId는 "000007-a1b2c3d4"처럼 주문 PK를 0-패딩한 값 뒤에
         // 랜덤 접미사를 붙인 형태이므로, 하이픈 앞부분만 파싱해 주문을 찾는다.
         String idPart = tossOrderId.contains("-")

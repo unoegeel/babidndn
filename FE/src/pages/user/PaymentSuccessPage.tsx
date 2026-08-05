@@ -61,6 +61,7 @@ export const PaymentSuccessPage: React.FC = () => {
         paymentKey,
         orderId: tossOrderId,
         amount,
+        internalOrderId: pendingOrder?.id,
       })
       .then(async (res) => {
         // 승인 완료 시 임시 저장소 및 장바구니 비우기
@@ -75,6 +76,8 @@ export const PaymentSuccessPage: React.FC = () => {
           saveOrderToState(mapOrderDetailToOrder(detail));
         } catch (e) {
           console.error("결제 완료 주문 조회 실패:", e);
+        } finally {
+          orderService.clearOrderApiBaseUrl();
         }
 
         // 백엔드 숫자형 id (res.orderId) 기반 주문 현황 페이지 이동
@@ -114,6 +117,7 @@ export const PaymentSuccessPage: React.FC = () => {
         } finally {
           sessionStorage.removeItem("pendingOrder");
           sessionStorage.removeItem("cartBackup");
+          orderService.clearOrderApiBaseUrl();
         }
       });
   }, [paymentKey, tossOrderId, amountStr, isInvalidParams, clearCart, restoreCart, saveOrderToState, navigate]);

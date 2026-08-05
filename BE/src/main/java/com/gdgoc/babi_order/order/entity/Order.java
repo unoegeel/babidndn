@@ -47,6 +47,10 @@ public class Order {
     @Column(name = "total_amount", nullable = false)
     private Integer totalAmount;
 
+    /** Toss 결제창에 넘긴 주문번호 (생성 시 1회 발급·저장) */
+    @Column(name = "toss_order_id", length = 32, unique = true)
+    private String tossOrderId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -87,8 +91,22 @@ public class Order {
     // Toss 샌드박스는 orderId 유일성을 전체 테스트 계정 간에 공유하므로,
     // PK를 0-패딩한 뒤 랜덤 접미사를 붙여 다른 계정과의 충돌을 피한다.
     public String getTossOrderId() {
+        if (tossOrderId != null) {
+            return tossOrderId;
+        }
+        if (id == null) {
+            throw new IllegalStateException("주문 ID가 없어 Toss orderId를 생성할 수 없습니다.");
+        }
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         return String.format("%06d", id) + "-" + suffix;
+    }
+
+    /** 결제 전 주문 생성 직후 1회 호출해 Toss orderId를 DB에 고정합니다. */
+    public void issueTossOrderId() {
+        if (tossOrderId == null && id != null) {
+            String suffix = UUID.randomUUID().toString().substring(0, 8);
+            this.tossOrderId = String.format("%06d", id) + "-" + suffix;
+        }
     }
 
     @PrePersist
