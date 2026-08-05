@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
 import { orderService } from "../../services/user/orderService";
+import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 
 declare global {
   interface Window {
@@ -168,7 +169,7 @@ export const CheckoutPage: React.FC = () => {
           <h2 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-2">주문 요약</h2>
           <div className="space-y-3">
             {cart.map((item) => {
-              const optionNames = item.selectedOptions.map((opt) => opt.name).join(" / ");
+              const optionNames = formatSelectedOptions(item.selectedOptions);
               return (
                 <div key={item.cartItemId} className="flex gap-4 items-start py-1">
                   <div className="flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">

@@ -32,11 +32,11 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
         paddingTop: "env(safe-area-inset-top, 0px)",
       }}
     >
-      {/* 사이드바 — 하단 네비/시계가 항상 보이도록 상단 슬롯만 스크롤 */}
+      {/* 사이드바 (기존 대비 폭 70%) — 하단 네비/시계가 항상 보이도록 상단 슬롯만 스크롤 */}
       <aside
-        className="flex w-[240px] shrink-0 flex-col overflow-hidden bg-panel px-[15px] pt-[16px] short:pt-[10px] md:w-[300px] lg:w-[340px]"
+        className="flex w-[168px] shrink-0 flex-col overflow-hidden bg-panel px-[10px] pt-[16px] short:pt-[10px] md:w-[210px] lg:w-[238px]"
         style={{
-          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "max(20px, env(safe-area-inset-bottom, 0px))",
         }}
       >
         {/* 상단 슬롯 (내용이 길면 이 영역만 스크롤 → 하단 메뉴는 항상 보임) */}
@@ -45,8 +45,8 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
         {/* 구분선 */}
         <div className="my-[12px] shrink-0 border-t border-black/40 short:my-[6px]" />
 
-        {/* 네비게이션 */}
-        <nav className="flex shrink-0 flex-col gap-[8px] short:gap-[4px]">
+        {/* 네비게이션 (버튼 150%, 간격 200%) */}
+        <nav className="flex shrink-0 flex-col gap-[20px] short:gap-[8px]">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} className="block">
               {({ isActive }) => <NavPill label={item.label} active={isActive} />}
@@ -112,11 +112,11 @@ function SidebarClock() {
 function NavPill({ label, active }: { label: string; active: boolean }) {
   return (
     <span
-      className={`flex h-[40px] items-center gap-[12px] rounded-[10px] px-[16px] text-[15px] font-medium tracking-[0.5px] short:h-[32px] short:gap-[8px] short:px-[12px] short:text-[13px] ${
+      className={`flex h-[66px] items-center gap-[18px] rounded-[15px] px-[16px] text-[22px] font-medium tracking-[0.5px] short:h-[51px] short:gap-[12px] short:rounded-[12px] short:px-[12px] short:text-[21px] ${
         active ? "bg-black text-canvas" : "bg-canvas text-black"
       }`}
     >
-      <span className="size-[14px] shrink-0 rounded-full bg-danger short:size-[12px]" />
+      <span className="size-[21px] shrink-0 rounded-full bg-danger short:size-[18px]" />
       {label}
     </span>
   );

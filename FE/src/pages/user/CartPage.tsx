@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
+import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,8 +49,7 @@ export const CartPage: React.FC = () => {
       {/* 장바구니 목록 */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
         {cart.map((item) => {
-          // 옵션 텍스트 조합 (예: "기본 / 참치 토핑")
-          const optionNames = item.selectedOptions.map((opt) => opt.name).join(" / ");
+          const optionNames = formatSelectedOptions(item.selectedOptions);
           return (
             <div
               key={item.cartItemId}
