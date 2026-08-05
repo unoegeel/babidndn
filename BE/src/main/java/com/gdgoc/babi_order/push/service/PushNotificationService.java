@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
-import nl.martijndwars.webpush.Utils;
+import org.apache.http.HttpResponse;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,9 +38,10 @@ public class PushNotificationService {
             return;
         }
         try {
+            // PushService(String publicKey, String privateKey, String subject)
             pushService = new PushService(
-                    Utils.loadPublicKey(pushProperties.getPublicKey()),
-                    Utils.loadPrivateKey(pushProperties.getPrivateKey()),
+                    pushProperties.getPublicKey(),
+                    pushProperties.getPrivateKey(),
                     pushProperties.getSubject()
             );
             log.info("Web Push(VAPID) 초기화 완료");
@@ -95,7 +96,7 @@ public class PushNotificationService {
                         sub.getAuth(),
                         payload
                 );
-                var response = pushService.send(notification);
+                HttpResponse response = pushService.send(notification);
                 int status = response.getStatusLine().getStatusCode();
                 if (status == HttpStatus.GONE.value() || status == HttpStatus.NOT_FOUND.value()) {
                     subscriptionRepository.delete(sub);
