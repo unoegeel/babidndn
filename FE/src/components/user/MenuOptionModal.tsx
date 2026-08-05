@@ -186,10 +186,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
       <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
         {/* 헤더 */}
-        <div className="px-6 pt-5 pb-3 bg-white flex justify-between items-start border-b border-gray-100">
+        <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{menuDetail.name}</h2>
-            <p className="text-sm font-semibold text-gray-800 mt-1">
+            <h2 className="text-lg font-bold text-gray-900">{menuDetail.name}</h2>
+            <p className="text-sm font-semibold text-gray-800 mt-0.5">
               {menuDetail.basePrice.toLocaleString()}원
             </p>
           </div>
@@ -204,11 +204,11 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           </button>
         </div>
 
-        {/* 바디 */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {/* 바디 — 세로 스크롤 없이 한 화면에 맞춤 */}
+        <div className="overflow-hidden px-6 py-3 space-y-3">
           {/* 메뉴 설명 */}
           {menuDetail.description && (
-            <p className="text-xs text-gray-500 leading-relaxed bg-white p-3.5 rounded-2xl border border-gray-100">
+            <p className="line-clamp-2 text-[11px] text-gray-500 leading-snug bg-white px-3 py-2 rounded-xl border border-gray-100">
               {menuDetail.description}
             </p>
           )}
@@ -216,7 +216,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 1) 사이즈 선택 (SIZE) - 토핑 추가와 동일한 1줄 카드 */}
           {sizeOptions.length > 0 && (
             <div>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
               <div className="flex gap-2">
                 {[...sizeOptions]
                   .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -258,9 +258,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
               {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto·타이틀에 잘리지 않도록 여유 확보 */}
-              <div className="-mx-1 overflow-x-auto px-0.5 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="-mx-1 overflow-x-auto px-0.5 pb-0.5 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex w-max gap-2 px-1.5">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
@@ -275,7 +275,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                             ? undefined
                             : () => handleOtherOptionToggle(opt)
                         }
-                        className={`relative flex h-[74px] w-[108px] shrink-0 flex-col items-center justify-center rounded-xl border bg-white p-1.5 text-center transition-all ${
+                        className={`relative flex h-[56px] w-[108px] shrink-0 flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
                           isSelected
                             ? "border-black text-black"
                             : "cursor-pointer border-gray-200 text-gray-400"
@@ -297,7 +297,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                                 +
                               </span>
                             </div>
-                            <div className="pointer-events-none mt-1 text-[8px] leading-none text-gray-400">
+                            <div className="pointer-events-none mt-0.5 text-[8px] leading-none text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
 
@@ -323,7 +323,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                             >
                               {toppingName}
                             </div>
-                            <div className="mt-1 text-[8px] leading-none text-gray-400">
+                            <div className="mt-0.5 text-[8px] leading-none text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
                           </div>
@@ -345,7 +345,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈/토핑 추가와 동일한 1줄 카드 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
               <div className="flex gap-2">
                 {[...toppingRemoveOptions]
                   .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -380,7 +380,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 4) 기타 옵션 (groupType === null) */}
           {extraOptions.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">기타 선택</h3>
+              <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">기타 선택</h3>
               <div className="flex gap-2">
                 {extraOptions.map((opt) => {
                   const isSelected = !!selectedOtherOptions[opt.id];
@@ -410,7 +410,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         </div>
 
         {/* 푸터 */}
-        <div className="p-6 border-t border-gray-100 bg-white">
+        <div className="px-6 pt-4 pb-5 border-t border-gray-100 bg-white">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">수량</span>
             <div className="flex items-center gap-4 bg-gray-100 rounded-xl px-3.5 py-1.5">
@@ -434,7 +434,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           {/* 최대 수량 안내 영역 (고정 공간 확보 및 aria-live/role="status" 설정) */}
           <div
-            className="h-7 flex items-center justify-center mt-2.5 mb-1"
+            className="h-6 flex items-center justify-center mt-2 mb-1"
             role="status"
             aria-live="polite"
           >
@@ -447,7 +447,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           <button
             onClick={handleSubmit}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
+            className="w-full bg-black text-white py-3.5 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
           >
             장바구니 담기 · {totalPrice.toLocaleString()} 원
           </button>
