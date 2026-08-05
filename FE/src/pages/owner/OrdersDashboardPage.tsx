@@ -72,6 +72,7 @@ export default function OrdersDashboardPage() {
         }
       }}
       onPickup={async () => {
+        if (!active.called) return;
         try {
           await pickupOrder(active.id);
           flash(`${active.number}번 픽업이 완료되었습니다.`);
@@ -197,7 +198,9 @@ function OrderDetailPanel({
         </button>
         <button
           onClick={onPickup}
-          className="col-span-2 h-[40px] rounded-full bg-panel text-[15px] font-medium tracking-[1px] text-black short:h-[34px] short:text-[14px]"
+          disabled={!order.called}
+          title={order.called ? undefined : "호출 후에 픽업완료할 수 있습니다"}
+          className="col-span-2 h-[40px] rounded-full bg-panel text-[15px] font-medium tracking-[1px] text-black disabled:cursor-not-allowed disabled:opacity-40 short:h-[34px] short:text-[14px]"
         >
           픽업완료
         </button>
