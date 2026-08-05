@@ -605,7 +605,7 @@ function MenuForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="예) 참치마요 컵밥"
-          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+          className={fieldControlClass}
         />
 
         <FormLabel>가격</FormLabel>
@@ -615,35 +615,41 @@ function MenuForm({
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="예) 6800"
-            className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] pr-[48px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+            className={`${fieldControlClass} pr-[48px]`}
           />
-          <span className="absolute right-[20px] top-1/2 -translate-y-1/2 text-[15px] text-black/50">
+          <span className="pointer-events-none absolute right-[20px] top-1/2 -translate-y-1/2 text-[15px] text-black/50">
             원
           </span>
         </div>
 
         <FormLabel>카테고리</FormLabel>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as MenuCategory)}
-          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as MenuCategory)}
+            className={`${fieldControlClass} appearance-none pr-[48px]`}
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <SelectChevron />
+        </div>
 
         <FormLabel>토핑 선택</FormLabel>
-        <select
-          value={topping}
-          onChange={(e) => setTopping(e.target.value)}
-          className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[20px] text-[15px] tracking-[1px] outline-none focus:border-black"
-        >
-          <option value="가능">가능</option>
-          <option value="불가능">불가능</option>
-        </select>
+        <div className="relative">
+          <select
+            value={topping}
+            onChange={(e) => setTopping(e.target.value)}
+            className={`${fieldControlClass} appearance-none pr-[48px]`}
+          >
+            <option value="가능">가능</option>
+            <option value="불가능">불가능</option>
+          </select>
+          <SelectChevron />
+        </div>
 
         {mode === "edit" && onDelete && (
           <button
@@ -694,6 +700,25 @@ function FormLabel({ children }: { children: string }) {
     <label className="mt-[24px] mb-[10px] block text-[20px] font-medium tracking-[1.5px] text-black">
       {children}
     </label>
+  );
+}
+
+/** 메뉴명·가격·카테고리·토핑 입력칸 공통 높이/패딩 (가격 기준 48px) */
+const fieldControlClass =
+  "box-border h-[48px] min-h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] leading-none tracking-[1px] outline-none placeholder:text-black/50 focus:border-black";
+
+function SelectChevron() {
+  return (
+    <svg
+      className="pointer-events-none absolute right-[18px] top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-black/50"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
   );
 }
 
