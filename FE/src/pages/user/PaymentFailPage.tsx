@@ -37,6 +37,7 @@ export const PaymentFailPage: React.FC = () => {
       } finally {
         sessionStorage.removeItem("pendingOrder");
         sessionStorage.removeItem("cartBackup");
+        orderService.clearOrderApiBaseUrl();
       }
     };
 

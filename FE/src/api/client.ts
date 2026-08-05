@@ -1,11 +1,76 @@
 // API 요청을 위한 가벼운 fetch 래퍼입니다.
-// 기본값은 운영 서버이며, .env 의 VITE_API_BASE_URL 로 덮어쓸 수 있습니다.
+// 기본값은 접속 도메인에 맞는 서버이며, .env 의 VITE_API_BASE_URL 로 덮어쓸 수 있습니다.
 import { getAdminToken, signOutAdmin } from "../constants/adminAccount";
 
-// 개발 서버에서는 vite 프록시(같은 오리진의 /api)를 타고,
-// 배포 빌드에서는 운영 서버를 직접 호출합니다.
-export const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://babidndn.shop");
+/** 주문·결제 API 호출 시 사용한 서버 (결제 승인 시 동일 서버 보장) */
+export const ORDER_API_BASE_SESSION_KEY = "orderApiBaseUrl";
+
+function readEnvApiBaseUrl(): string | undefined {
+  const raw = import.meta.env.VITE_API_BASE_URL;
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/\/$/, "");
+}
+
+/**
+ * 배포 환경에서 접속 도메인에 맞는 API 서버를 선택합니다.
+ * - dev.babidndn.shop → 개발 API (babi_order_dev)
+ * - babidndn.shop / www → 운영 API (babi_order)
+ */
+export function resolveApiBaseUrl(): string {
+  const fromEnv = readEnvApiBaseUrl();
+  if (fromEnv !== undefined) {
+    return fromEnv;
+  }
+
+  if (import.meta.env.DEV) {
+    // 로컬: vite 프록시(/api). dev API를 쓰려면 FE/.env에 VITE_API_BASE_URL=https://dev.babidndn.shop
+    return "";
+  }
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "dev.babidndn.shop") {
+      return "https://dev.babidndn.shop";
+    }
+    if (host === "babidndn.shop" || host === "www.babidndn.shop") {
+      return "https://babidndn.shop";
+    }
+  }
+
+  return "https://babidndn.shop";
+}
+
+export const BASE_URL = resolveApiBaseUrl();
+
+export function rememberOrderApiBaseUrl(baseUrl: string = BASE_URL): void {
+  try {
+    sessionStorage.setItem(ORDER_API_BASE_SESSION_KEY, baseUrl);
+  } catch {
+    // sessionStorage 불가 시 무시
+  }
+}
+
+export function getOrderApiBaseUrl(): string {
+  try {
+    const stored = sessionStorage.getItem(ORDER_API_BASE_SESSION_KEY);
+    if (stored !== null) {
+      return stored;
+    }
+  } catch {
+    // ignore
+  }
+  return BASE_URL;
+}
+
+export function clearOrderApiBaseUrl(): void {
+  try {
+    sessionStorage.removeItem(ORDER_API_BASE_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 /** 서버 공통 오류 응답 형식 (MenuErrorResponse 등) */
 interface ApiErrorBody {
@@ -29,15 +94,17 @@ export class ApiError extends Error {
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
+  baseUrl?: string;
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, headers, ...rest } = options;
+  const { body, headers, baseUrl, ...rest } = options;
+  const root = baseUrl ?? BASE_URL;
 
   // 관리자 로그인 후에는 모든 요청에 Bearer 토큰을 함께 보냅니다.
   const token = getAdminToken();
 
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${root}${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",

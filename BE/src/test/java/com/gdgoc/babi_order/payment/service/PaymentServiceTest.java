@@ -82,6 +82,51 @@ class PaymentServiceTest {
     }
 
     @Test
+    void confirmSucceedsWithPaddedTossOrderId() {
+        Order order = order(40L, 18000);
+        given(orderRepository.findByTossOrderId("000040-94343399")).willReturn(Optional.of(order));
+        given(paymentRepository.findByOrder_Id(40L)).willReturn(Optional.empty());
+        given(tossPaymentClient.confirm("payKey", "000040-94343399", 18000))
+                .willReturn(tossResponse("payKey", "000040-94343399", 18000, "DONE"));
+        given(paymentRepository.save(any())).willAnswer(invocation -> {
+            Payment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 10L);
+            return saved;
+        });
+
+        PaymentConfirmResponse response = paymentService.confirm(
+                confirmRequest("payKey", "000040-94343399", 18000));
+
+        assertThat(response.getOrderId()).isEqualTo(40L);
+        verify(orderService).activateAfterPayment(40L);
+    }
+
+    @Test
+    void confirmSucceedsWithInternalOrderId() {
+        Order order = order(40L, 18000);
+        given(orderRepository.findById(40L)).willReturn(Optional.of(order));
+        given(paymentRepository.findByOrder_Id(40L)).willReturn(Optional.empty());
+        given(tossPaymentClient.confirm("payKey", "000040-94343399", 18000))
+                .willReturn(tossResponse("payKey", "000040-94343399", 18000, "DONE"));
+        given(paymentRepository.save(any())).willAnswer(invocation -> {
+            Payment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 10L);
+            return saved;
+        });
+
+        PaymentConfirmResponse response = paymentService.confirm(
+                PaymentConfirmRequest.builder()
+                        .paymentKey("payKey")
+                        .orderId("000040-94343399")
+                        .amount(18000)
+                        .internalOrderId(40L)
+                        .build());
+
+        assertThat(response.getOrderId()).isEqualTo(40L);
+        verify(orderRepository, never()).findByTossOrderId(anyString());
+    }
+
+    @Test
     void confirmThrowsWhenOrderDoesNotExist() {
         given(orderRepository.findById(999L)).willReturn(Optional.empty());
 
@@ -227,6 +272,7 @@ class PaymentServiceTest {
         Order order = new Order(1);
         ReflectionTestUtils.setField(order, "id", id);
         ReflectionTestUtils.setField(order, "totalAmount", totalAmount);
+        order.issueTossOrderId();
         return order;
     }
 

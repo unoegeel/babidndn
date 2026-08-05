@@ -67,6 +67,8 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
+        saved.issueTossOrderId();
+        saved = orderRepository.save(saved);
         return toDetailResponse(saved, UNPAID);
     }
 
