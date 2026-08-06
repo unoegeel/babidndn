@@ -59,6 +59,8 @@ interface AdminDataValue {
   getMenuDetail: (id: string) => Promise<Menu>;
 
   // 주문 대시보드
+  /** 캐시된 서버 주문 상세 (주문서 출력 등 UI 모델이 아닌 API shape 필요 시) */
+  getOrderDetail: (orderId: string | number) => OrderDetailResponse | undefined;
   /** 특정 주문의 특정 메뉴 라인을 조리 완료 처리 (화면 전용 — 서버 상태는 호출 시 READY) */
   cookItems: (orderId: string, itemIds: string[]) => Promise<void>;
   /** 주문 호출 → 서버 READY 반영 + 주문번호 초록색 (여러 번 호출 가능) */
@@ -427,6 +429,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     setOrders(buildOrders(activeSummariesRef.current));
   }, [buildOrders]);
 
+  const getOrderDetail = useCallback((orderId: string | number) => {
+    return orderDetailCacheRef.current.get(Number(orderId));
+  }, []);
+
   const cookItems = useCallback(
     async (orderId: string, itemIds: string[]) => {
       // 조리 체크는 주방 화면 전용. 고객 준비완료(READY)는 '호출'에서만 반영합니다.
@@ -616,6 +622,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       updateMenu,
       deleteMenu,
       getMenuDetail,
+      getOrderDetail,
       cookItems,
       callOrder,
       pickupOrder,
@@ -638,6 +645,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       updateMenu,
       deleteMenu,
       getMenuDetail,
+      getOrderDetail,
       cookItems,
       callOrder,
       pickupOrder,
