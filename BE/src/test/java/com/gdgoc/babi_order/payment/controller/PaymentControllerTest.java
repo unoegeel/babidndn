@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -101,6 +102,28 @@ class PaymentControllerTest {
                         .param("amount", "not-a-number"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void successRedirectsToFrontendWhenRedirectParamIsAllowed() throws Exception {
+        given(paymentService.confirm(any())).willReturn(PaymentConfirmResponse.builder()
+                .id(1L)
+                .paymentKey("payKey")
+                .orderId(40L)
+                .tossOrderId("000040-abc")
+                .amount(1000)
+                .status("DONE")
+                .build());
+
+        mockMvc.perform(get("/api/payments/success")
+                        .param("paymentKey", "payKey")
+                        .param("orderId", "000040-abc")
+                        .param("amount", "1000")
+                        .param("redirect", "https://www.babidndn.shop/user/payment/success")
+                        .param("internalOrderId", "40"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        "https://www.babidndn.shop/user/payment/success?confirmedOrderId=40"));
     }
 
     @Test

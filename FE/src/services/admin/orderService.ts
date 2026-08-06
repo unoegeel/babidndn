@@ -1,4 +1,4 @@
-import { api, BASE_URL } from "../../api/client";
+import { api, resolveApiBaseUrl } from "../../api/client";
 import { getAdminToken } from "../../constants/adminAccount";
 import type {
   ApiOrderStatus,
@@ -68,7 +68,7 @@ export function subscribeOrderEvents(onEvent: () => void): () => void {
   (async () => {
     try {
       const token = getAdminToken();
-      const response = await fetch(`${BASE_URL}/api/orders/stream`, {
+      const response = await fetch(`${resolveApiBaseUrl()}/api/orders/stream`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         signal: controller.signal,
       });

@@ -4,6 +4,20 @@
   "buildCommand": "cd FE && npm run build",
   "outputDirectory": "FE/dist",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "dev.babidndn.shop" }],
+      "destination": "https://dev-api.babidndn.shop/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "www.babidndn.shop" }],
+      "destination": "https://babidndn.shop/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://babidndn.shop/api/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

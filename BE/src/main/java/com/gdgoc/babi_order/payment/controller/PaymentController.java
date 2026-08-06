@@ -6,6 +6,7 @@ import com.gdgoc.babi_order.payment.dto.request.PaymentWebhookRequest;
 import com.gdgoc.babi_order.payment.dto.response.PaymentConfirmResponse;
 import com.gdgoc.babi_order.payment.dto.response.PaymentFailResponse;
 import com.gdgoc.babi_order.payment.dto.response.PaymentResponse;
+import com.gdgoc.babi_order.payment.exception.PaymentApiException;
 import com.gdgoc.babi_order.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +14,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
+
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -20,19 +27,40 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Payment", description = "결제 API")
 public class PaymentController {
 
+    private static final Set<String> ALLOWED_REDIRECT_HOSTS = Set.of(
+            "localhost",
+            "127.0.0.1",
+            "babidndn.shop",
+            "www.babidndn.shop",
+            "dev.babidndn.shop"
+    );
+
     private final PaymentService paymentService;
 
-    @Operation(summary = "결제 성공 콜백", description = "토스 샌드박스/결제창의 successUrl로 자동 호출됩니다. 승인 후 DB에 저장합니다.")
+    @Operation(summary = "결제 성공 콜백", description = "토스 결제창 successUrl. redirect 파라미터가 있으면 승인 후 프론트로 리다이렉트합니다.")
     @GetMapping("/success")
-    public ResponseEntity<PaymentConfirmResponse> success(
+    public Object success(
             @RequestParam("paymentKey") String paymentKey,
             @RequestParam("orderId") String orderId,
-            @RequestParam("amount") Integer amount) {
+            @RequestParam("amount") Integer amount,
+            @RequestParam(value = "redirect", required = false) String redirect,
+            @RequestParam(value = "internalOrderId", required = false) Long internalOrderId) {
         PaymentConfirmRequest request = PaymentConfirmRequest.builder()
                 .paymentKey(paymentKey)
                 .orderId(orderId)
                 .amount(amount)
+                .internalOrderId(internalOrderId)
                 .build();
+
+        if (isAllowedRedirect(redirect)) {
+            try {
+                PaymentConfirmResponse result = paymentService.confirm(request);
+                return redirectTo(redirect, "confirmedOrderId", String.valueOf(result.getOrderId()));
+            } catch (PaymentApiException exception) {
+                return redirectTo(redirect, "paymentError", exception.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(paymentService.confirm(request));
     }
 
@@ -76,5 +104,24 @@ public class PaymentController {
     public ResponseEntity<Void> handleWebhook(@RequestBody PaymentWebhookRequest request) {
         paymentService.syncFromWebhook(request);
         return ResponseEntity.ok().build();
+    }
+
+    private boolean isAllowedRedirect(String redirect) {
+        if (redirect == null || redirect.isBlank()) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(redirect);
+            String host = uri.getHost();
+            return host != null && ALLOWED_REDIRECT_HOSTS.contains(host);
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private RedirectView redirectTo(String redirect, String key, String value) {
+        String encoded = URLEncoder.encode(value, StandardCharsets.UTF_8);
+        String separator = redirect.contains("?") ? "&" : "?";
+        return new RedirectView(redirect + separator + key + "=" + encoded, true);
     }
 }
