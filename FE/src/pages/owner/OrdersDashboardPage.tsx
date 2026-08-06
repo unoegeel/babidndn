@@ -227,12 +227,15 @@ function BoardCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { getOrderDetail } = useAdminData();
   // 주문번호 색상은 호출 여부로 결정 (조리 완료 여부와 무관)
   const numberColor = order.called ? "#22c55e" : "#ef4444";
 
   const handlePrint = (e: MouseEvent) => {
     e.stopPropagation();
-    window.Android?.printKitchenTicket(JSON.stringify(order));
+    const orderDetail = getOrderDetail(order.id);
+    if (!orderDetail) return;
+    window.Android?.printKitchenTicket(JSON.stringify(orderDetail));
   };
 
   return (
