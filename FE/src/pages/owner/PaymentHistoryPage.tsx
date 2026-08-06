@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import AdminShell from "../../components/AdminShell";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
+import type { OrderDetailResponse } from "../../types/api";
+import { formatOrderItemOptionLabels } from "../../utils/orderItemOptions";
 
 const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
 export default function PaymentHistoryPage() {
-  const { payments, refundPayment, refreshPayments } = useAdminData();
+  const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
   const [target, setTarget] = useState<Payment | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 서버에서 주문·결제 내역 조회
   const loadPayments = () => {
     refreshPayments()
       .catch((err) => console.error("결제 내역 조회 실패:", err))
@@ -27,6 +29,10 @@ export default function PaymentHistoryPage() {
     const k = keyword.trim();
     return k ? payments.filter((p) => String(p.orderNumber).includes(k)) : payments;
   }, [payments, keyword]);
+
+  const toggleExpand = (payment: Payment) => {
+    setExpandedId((prev) => (prev === payment.id ? null : payment.id));
+  };
 
   return (
     <AdminShell>
@@ -89,42 +95,21 @@ export default function PaymentHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} className="border-b border-black/15">
-                  <Td>{p.paidAt}</Td>
-                  <Td>{p.orderNumber}</Td>
-                  <Td>{p.method}</Td>
-                  <Td>{p.amount.toLocaleString()}원</Td>
-                  <Td>
-                    <span
-                      className="font-medium tracking-[1px]"
-                      style={{
-                        color:
-                          p.status === "결제완료"
-                            ? "#22c55e"
-                            : p.status === "취소됨"
-                              ? "#ef4444"
-                              : "rgba(0,0,0,0.5)",
-                      }}
-                    >
-                      {p.status}
-                    </span>
-                  </Td>
-                  <Td>{p.summary}</Td>
-                  <Td>
-                    {p.status === "결제완료" ? (
-                      <button
-                        onClick={() => setTarget(p)}
-                        className="h-[40px] w-[110px] rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
-                      >
-                        결제 취소
-                      </button>
-                    ) : (
-                      <span className="text-black/50">-</span>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+              {filtered.map((p) => {
+                const expanded = expandedId === p.id;
+                const detail =
+                  p.orderId !== undefined ? getOrderDetail(p.orderId) : undefined;
+                return (
+                  <PaymentRow
+                    key={p.id}
+                    payment={p}
+                    expanded={expanded}
+                    detail={detail}
+                    onToggle={() => toggleExpand(p)}
+                    onCancel={() => setTarget(p)}
+                  />
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-[48px] text-center text-black/50">
@@ -151,6 +136,171 @@ export default function PaymentHistoryPage() {
         />
       )}
     </AdminShell>
+  );
+}
+
+function PaymentRow({
+  payment,
+  expanded,
+  detail,
+  onToggle,
+  onCancel,
+}: {
+  payment: Payment;
+  expanded: boolean;
+  detail: OrderDetailResponse | undefined;
+  onToggle: () => void;
+  onCancel: () => void;
+}) {
+  const stop = (e: MouseEvent) => e.stopPropagation();
+
+  return (
+    <>
+      <tr
+        className="cursor-pointer border-b border-black/15 hover:bg-black/[0.03]"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <Td>{payment.paidAt}</Td>
+        <Td>{payment.orderNumber}</Td>
+        <Td>{payment.method}</Td>
+        <Td>{payment.amount.toLocaleString()}원</Td>
+        <Td>
+          <span
+            className="font-medium tracking-[1px]"
+            style={{
+              color:
+                payment.status === "결제완료"
+                  ? "#22c55e"
+                  : payment.status === "취소됨"
+                    ? "#ef4444"
+                    : "rgba(0,0,0,0.5)",
+            }}
+          >
+            {payment.status}
+          </span>
+        </Td>
+        <Td>
+          <span className="inline-flex items-center gap-[6px]">
+            {payment.summary}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className={`shrink-0 text-black/40 transition-transform ${expanded ? "rotate-180" : ""}`}
+              aria-hidden
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
+        </Td>
+        <Td>
+          {payment.status === "결제완료" ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                onCancel();
+              }}
+              className="h-[40px] w-[110px] rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
+            >
+              결제 취소
+            </button>
+          ) : (
+            <span className="text-black/50">-</span>
+          )}
+        </Td>
+      </tr>
+      {expanded && (
+        <tr className="border-b border-black/15 bg-panel/60">
+          <td colSpan={7} className="px-[24px] py-[18px] text-left">
+            <PaymentDetailPanel payment={payment} detail={detail} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function PaymentDetailPanel({
+  payment,
+  detail,
+}: {
+  payment: Payment;
+  detail: OrderDetailResponse | undefined;
+}) {
+  return (
+    <div className="grid gap-[16px] md:grid-cols-[minmax(0,220px)_1fr]">
+      <dl className="space-y-[8px] text-[14px] text-black">
+        <div>
+          <dt className="text-black/50">결제 시간</dt>
+          <dd className="font-medium">{payment.paidAt}</dd>
+        </div>
+        <div>
+          <dt className="text-black/50">주문번호</dt>
+          <dd className="font-medium">{payment.orderNumber}</dd>
+        </div>
+        <div>
+          <dt className="text-black/50">결제 수단</dt>
+          <dd className="font-medium">{payment.method}</dd>
+        </div>
+        <div>
+          <dt className="text-black/50">결제 금액</dt>
+          <dd className="font-medium">{payment.amount.toLocaleString()}원</dd>
+        </div>
+        <div>
+          <dt className="text-black/50">상태</dt>
+          <dd className="font-medium">{payment.status}</dd>
+        </div>
+        {payment.paymentKey && (
+          <div>
+            <dt className="text-black/50">결제 키</dt>
+            <dd className="break-all font-mono text-[12px] text-black/70">
+              {payment.paymentKey}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <div>
+        <p className="mb-[8px] text-[14px] font-medium text-black">주문 메뉴</p>
+        {!detail || detail.items.length === 0 ? (
+          <p className="text-[14px] text-black/50">주문 상세를 불러올 수 없습니다.</p>
+        ) : (
+          <ul className="space-y-[10px]">
+            {detail.items.map((item) => {
+              const options = formatOrderItemOptionLabels(item.options);
+              return (
+                <li
+                  key={item.id}
+                  className="rounded-[10px] bg-canvas px-[14px] py-[10px] text-[14px] text-black"
+                >
+                  <p className="font-medium">
+                    {item.menuName}
+                    {item.quantity > 1 && (
+                      <span className="ml-[6px] font-bold">x {item.quantity}</span>
+                    )}
+                    <span className="ml-[8px] text-black/50">
+                      {item.lineAmount.toLocaleString()}원
+                    </span>
+                  </p>
+                  {options.length > 0 && (
+                    <ul className="mt-[4px] list-disc pl-[18px] text-[13px] text-black/70">
+                      {options.map((opt) => (
+                        <li key={opt}>{opt}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -209,7 +359,6 @@ function CancelPopup({
           ))}
         </select>
 
-        {/* 경고 */}
         <div
           className="mt-[20px] flex h-[48px] items-center gap-[10px] rounded-[10px] px-[16px]"
           style={{

@@ -256,10 +256,25 @@ function BoardCard({
       <button
         type="button"
         onClick={handlePrint}
-        className="absolute right-[14px] top-[14px] rounded-[8px] border border-black/30 bg-panel px-[10px] py-[4px] text-[12px] font-medium text-black hover:bg-black/5"
+        className="absolute right-[12px] top-[12px] flex size-[36px] items-center justify-center text-black/70 hover:text-black"
         aria-label="주문서 출력"
+        title="주문서 출력"
       >
-        출력
+        {/* 주문서(영수증) 아이콘 — 테두리 없는 버튼 */}
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M7 3.5h10a1 1 0 0 1 1 1V20l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2-2 1.2V4.5a1 1 0 0 1 1-1z" />
+          <path d="M9 8h6M9 11.5h6M9 15h4" />
+        </svg>
       </button>
       <p
         className="text-center text-[34px] font-bold leading-none"

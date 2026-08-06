@@ -21,6 +21,7 @@ import { paymentService } from "../services/admin/paymentService";
 import { ApiError } from "../api/client";
 import { formatServerDateTime, formatServerTime } from "../utils/serverDate";
 import { formatOrderItemOptionLabels } from "../utils/orderItemOptions";
+import { syncKitchenTicketAutoPrint } from "../utils/kitchenTicketAutoPrint";
 
 interface AdminDataValue {
   categories: MenuCategory[];
@@ -422,6 +423,12 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
     activeSummariesRef.current = active;
     setOrders(buildOrders(active));
+
+    // 신규 주문만 주방 티켓 자동 출력 (세션당 주문 ID당 1회)
+    syncKitchenTicketAutoPrint(
+      active.map((s) => s.id),
+      (orderId) => orderDetailCacheRef.current.get(orderId),
+    );
   }, [buildOrders]);
 
   /** 화면 전용 상태 변경 후 현재 요약 기준으로 보드 다시 그리기 */
