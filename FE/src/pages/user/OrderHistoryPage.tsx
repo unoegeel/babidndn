@@ -62,9 +62,17 @@ export const OrderHistoryPage: React.FC = () => {
         return d.getTime() >= cutoff;
       })
       .sort((a, b) => {
-        const da = parseOrderDate(a.createdAt)?.getTime() ?? 0;
-        const db = parseOrderDate(b.createdAt)?.getTime() ?? 0;
-        return db - da;
+        const timeA = parseOrderDate(a.createdAt)?.getTime() ?? 0;
+        const timeB = parseOrderDate(b.createdAt)?.getTime() ?? 0;
+        if (timeB !== timeA) {
+          return timeB - timeA; // 결제시간 내림차순
+        }
+        const pickupA = Number(a.pickupNumber) || 0;
+        const pickupB = Number(b.pickupNumber) || 0;
+        if (pickupB !== pickupA) {
+          return pickupB - pickupA; // 주문번호(픽업번호) 내림차순
+        }
+        return Number(b.orderId) - Number(a.orderId);
       });
   }, [orders]);
 
