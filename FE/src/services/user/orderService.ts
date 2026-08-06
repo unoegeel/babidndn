@@ -4,6 +4,7 @@ import {
   getOrderApiBaseUrl,
   rememberOrderApiBaseUrl,
 } from "../../api/client";
+import { formatServerDateTimeDash } from "../../utils/serverDate";
 import type { CartItem, OrderStatus, Order, MenuOption, GroupType } from "../../types/user";
 
 // --- DTO Types ---
@@ -87,14 +88,7 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
 
   let formattedDate = res.createdAt;
   if (res.createdAt) {
-    try {
-      const createdDate = new Date(res.createdAt);
-      if (!isNaN(createdDate.getTime())) {
-        formattedDate = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, "0")}-${String(createdDate.getDate()).padStart(2, "0")} ${String(createdDate.getHours()).padStart(2, "0")}:${String(createdDate.getMinutes()).padStart(2, "0")}`;
-      }
-    } catch {
-      // 파싱 실패 시 원본 사용
-    }
+    formattedDate = formatServerDateTimeDash(res.createdAt);
   }
 
   const waitingCount =

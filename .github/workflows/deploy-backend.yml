@@ -85,6 +85,7 @@ jobs:
                 --env-file /opt/babi-order-dev/.env \
                 -e SPRING_PROFILES_ACTIVE=dev \
                 -e DB_NAME=babi_order_dev \
+                -e TZ=Asia/Seoul \
                 -e JAVA_OPTS="-Xmx512m" \
                 -p 8081:8080 \
                 --restart unless-stopped \
@@ -100,6 +101,7 @@ jobs:
                 --env-file /opt/babi-order/.env \
                 -e SPRING_PROFILES_ACTIVE=prod \
                 -e DB_NAME=babi_order \
+                -e TZ=Asia/Seoul \
                 -e JAVA_OPTS="-Xmx512m" \
                 -p 8080:8080 \
                 --restart unless-stopped \

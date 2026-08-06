@@ -1,8 +1,36 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { ApiError } from "../../api/client";
 import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../../services/user/orderService";
 import { useUserData } from "../../store/UserDataContext";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
+
+function readPendingOrder(): OrderDetailResponse | null {
+  for (const storage of [sessionStorage, localStorage]) {
+    try {
+      const saved = storage.getItem("pendingOrder");
+      if (saved) {
+        return JSON.parse(saved) as OrderDetailResponse;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+function clearPaymentStorage(): void {
+  sessionStorage.removeItem("pendingOrder");
+  sessionStorage.removeItem("cartBackup");
+  localStorage.removeItem("pendingOrder");
+  localStorage.removeItem("cartBackup");
+  orderService.clearOrderApiBaseUrl();
+}
+
+function parseOrderIdFromAlreadyProcessed(message: string): string | null {
+  const match = message.match(/orderId=(\d+)/);
+  return match?.[1] ?? null;
+}
 
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -10,35 +38,83 @@ export const PaymentSuccessPage: React.FC = () => {
   const { clearCart, restoreCart, saveOrderToState } = useUserData();
 
   const paymentKey = searchParams.get("paymentKey");
-  const tossOrderId = searchParams.get("orderId"); // Toss 문자열 orderId
+  const tossOrderId = searchParams.get("orderId");
   const amountStr = searchParams.get("amount");
+  const confirmedOrderId = searchParams.get("confirmedOrderId");
+  const paymentError = searchParams.get("paymentError");
 
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(paymentError);
   const isRequestingRef = useRef(false);
 
-  // 1. URL 쿼리 기본 유효성 검사
-  const isInvalidParams = !paymentKey || !tossOrderId || !amountStr;
+  const isBackendConfirmed = Boolean(confirmedOrderId);
+  const isInvalidParams = !isBackendConfirmed && (!paymentKey || !tossOrderId || !amountStr);
+
+  const goToOrderStatus = (orderId: string | number) => {
+    const id = String(orderId);
+    clearCart();
+    clearPaymentStorage();
+    void linkPushSubscriptionToOrder(id);
+    navigate(`/user/orders/${id}`, { replace: true });
+
+    // 현황 페이지에서도 조회하지만, 가능하면 로컬 상태도 미리 채움 (실패해도 이동은 완료된 상태)
+    void orderService
+      .getOrder(id)
+      .then((detail) => saveOrderToState(mapOrderDetailToOrder(detail)))
+      .catch((e) => console.error("결제 완료 주문 조회 실패:", e));
+  };
+
+  const restoreCartAndClear = async () => {
+    try {
+      const savedCart = sessionStorage.getItem("cartBackup") ?? localStorage.getItem("cartBackup");
+      if (savedCart) {
+        restoreCart(JSON.parse(savedCart));
+      }
+    } catch (e) {
+      console.error("장바구니 복원 실패:", e);
+    } finally {
+      clearPaymentStorage();
+    }
+  };
 
   useEffect(() => {
-    if (isInvalidParams) return;
-
-    // React StrictMode 및 중복 진입 방지 (useRef + sessionStorage 조합)
-    const sessionConfirmKey = `confirming_${tossOrderId}`;
-    if (isRequestingRef.current || sessionStorage.getItem(sessionConfirmKey) === "true") {
+    if (paymentError) {
+      void (async () => {
+        try {
+          const pending = readPendingOrder();
+          if (pending?.id) {
+            await orderService.abandonUnpaidOrder(pending.id);
+          }
+        } catch (e) {
+          console.error("미결제 주문 삭제 실패:", e);
+        }
+        await restoreCartAndClear();
+      })();
       return;
     }
 
-    // 2. pendingOrder 검증 (결제 금액 및 tossOrderId 위변조 체크)
-    let pendingOrder: OrderDetailResponse | null = null;
-    try {
-      const savedPending = sessionStorage.getItem("pendingOrder");
-      if (savedPending) {
-        pendingOrder = JSON.parse(savedPending) as OrderDetailResponse;
-      }
-    } catch (e) {
-      console.error("pendingOrder 파싱 실패:", e);
+    // 백엔드에서 이미 승인 후 리다이렉트된 경우 — 즉시 현황으로 이동
+    if (isBackendConfirmed && confirmedOrderId) {
+      if (isRequestingRef.current) return;
+      isRequestingRef.current = true;
+      goToOrderStatus(confirmedOrderId);
+      return;
     }
 
+    if (isInvalidParams) return;
+
+    const sessionConfirmKey = `confirming_${tossOrderId}`;
+
+    // 이전 시도가 승인까지 끝난 뒤 화면만 멈춘 경우 — pendingOrder로 복구
+    if (isRequestingRef.current || sessionStorage.getItem(sessionConfirmKey) === "true") {
+      const pending = readPendingOrder();
+      if (pending?.id) {
+        sessionStorage.removeItem(sessionConfirmKey);
+        goToOrderStatus(pending.id);
+      }
+      return;
+    }
+
+    const pendingOrder = readPendingOrder();
     const amount = Number(amountStr);
 
     if (pendingOrder) {
@@ -55,72 +131,64 @@ export const PaymentSuccessPage: React.FC = () => {
     isRequestingRef.current = true;
     sessionStorage.setItem(sessionConfirmKey, "true");
 
-    // 3. 결제 승인 요청 (POST /api/payments/confirm)
     orderService
       .confirmPayment({
-        paymentKey,
-        orderId: tossOrderId,
+        paymentKey: paymentKey!,
+        orderId: tossOrderId!,
         amount,
         internalOrderId: pendingOrder?.id,
       })
-      .then(async (res) => {
-        // 승인 완료 시 임시 저장소 및 장바구니 비우기
-        sessionStorage.removeItem("pendingOrder");
-        sessionStorage.removeItem("cartBackup");
+      .then((res) => {
         sessionStorage.removeItem(sessionConfirmKey);
-        clearCart();
-
-        // 결제 확정 후 발급된 픽업번호 포함 주문을 로컬 내역에 반영
-        try {
-          const detail = await orderService.getOrder(res.orderId);
-          saveOrderToState(mapOrderDetailToOrder(detail));
-        } catch (e) {
-          console.error("결제 완료 주문 조회 실패:", e);
-        } finally {
-          orderService.clearOrderApiBaseUrl();
-        }
-
-        // 백엔드 숫자형 id (res.orderId) 기반 주문 현황 페이지 이동
-        const backendOrderId = String(res.orderId);
-        void linkPushSubscriptionToOrder(backendOrderId);
-        navigate(`/user/orders/${backendOrderId}`, { replace: true });
+        goToOrderStatus(res.orderId);
       })
       .catch(async (err: unknown) => {
         console.error("결제 승인 실패:", err);
-        // 실패 시 중복 방지 세션 해제하여 재시도 가능하게 함
         sessionStorage.removeItem(sessionConfirmKey);
         isRequestingRef.current = false;
+
+        // 백엔드 successUrl에서 이미 승인된 뒤 FE가 다시 호출한 경우 → 현황으로 이동
+        const pending = readPendingOrder();
+        const alreadyProcessed =
+          err instanceof ApiError && err.code === "PAYMENT_ALREADY_PROCESSED";
+        const recoveredId =
+          (alreadyProcessed && pending?.id
+            ? String(pending.id)
+            : null) ??
+          (err instanceof Error ? parseOrderIdFromAlreadyProcessed(err.message) : null) ??
+          (pending?.id ? String(pending.id) : null);
+
+        if (alreadyProcessed && recoveredId) {
+          goToOrderStatus(recoveredId);
+          return;
+        }
 
         const message = err instanceof Error ? err.message : "결제 승인 처리 중 오류가 발생했습니다.";
         setErrorMsg(message);
 
-        // 미결제 임시 주문 정리 + 장바구니 복원
         try {
-          const savedPending = sessionStorage.getItem("pendingOrder");
-          if (savedPending) {
-            const pending = JSON.parse(savedPending) as OrderDetailResponse;
-            if (pending?.id) {
-              await orderService.abandonUnpaidOrder(pending.id);
-            }
+          if (pending?.id && !alreadyProcessed) {
+            await orderService.abandonUnpaidOrder(pending.id);
           }
         } catch (e) {
           console.error("미결제 주문 삭제 실패:", e);
         }
 
-        try {
-          const savedCart = sessionStorage.getItem("cartBackup");
-          if (savedCart) {
-            restoreCart(JSON.parse(savedCart));
-          }
-        } catch (e) {
-          console.error("장바구니 복원 실패:", e);
-        } finally {
-          sessionStorage.removeItem("pendingOrder");
-          sessionStorage.removeItem("cartBackup");
-          orderService.clearOrderApiBaseUrl();
-        }
+        await restoreCartAndClear();
       });
-  }, [paymentKey, tossOrderId, amountStr, isInvalidParams, clearCart, restoreCart, saveOrderToState, navigate]);
+  }, [
+    paymentKey,
+    tossOrderId,
+    amountStr,
+    confirmedOrderId,
+    paymentError,
+    isBackendConfirmed,
+    isInvalidParams,
+    clearCart,
+    restoreCart,
+    saveOrderToState,
+    navigate,
+  ]);
 
   const displayError = isInvalidParams ? "결제 검증 파라미터가 유효하지 않습니다." : errorMsg;
 

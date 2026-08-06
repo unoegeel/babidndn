@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
 import { orderService } from "../../services/user/orderService";
+import { resolveApiBaseUrl } from "../../api/client";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 
 declare global {
@@ -46,9 +47,16 @@ export const CheckoutPage: React.FC = () => {
       // 1. 백엔드 실제 주문 생성 (POST /api/orders)
       const createdOrder = await createOrder(selectedMethod);
 
-      // 2. 모바일 페이지 이동 및 성공/실패 콜백 대비 sessionStorage 저장 (장바구니는 먼저 비우지 않음)
-      sessionStorage.setItem("pendingOrder", JSON.stringify(createdOrder));
+      // 2. 모바일 페이지 이동 및 성공/실패 콜백 대비 저장 (장바구니는 먼저 비우지 않음)
+      const pendingJson = JSON.stringify(createdOrder);
+      sessionStorage.setItem("pendingOrder", pendingJson);
       sessionStorage.setItem("cartBackup", JSON.stringify(cart));
+      try {
+        localStorage.setItem("pendingOrder", pendingJson);
+        localStorage.setItem("cartBackup", JSON.stringify(cart));
+      } catch {
+        // localStorage 불가 시 무시
+      }
 
       // 3. Toss Payments SDK 초기화 및 결제창 요청
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
@@ -80,7 +88,15 @@ export const CheckoutPage: React.FC = () => {
 
       const tossPayments = window.TossPayments(clientKey);
 
-      const successUrl = `${window.location.origin}/user/payment/success`;
+      // 결제 승인은 API 도메인 successUrl에서 처리 후 웹으로 리다이렉트
+      // (www/dev 웹 ≠ API 도메인이므로 Toss 콜백은 API로 직접 보냄)
+      const feSuccessUrl = `${window.location.origin}/user/payment/success`;
+      const apiBase = resolveApiBaseUrl() || window.location.origin;
+      const successParams = new URLSearchParams({
+        redirect: feSuccessUrl,
+        internalOrderId: String(createdOrder.id),
+      });
+      const successUrl = `${apiBase}/api/payments/success?${successParams.toString()}`;
       const failUrl = `${window.location.origin}/user/payment/fail`;
 
       const orderName =
