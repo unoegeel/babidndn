@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Slf4j
 @Service
@@ -58,7 +59,9 @@ public class PaymentService {
             throw new PaymentAmountMismatchException(order.getTotalAmount(), tossResponse.getTotalAmount());
         }
 
-        LocalDateTime approvedAt = OffsetDateTime.parse(tossResponse.getApprovedAt()).toLocalDateTime();
+        LocalDateTime approvedAt = OffsetDateTime.parse(tossResponse.getApprovedAt())
+                .atZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                .toLocalDateTime();
         Payment payment = Payment.builder()
                 .order(order)
                 .tossOrderId(request.getOrderId())

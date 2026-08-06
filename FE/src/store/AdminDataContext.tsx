@@ -19,7 +19,7 @@ import { adminMenuService } from "../services/admin/menuService";
 import { adminOrderService } from "../services/admin/orderService";
 import { paymentService } from "../services/admin/paymentService";
 import { ApiError } from "../api/client";
-import { parseServerDate } from "../utils/serverDate";
+import { formatServerDateTime, formatServerTime } from "../utils/serverDate";
 
 interface AdminDataValue {
   categories: MenuCategory[];
@@ -80,20 +80,14 @@ interface AdminDataValue {
 
 const AdminDataContext = createContext<AdminDataValue | null>(null);
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-
 /** "14:48" 형식 (보드 카드 표시용) */
 function formatTime(iso: string) {
-  const d = parseServerDate(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return formatServerTime(iso);
 }
 
 /** "2026.07.09 14:48" 형식 (결제 내역 표시용) */
 function formatDateTime(iso: string) {
-  const d = parseServerDate(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return formatServerDateTime(iso);
 }
 
 /** 결제 내역 요약 문구 ("삼겹소금 외 1개") */
