@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
+import MarqueeText from "../../components/user/MarqueeText";
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -77,7 +78,11 @@ export const CartPage: React.FC = () => {
                     </button>
                   </div>
                   {optionNames && (
-                    <p className="text-xs text-gray-400 mt-1 truncate">{optionNames}</p>
+                    <MarqueeText
+                      text={optionNames}
+                      className="mt-1"
+                      textClassName="text-xs text-gray-400"
+                    />
                   )}
                 </div>
 

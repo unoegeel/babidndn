@@ -5,6 +5,7 @@ import MenuThumb from "../../components/user/MenuThumb";
 import { orderService } from "../../services/user/orderService";
 import { resolveApiBaseUrl } from "../../api/client";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
+import MarqueeText from "../../components/user/MarqueeText";
 
 declare global {
   interface Window {
@@ -195,7 +196,11 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="text-xs font-bold text-gray-800 truncate">{item.menuName}</h3>
                     {optionNames && (
-                      <p className="text-[10px] text-gray-400 mt-0.5 truncate">{optionNames}</p>
+                      <MarqueeText
+                        text={optionNames}
+                        className="mt-0.5"
+                        textClassName="text-[10px] text-gray-400"
+                      />
                     )}
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-[10px] text-gray-400">{item.quantity}개</span>

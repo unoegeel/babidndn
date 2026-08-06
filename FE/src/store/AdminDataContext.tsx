@@ -533,6 +533,14 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         }),
     );
 
+    // methodLabel 없는 캐시·구형 카드사 표기 캐시는 재조회
+    for (const [orderId, cached] of [...paymentCacheRef.current.entries()]) {
+      const label = cached?.methodLabel?.trim() ?? "";
+      if (cached && (!label || label === "카드" || label.startsWith("카드("))) {
+        paymentCacheRef.current.delete(orderId);
+      }
+    }
+
     // 결제 정보 조회 (결제 전 주문은 404 → null 캐시)
     await Promise.all(
       summaries
@@ -557,9 +565,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         const detail = orderDetailCacheRef.current.get(summary.id);
 
         if (!payment) {
+          const createdMs = Date.parse(summary.createdAt) || 0;
           return {
             id: `order-${summary.id}`,
             paidAt: formatDateTime(summary.createdAt),
+            paidAtMs: createdMs,
             orderNumber: summary.pickupNumber,
             method: "-",
             amount: summary.totalAmount,
@@ -571,11 +581,13 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
         const canceled =
           payment.status === "CANCELED" || payment.status === "PARTIAL_CANCELED";
+        const approvedRaw = payment.approvedAt ?? payment.createdAt;
         return {
           id: String(payment.id),
-          paidAt: formatDateTime(payment.approvedAt ?? payment.createdAt),
+          paidAt: formatDateTime(approvedRaw),
+          paidAtMs: Date.parse(approvedRaw) || 0,
           orderNumber: summary.pickupNumber,
-          method: "토스페이먼츠",
+          method: payment.methodLabel?.trim() || "토스페이먼츠",
           amount: payment.amount,
           status: canceled ? ("취소됨" as const) : ("결제완료" as const),
           summary: summarize(detail),

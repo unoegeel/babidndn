@@ -37,4 +37,7 @@ public class PaymentResponse {
 
     @Schema(description = "결제 생성 시각", example = "2026-07-23T15:15:57")
     private LocalDateTime createdAt;
+
+    @Schema(description = "결제 수단 표시명", example = "네이버페이")
+    private String methodLabel;
 }

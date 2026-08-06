@@ -54,39 +54,52 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-8">
-      <form onSubmit={handleSubmit} className="w-full max-w-[460px]">
+      <form onSubmit={handleSubmit} className="w-full max-w-[460px]" autoComplete="on">
         <h1 className="mb-[40px] text-center text-[32px] font-medium tracking-[2px] text-black">
           회원가입
         </h1>
 
-        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black">
+        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black" htmlFor="admin-signup-id">
           아이디
         </label>
         <input
+          id="admin-signup-id"
+          name="username"
+          autoComplete="username"
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
           value={id}
           onChange={(e) => setId(e.target.value)}
           className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
         />
 
-        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black">
+        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black" htmlFor="admin-signup-password">
           비밀번호
         </label>
         <input
+          id="admin-signup-password"
+          name="new-password"
           required
           type="password"
+          autoComplete="new-password"
           minLength={8}
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
         />
 
-        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black">
+        <label className="mb-[6px] block text-[16px] font-medium tracking-[1px] text-black" htmlFor="admin-signup-password-confirm">
           비밀번호 확인
         </label>
         <input
+          id="admin-signup-password-confirm"
+          name="new-password-confirm"
           required
           type="password"
+          autoComplete="new-password"
           minLength={8}
           value={passwordConfirmation}
           onChange={(e) => setPasswordConfirmation(e.target.value)}
