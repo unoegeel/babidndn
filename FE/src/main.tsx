@@ -21,6 +21,7 @@ import CartPage from "./pages/user/CartPage";
 import CheckoutPage from "./pages/user/CheckoutPage";
 import OrderStatusPage from "./pages/user/OrderStatusPage";
 import OrderCompletePage from "./pages/user/OrderCompletePage";
+import OrderHistoryPage from "./pages/user/OrderHistoryPage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
@@ -71,6 +72,7 @@ const router = createBrowserRouter([
           { path: "checkout", element: <CheckoutPage /> },
           { path: "payment/success", element: <PaymentSuccessPage /> },
           { path: "payment/fail", element: <PaymentFailPage /> },
+          { path: "orders", element: <OrderHistoryPage /> },
           { path: "orders/:orderId", element: <OrderStatusPage /> },
           { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
         ],

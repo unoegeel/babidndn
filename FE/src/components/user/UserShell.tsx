@@ -5,13 +5,14 @@ import {
   ensurePushSubscription,
   requestPermissionAndSubscribe,
 } from "../../utils/webPush";
+import ReadyOrderBanner from "./ReadyOrderBanner";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, latestOrderId, activeOrders, markAsRead } = useUserData();
+  const { cart, notifications, activeOrders, markAsRead } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -20,21 +21,24 @@ export const UserShell: React.FC = () => {
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const readyOrders = activeOrders.filter((o) => o.status === "READY");
 
   // 헤더 구성 분기 처리
   const isMenuPage = pathname === "/user" || pathname === "/user/";
   const isCartPage = pathname === "/user/cart" || pathname === "/user/cart/";
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
+  const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
-  const isStatusPage = pathname.includes("/orders/") && !isCompletePage;
+  const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
   // 헤더 렌더링 여부
   const showHeader = true;
 
-  // 헤더 타이틀 결정 ("바비든든 컵밥" -> "바비든든"으로 변경)
+  // 헤더 타이틀 결정
   let headerTitle = "바비든든";
   if (isCartPage) headerTitle = "장바구니";
   if (isCheckoutPage) headerTitle = "결제하기";
+  if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
@@ -216,6 +220,9 @@ export const UserShell: React.FC = () => {
           <Outlet />
         </main>
 
+        {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
+        <ReadyOrderBanner readyOrders={readyOrders} visible={isMenuPage} />
+
         {/* 1. 사이드 메뉴 드로어 오버레이 및 패널 */}
         {isDrawerOpen && (
           <div className="absolute inset-0 z-50 flex">
@@ -258,39 +265,24 @@ export const UserShell: React.FC = () => {
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   장바구니
+                  {totalCartItems > 0 && (
+                    <span className="ml-2 text-[10px] font-bold text-[#C59B62]">{totalCartItems}</span>
+                  )}
                 </button>
-                {activeOrders.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="px-2 pt-1 text-[10px] font-bold text-gray-400">진행 중 주문</p>
-                    {activeOrders.map((o) => (
-                      <button
-                        key={o.orderId}
-                        onClick={() => {
-                          navigate(`/user/orders/${o.orderId}`);
-                          setIsDrawerOpen(false);
-                        }}
-                        className="w-full text-left py-2.5 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        {o.pickupNumber}번 ·{" "}
-                        {o.status === "READY" ? "준비완료" : "조리중"}
-                      </button>
-                    ))}
-                  </div>
-                ) : latestOrderId ? (
-                  <button
-                    onClick={() => {
-                      navigate(`/user/orders/${latestOrderId}`);
-                      setIsDrawerOpen(false);
-                    }}
-                    className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    최근 주문 현황
-                  </button>
-                ) : (
-                  <div className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-300 select-none">
-                    최근 주문 현황 <span className="text-[10px] font-medium text-gray-400 ml-1">(주문 내역 없음)</span>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    navigate("/user/orders");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  최근 주문 내역
+                  {readyOrders.length > 0 && (
+                    <span className="ml-2 text-[10px] font-bold text-green-600">
+                      준비완료 {readyOrders.length}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={() => {
                     handleRequestNotification();
