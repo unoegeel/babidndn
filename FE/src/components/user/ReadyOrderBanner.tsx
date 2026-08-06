@@ -62,7 +62,7 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
   }
 
   const dismiss = (orderId: string) => {
-    markNotificationsReadByOrder(orderId, "READY");
+    markNotificationsReadByOrder(orderId);
     setDismissed((prev) => {
       const next = new Set(prev);
       next.add(orderId);
