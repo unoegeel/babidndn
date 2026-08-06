@@ -3,6 +3,7 @@ import AdminShell from "../../components/AdminShell";
 import { useAdminData } from "../../store/AdminDataContext";
 import { subscribeOrderEvents } from "../../services/admin/orderService";
 import type { Order, OrderItem } from "../../types/admin";
+import { printKitchenTicket } from "../../utils/kitchenTicketAutoPrint";
 
 declare global {
   interface Window {
@@ -235,7 +236,7 @@ function BoardCard({
     e.stopPropagation();
     const orderDetail = getOrderDetail(order.id);
     if (!orderDetail) return;
-    window.Android?.printKitchenTicket(JSON.stringify(orderDetail));
+    printKitchenTicket(orderDetail, "reprint");
   };
 
   return (
