@@ -1,8 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import AdminShell from "../../components/AdminShell";
 import { useAdminData } from "../../store/AdminDataContext";
 import { subscribeOrderEvents } from "../../services/admin/orderService";
 import type { Order, OrderItem } from "../../types/admin";
+
+declare global {
+  interface Window {
+    Android?: {
+      printKitchenTicket: (orderJson: string) => void;
+    };
+  }
+}
 
 /** 주문 목록 폴링 주기 (ms) — SSE 수신 실패 대비 안전망 */
 const POLL_INTERVAL = 10_000;
@@ -222,14 +230,34 @@ function BoardCard({
   // 주문번호 색상은 호출 여부로 결정 (조리 완료 여부와 무관)
   const numberColor = order.called ? "#22c55e" : "#ef4444";
 
+  const handlePrint = (e: MouseEvent) => {
+    e.stopPropagation();
+    window.Android?.printKitchenTicket(JSON.stringify(order));
+  };
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className={`flex w-full flex-col rounded-[25px] bg-canvas p-[20px] text-left transition-shadow ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`relative flex w-full cursor-pointer flex-col rounded-[25px] bg-canvas p-[20px] text-left transition-shadow ${
         selected ? "ring-2 ring-black/40" : ""
       }`}
     >
+      <button
+        type="button"
+        onClick={handlePrint}
+        className="absolute right-[14px] top-[14px] rounded-[8px] border border-black/30 bg-panel px-[10px] py-[4px] text-[12px] font-medium text-black hover:bg-black/5"
+        aria-label="주문서 출력"
+      >
+        출력
+      </button>
       <p
         className="text-center text-[34px] font-bold leading-none"
         style={{ color: numberColor }}
@@ -253,7 +281,7 @@ function BoardCard({
           </div>
         ))}
       </div>
-    </button>
+    </div>
   );
 }
 
