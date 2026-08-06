@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Order } from "../../types/user";
+import { useUserData } from "../../store/UserDataContext";
 
 const DISMISSED_KEY = "babi_ready_banner_dismissed";
 
@@ -38,6 +39,7 @@ interface ReadyOrderBannerProps {
 /** 메뉴 첫 화면 상단에서 준비완료를 알리는 슬라이드 다운 배너 (다중 누적) */
 export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders, visible }) => {
   const navigate = useNavigate();
+  const { markNotificationsReadByOrder } = useUserData();
   const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
   const [entering, setEntering] = useState(false);
 
@@ -60,6 +62,7 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
   }
 
   const dismiss = (orderId: string) => {
+    markNotificationsReadByOrder(orderId, "READY");
     setDismissed((prev) => {
       const next = new Set(prev);
       next.add(orderId);
