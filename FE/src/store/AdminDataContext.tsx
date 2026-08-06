@@ -20,6 +20,7 @@ import { adminOrderService } from "../services/admin/orderService";
 import { paymentService } from "../services/admin/paymentService";
 import { ApiError } from "../api/client";
 import { formatServerDateTime, formatServerTime } from "../utils/serverDate";
+import { formatOrderItemOptionLabels } from "../utils/orderItemOptions";
 
 interface AdminDataValue {
   categories: MenuCategory[];
@@ -377,9 +378,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           id: String(item.id),
           name: item.menuName,
           quantity: item.quantity,
-          options: item.options.map((opt) =>
-            opt.quantity > 1 ? `${opt.name} x ${opt.quantity}` : opt.name,
-          ),
+          options: formatOrderItemOptionLabels(item.options),
           cooked: serverReady || uiState.cookedItemIds.has(String(item.id)),
         }));
 

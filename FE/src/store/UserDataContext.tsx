@@ -58,6 +58,8 @@ interface UserDataContextType {
   cartTotal: number;
   addNotification: (type: NotificationType, title: string, message: string, orderId: string) => void;
   markAsRead: (id: string) => void;
+  /** 특정 주문의 알림을 읽음 처리 (type 지정 시 해당 유형만) */
+  markNotificationsReadByOrder: (orderId: string, type?: NotificationType) => void;
   removeNotification: (id: string) => void;
 }
 
@@ -170,6 +172,16 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
   };
+
+  const markNotificationsReadByOrder = useCallback((orderId: string, type?: NotificationType) => {
+    setNotifications((prev) =>
+      prev.map((n) => {
+        if (n.orderId !== orderId) return n;
+        if (type && n.type !== type) return n;
+        return n.read ? n : { ...n, read: true };
+      }),
+    );
+  }, []);
 
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -412,6 +424,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         cartTotal,
         addNotification,
         markAsRead,
+        markNotificationsReadByOrder,
         removeNotification,
       }}
     >
