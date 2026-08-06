@@ -180,7 +180,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
   return (
-    <div className="absolute inset-0 bg-black/40 z-50 flex flex-col justify-end">
+    <div className="absolute inset-0 bg-black/40 z-[60] flex flex-col justify-end">
       <div className="flex-1" onClick={onClose}></div>
 
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}

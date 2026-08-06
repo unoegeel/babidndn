@@ -6,13 +6,14 @@ import {
   requestPermissionAndSubscribe,
 } from "../../utils/webPush";
 import ReadyOrderBanner from "./ReadyOrderBanner";
+import SwipeableNotificationItem from "./SwipeableNotificationItem";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, activeOrders, markAsRead } = useUserData();
+  const { cart, notifications, activeOrders, markAsRead, removeNotification } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -130,7 +131,10 @@ export const UserShell: React.FC = () => {
               {isMenuPage ? (
                 // 햄버거 메뉴 아이콘
                 <button
-                  onClick={() => setIsDrawerOpen(true)}
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    setIsDrawerOpen(true);
+                  }}
                   className="text-gray-700 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴"
                 >
@@ -319,37 +323,17 @@ export const UserShell: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <p className="text-[9px] font-medium text-gray-400 px-0.5">
+                    ← 삭제 · 읽음 →
+                  </p>
                   {notifications.map((notif) => (
-                    <div
+                    <SwipeableNotificationItem
                       key={notif.id}
-                      onClick={() => handleNotifClick(notif.id, notif.orderId, notif.type)}
-                      className={`p-3 rounded-xl border transition-all text-left cursor-pointer flex gap-3 items-start ${
-                        notif.read
-                          ? "bg-white border-gray-100 opacity-60"
-                          : "bg-blue-50/30 border-blue-100 hover:border-blue-200"
-                      }`}
-                    >
-                      {/* 상태별 알림 아이콘 도트 연출 */}
-                      <span
-                        className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                          notif.type === "READY"
-                            ? "bg-green-500 animate-ping"
-                            : notif.type === "PREPARING"
-                            ? "bg-blue-500"
-                            : notif.type === "CANCELED"
-                            ? "bg-red-500"
-                            : "bg-gray-400"
-                        }`}
-                      ></span>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-[10px] font-bold text-gray-800 truncate">{notif.title}</h4>
-                          <span className="text-[8px] text-gray-400 font-medium">{notif.createdAt}</span>
-                        </div>
-                        <p className="text-[9px] text-gray-500 mt-1 leading-normal">{notif.message}</p>
-                      </div>
-                    </div>
+                      notif={notif}
+                      onOpen={() => handleNotifClick(notif.id, notif.orderId, notif.type)}
+                      onMarkRead={() => markAsRead(notif.id)}
+                      onDelete={() => removeNotification(notif.id)}
+                    />
                   ))}
                 </div>
               )}

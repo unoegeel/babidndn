@@ -24,6 +24,7 @@ interface UserDataContextType {
   cartTotal: number;
   addNotification: (type: NotificationType, title: string, message: string, orderId: string) => void;
   markAsRead: (id: string) => void;
+  removeNotification: (id: string) => void;
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
@@ -112,6 +113,10 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const generateCartItemId = (menuId: number, options: MenuOption[]): string => {
@@ -351,6 +356,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         cartTotal,
         addNotification,
         markAsRead,
+        removeNotification,
       }}
     >
       {children}

@@ -6,7 +6,13 @@ const DISMISSED_KEY = "babi_ready_banner_dismissed";
 
 function readDismissed(): Set<string> {
   try {
-    const raw = sessionStorage.getItem(DISMISSED_KEY);
+    // 예전 sessionStorage 값을 localStorage로 이전
+    const fromSession = sessionStorage.getItem(DISMISSED_KEY);
+    if (fromSession && !localStorage.getItem(DISMISSED_KEY)) {
+      localStorage.setItem(DISMISSED_KEY, fromSession);
+      sessionStorage.removeItem(DISMISSED_KEY);
+    }
+    const raw = localStorage.getItem(DISMISSED_KEY);
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as string[];
     return new Set(Array.isArray(parsed) ? parsed : []);
@@ -17,7 +23,8 @@ function readDismissed(): Set<string> {
 
 function persistDismissed(ids: Set<string>) {
   try {
-    sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+    sessionStorage.removeItem(DISMISSED_KEY);
   } catch {
     // ignore
   }
@@ -68,7 +75,7 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
 
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 top-14 z-[55] flex flex-col items-center gap-2 px-3 pt-2 transition-transform duration-300 ease-out ${
+      className={`pointer-events-none absolute inset-x-0 top-14 z-40 flex flex-col items-center gap-2 px-3 pt-2 transition-transform duration-300 ease-out ${
         entering ? "translate-y-0" : "-translate-y-[120%]"
       }`}
     >
