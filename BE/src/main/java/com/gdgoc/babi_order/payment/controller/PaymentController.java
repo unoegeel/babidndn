@@ -12,9 +12,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.view.RedirectView;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -39,7 +40,7 @@ public class PaymentController {
 
     @Operation(summary = "결제 성공 콜백", description = "토스 결제창 successUrl. redirect 파라미터가 있으면 승인 후 프론트로 리다이렉트합니다.")
     @GetMapping("/success")
-    public Object success(
+    public ResponseEntity<?> success(
             @RequestParam("paymentKey") String paymentKey,
             @RequestParam("orderId") String orderId,
             @RequestParam("amount") Integer amount,
@@ -57,6 +58,16 @@ public class PaymentController {
                 PaymentConfirmResponse result = paymentService.confirm(request);
                 return redirectTo(redirect, "confirmedOrderId", String.valueOf(result.getOrderId()));
             } catch (PaymentApiException exception) {
+                // 이미 승인된 경우에도 주문 현황으로 보내 스피너에 멈추지 않게 한다.
+                if ("PAYMENT_ALREADY_PROCESSED".equals(exception.getCode())) {
+                    String recoveredId = extractOrderId(exception.getMessage());
+                    if (recoveredId == null && internalOrderId != null) {
+                        recoveredId = String.valueOf(internalOrderId);
+                    }
+                    if (recoveredId != null) {
+                        return redirectTo(redirect, "confirmedOrderId", recoveredId);
+                    }
+                }
                 return redirectTo(redirect, "paymentError", exception.getMessage());
             }
         }
@@ -119,9 +130,33 @@ public class PaymentController {
         }
     }
 
-    private RedirectView redirectTo(String redirect, String key, String value) {
+    private ResponseEntity<Void> redirectTo(String redirect, String key, String value) {
         String encoded = URLEncoder.encode(value, StandardCharsets.UTF_8);
         String separator = redirect.contains("?") ? "&" : "?";
-        return new RedirectView(redirect + separator + key + "=" + encoded, true);
+        URI location = URI.create(redirect + separator + key + "=" + encoded);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setLocation(location);
+        return new ResponseEntity<>(headers, HttpStatus.FOUND);
+    }
+
+    private String extractOrderId(String message) {
+        if (message == null) {
+            return null;
+        }
+        int idx = message.indexOf("orderId=");
+        if (idx < 0) {
+            return null;
+        }
+        String tail = message.substring(idx + "orderId=".length()).trim();
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < tail.length(); i++) {
+            char c = tail.charAt(i);
+            if (Character.isDigit(c)) {
+                digits.append(c);
+            } else {
+                break;
+            }
+        }
+        return digits.isEmpty() ? null : digits.toString();
     }
 }

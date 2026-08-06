@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { ApiError } from "../../api/client";
 import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../../services/user/orderService";
 import { useUserData } from "../../store/UserDataContext";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
@@ -26,6 +27,11 @@ function clearPaymentStorage(): void {
   orderService.clearOrderApiBaseUrl();
 }
 
+function parseOrderIdFromAlreadyProcessed(message: string): string | null {
+  const match = message.match(/orderId=(\d+)/);
+  return match?.[1] ?? null;
+}
+
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -40,11 +46,35 @@ export const PaymentSuccessPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(paymentError);
   const isRequestingRef = useRef(false);
 
-  // 백엔드 successUrl에서 이미 승인 완료 후 리다이렉트된 경우
   const isBackendConfirmed = Boolean(confirmedOrderId);
-
-  // FE에서 직접 승인하는 레거시/폴백 경로
   const isInvalidParams = !isBackendConfirmed && (!paymentKey || !tossOrderId || !amountStr);
+
+  const goToOrderStatus = (orderId: string | number) => {
+    const id = String(orderId);
+    clearCart();
+    clearPaymentStorage();
+    void linkPushSubscriptionToOrder(id);
+    navigate(`/user/orders/${id}`, { replace: true });
+
+    // 현황 페이지에서도 조회하지만, 가능하면 로컬 상태도 미리 채움 (실패해도 이동은 완료된 상태)
+    void orderService
+      .getOrder(id)
+      .then((detail) => saveOrderToState(mapOrderDetailToOrder(detail)))
+      .catch((e) => console.error("결제 완료 주문 조회 실패:", e));
+  };
+
+  const restoreCartAndClear = async () => {
+    try {
+      const savedCart = sessionStorage.getItem("cartBackup") ?? localStorage.getItem("cartBackup");
+      if (savedCart) {
+        restoreCart(JSON.parse(savedCart));
+      }
+    } catch (e) {
+      console.error("장바구니 복원 실패:", e);
+    } finally {
+      clearPaymentStorage();
+    }
+  };
 
   useEffect(() => {
     if (paymentError) {
@@ -57,45 +87,34 @@ export const PaymentSuccessPage: React.FC = () => {
         } catch (e) {
           console.error("미결제 주문 삭제 실패:", e);
         }
-        try {
-          const savedCart = sessionStorage.getItem("cartBackup") ?? localStorage.getItem("cartBackup");
-          if (savedCart) {
-            restoreCart(JSON.parse(savedCart));
-          }
-        } catch (e) {
-          console.error("장바구니 복원 실패:", e);
-        } finally {
-          clearPaymentStorage();
-        }
+        await restoreCartAndClear();
       })();
       return;
     }
 
+    // 백엔드에서 이미 승인 후 리다이렉트된 경우 — 즉시 현황으로 이동
     if (isBackendConfirmed && confirmedOrderId) {
-      clearCart();
-      clearPaymentStorage();
-
-      void (async () => {
-        try {
-          const detail = await orderService.getOrder(confirmedOrderId);
-          saveOrderToState(mapOrderDetailToOrder(detail));
-        } catch (e) {
-          console.error("결제 완료 주문 조회 실패:", e);
-        }
-        void linkPushSubscriptionToOrder(confirmedOrderId);
-        navigate(`/user/orders/${confirmedOrderId}`, { replace: true });
-      })();
+      if (isRequestingRef.current) return;
+      isRequestingRef.current = true;
+      goToOrderStatus(confirmedOrderId);
       return;
     }
 
     if (isInvalidParams) return;
 
     const sessionConfirmKey = `confirming_${tossOrderId}`;
+
+    // 이전 시도가 승인까지 끝난 뒤 화면만 멈춘 경우 — pendingOrder로 복구
     if (isRequestingRef.current || sessionStorage.getItem(sessionConfirmKey) === "true") {
+      const pending = readPendingOrder();
+      if (pending?.id) {
+        sessionStorage.removeItem(sessionConfirmKey);
+        goToOrderStatus(pending.id);
+      }
       return;
     }
 
-    let pendingOrder: OrderDetailResponse | null = readPendingOrder();
+    const pendingOrder = readPendingOrder();
     const amount = Number(amountStr);
 
     if (pendingOrder) {
@@ -119,51 +138,43 @@ export const PaymentSuccessPage: React.FC = () => {
         amount,
         internalOrderId: pendingOrder?.id,
       })
-      .then(async (res) => {
-        clearPaymentStorage();
+      .then((res) => {
         sessionStorage.removeItem(sessionConfirmKey);
-        clearCart();
-
-        try {
-          const detail = await orderService.getOrder(res.orderId);
-          saveOrderToState(mapOrderDetailToOrder(detail));
-        } catch (e) {
-          console.error("결제 완료 주문 조회 실패:", e);
-        } finally {
-          orderService.clearOrderApiBaseUrl();
-        }
-
-        const backendOrderId = String(res.orderId);
-        void linkPushSubscriptionToOrder(backendOrderId);
-        navigate(`/user/orders/${backendOrderId}`, { replace: true });
+        goToOrderStatus(res.orderId);
       })
       .catch(async (err: unknown) => {
         console.error("결제 승인 실패:", err);
         sessionStorage.removeItem(sessionConfirmKey);
         isRequestingRef.current = false;
 
+        // 백엔드 successUrl에서 이미 승인된 뒤 FE가 다시 호출한 경우 → 현황으로 이동
+        const pending = readPendingOrder();
+        const alreadyProcessed =
+          err instanceof ApiError && err.code === "PAYMENT_ALREADY_PROCESSED";
+        const recoveredId =
+          (alreadyProcessed && pending?.id
+            ? String(pending.id)
+            : null) ??
+          (err instanceof Error ? parseOrderIdFromAlreadyProcessed(err.message) : null) ??
+          (pending?.id ? String(pending.id) : null);
+
+        if (alreadyProcessed && recoveredId) {
+          goToOrderStatus(recoveredId);
+          return;
+        }
+
         const message = err instanceof Error ? err.message : "결제 승인 처리 중 오류가 발생했습니다.";
         setErrorMsg(message);
 
         try {
-          const pending = readPendingOrder();
-          if (pending?.id) {
+          if (pending?.id && !alreadyProcessed) {
             await orderService.abandonUnpaidOrder(pending.id);
           }
         } catch (e) {
           console.error("미결제 주문 삭제 실패:", e);
         }
 
-        try {
-          const savedCart = sessionStorage.getItem("cartBackup") ?? localStorage.getItem("cartBackup");
-          if (savedCart) {
-            restoreCart(JSON.parse(savedCart));
-          }
-        } catch (e) {
-          console.error("장바구니 복원 실패:", e);
-        } finally {
-          clearPaymentStorage();
-        }
+        await restoreCartAndClear();
       });
   }, [
     paymentKey,
