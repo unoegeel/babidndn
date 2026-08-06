@@ -145,7 +145,9 @@ export const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps>
         <span
           className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
             notif.type === "READY"
-              ? "bg-green-500 animate-ping"
+              ? notif.read
+                ? "bg-green-500"
+                : "bg-green-500 animate-ping"
               : notif.type === "PREPARING"
                 ? "bg-blue-500"
                 : notif.type === "CANCELED"

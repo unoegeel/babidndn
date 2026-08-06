@@ -4,6 +4,40 @@ import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from ".
 
 const ORDERS_STORAGE_KEY = "babi_user_orders";
 const NOTIFS_STORAGE_KEY = "babi_user_notifications";
+const SEOUL = "Asia/Seoul";
+
+/** Asia/Seoul 기준 YYYY-MM-DD */
+function seoulDateKey(ms: number = Date.now()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: SEOUL,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(ms));
+}
+
+function notificationCreatedAtMs(n: NotificationItem): number | null {
+  if (typeof n.createdAtMs === "number" && Number.isFinite(n.createdAtMs)) {
+    return n.createdAtMs;
+  }
+  // 구버전: id 앞부분이 Date.now()
+  const ts = Number(String(n.id).split("-")[0]);
+  if (Number.isFinite(ts) && ts > 1e12) {
+    return ts;
+  }
+  return null;
+}
+
+/** 서울 기준 오늘이 아닌 알림 제거 (매일 00시 이후 전날 알림 삭제) */
+function pruneOldNotifications(list: NotificationItem[]): NotificationItem[] {
+  const todayKey = seoulDateKey();
+  return list.filter((n) => {
+    const ms = notificationCreatedAtMs(n);
+    // 생성 시각을 알 수 없는 구알림은 정리
+    if (ms == null) return false;
+    return seoulDateKey(ms) === todayKey;
+  });
+}
 
 interface UserDataContextType {
   cart: CartItem[];
@@ -45,7 +79,8 @@ function readStoredNotifications(): NotificationItem[] {
     const raw = localStorage.getItem(NOTIFS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as NotificationItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return pruneOldNotifications(parsed);
   } catch {
     return [];
   }
@@ -68,6 +103,26 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
   const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
 
+  // 서울 00시 기준으로 전날 알림 정리 (1분마다·탭 복귀 시)
+  useEffect(() => {
+    const prune = () => {
+      setNotifications((prev) => {
+        const next = pruneOldNotifications(prev);
+        return next.length === prev.length ? prev : next;
+      });
+    };
+    prune();
+    const intervalId = window.setInterval(prune, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") prune();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
@@ -78,7 +133,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     try {
-      localStorage.setItem(NOTIFS_STORAGE_KEY, JSON.stringify(notifications.slice(0, 50)));
+      localStorage.setItem(NOTIFS_STORAGE_KEY, JSON.stringify(pruneOldNotifications(notifications).slice(0, 50)));
     } catch {
       // ignore
     }
@@ -96,6 +151,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         message,
         orderId,
         createdAt: timeString,
+        createdAtMs: now.getTime(),
         read: false,
       };
       setNotifications((prev) => {
@@ -103,7 +159,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (prev.some((n) => n.orderId === orderId && n.type === type)) {
           return prev;
         }
-        return [newNotification, ...prev].slice(0, 50);
+        return pruneOldNotifications([newNotification, ...prev]).slice(0, 50);
       });
     },
     [],

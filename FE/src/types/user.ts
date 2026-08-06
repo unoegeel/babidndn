@@ -75,6 +75,9 @@ export interface NotificationItem {
   title: string;
   message: string;
   orderId: string;
+  /** 화면 표시용 HH:mm */
   createdAt: string;
+  /** 만료·정렬용 epoch ms */
+  createdAtMs?: number;
   read: boolean;
 }
