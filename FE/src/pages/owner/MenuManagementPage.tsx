@@ -615,7 +615,7 @@ function MenuForm({
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="예) 6800"
-            className={`${fieldControlClass} pr-[48px]`}
+            className={`${fieldControlClass} ${noSpinnerClass} pr-[48px]`}
           />
           <span className="pointer-events-none absolute right-[20px] top-1/2 -translate-y-1/2 text-[15px] text-black/50">
             원
@@ -706,6 +706,10 @@ function FormLabel({ children }: { children: string }) {
 /** 메뉴명·가격·카테고리·토핑 입력칸 공통 높이/패딩 (가격 기준 48px) */
 const fieldControlClass =
   "box-border h-[48px] min-h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] leading-none tracking-[1px] outline-none placeholder:text-black/50 focus:border-black";
+
+/** number input 스피너(up/down) 숨김 */
+const noSpinnerClass =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 function SelectChevron() {
   return (

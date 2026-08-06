@@ -5,6 +5,7 @@ import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
 import MenuThumb from "../../components/user/MenuThumb";
+import MarqueeText from "../../components/user/MarqueeText";
 
 const SWIPE_THRESHOLD_PX = 56;
 
@@ -233,7 +234,10 @@ export const MenuPage: React.FC = () => {
                 {/* 메뉴 정보 */}
                 <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 truncate">{menu.name}</h3>
+                    <MarqueeText
+                      text={menu.name}
+                      textClassName="text-sm font-bold text-gray-900"
+                    />
                     {menu.description && (
                       <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
                         {menu.description}

@@ -40,3 +40,19 @@ body {
   /* 화면 전체가 고무줄처럼 딸려 올라가는 스크롤 방지 (내부 영역만 스크롤) */
   overscroll-behavior: none;
 }
+
+/* 긴 메뉴명: 넘칠 때만 좌우 순환 슬라이드 */
+@keyframes marquee-x {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+  45%,
+  55% {
+    transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
+  }
+  88%,
+  100% {
+    transform: translateX(0);
+  }
+}
