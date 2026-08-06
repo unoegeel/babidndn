@@ -11,7 +11,7 @@ const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, latestOrderId, markAsRead } = useUserData();
+  const { cart, notifications, latestOrderId, activeOrders, markAsRead } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -259,7 +259,24 @@ export const UserShell: React.FC = () => {
                 >
                   장바구니
                 </button>
-                {latestOrderId ? (
+                {activeOrders.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="px-2 pt-1 text-[10px] font-bold text-gray-400">진행 중 주문</p>
+                    {activeOrders.map((o) => (
+                      <button
+                        key={o.orderId}
+                        onClick={() => {
+                          navigate(`/user/orders/${o.orderId}`);
+                          setIsDrawerOpen(false);
+                        }}
+                        className="w-full text-left py-2.5 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        {o.pickupNumber}번 ·{" "}
+                        {o.status === "READY" ? "준비완료" : "조리중"}
+                      </button>
+                    ))}
+                  </div>
+                ) : latestOrderId ? (
                   <button
                     onClick={() => {
                       navigate(`/user/orders/${latestOrderId}`);
