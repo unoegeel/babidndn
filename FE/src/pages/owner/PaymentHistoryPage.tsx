@@ -255,14 +255,6 @@ function PaymentDetailPanel({
           <dt className="text-black/50">상태</dt>
           <dd className="font-medium">{payment.status}</dd>
         </div>
-        {payment.paymentKey && (
-          <div>
-            <dt className="text-black/50">결제 키</dt>
-            <dd className="break-all font-mono text-[12px] text-black/70">
-              {payment.paymentKey}
-            </dd>
-          </div>
-        )}
       </dl>
 
       <div>

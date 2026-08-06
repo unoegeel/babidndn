@@ -8,6 +8,27 @@ declare global {
   }
 }
 
+export type KitchenTicketPrintMode = "new" | "reprint";
+
+/** OrderDetailResponse + 티켓 헤더(신규 주문 / 재출력) */
+export function buildKitchenTicketPayload(
+  orderDetail: OrderDetailResponse,
+  mode: KitchenTicketPrintMode,
+): OrderDetailResponse & { ticketHeader: string } {
+  return {
+    ...orderDetail,
+    ticketHeader: mode === "reprint" ? "재출력" : "신규 주문",
+  };
+}
+
+export function printKitchenTicket(
+  orderDetail: OrderDetailResponse,
+  mode: KitchenTicketPrintMode,
+): void {
+  const payload = buildKitchenTicketPayload(orderDetail, mode);
+  window.Android?.printKitchenTicket(JSON.stringify(payload));
+}
+
 /** 앱 세션 동안 이미 출력(또는 기준선에 포함)한 주문 ID */
 const printedOrderIds = new Set<number>();
 
@@ -41,7 +62,7 @@ export function syncKitchenTicketAutoPrint(
     printedOrderIds.add(id);
 
     try {
-      window.Android?.printKitchenTicket(JSON.stringify(orderDetail));
+      printKitchenTicket(orderDetail, "new");
     } catch (err) {
       console.error(`주방 티켓 자동 출력 실패 (id=${id}):`, err);
     }
