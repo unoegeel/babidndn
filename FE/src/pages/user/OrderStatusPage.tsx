@@ -41,7 +41,10 @@ export const OrderStatusPage: React.FC = () => {
       return;
     }
 
-    // 준비완료 Web Push 대상 주문으로 현재 구독 연결
+    // 주문마다 알림 플래그 초기화 (이전 주문 상태가 새 주문을 막지 않도록)
+    alertSentRef.current = { preparing: false, ready: false, canceled: false };
+
+    // 준비완료 Web Push 대상 주문으로 현재 구독 연결 (다중 주문 누적)
     void linkPushSubscriptionToOrder(orderId);
 
     let isMounted = true;

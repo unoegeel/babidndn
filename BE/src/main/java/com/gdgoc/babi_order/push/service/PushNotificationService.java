@@ -66,7 +66,10 @@ public class PushNotificationService {
             log.warn("주문 연결할 Push 구독이 없습니다. endpoint={}", truncate(endpoint));
             return;
         }
+        // 기존 주문 연결을 덮어쓰지 않고 목록에 추가
         subscription.linkOrder(orderId);
+        log.debug("Push 구독에 주문 연결. orderId={}, linkedCount={}",
+                orderId, subscription.getOrderIds().size());
     }
 
     /**

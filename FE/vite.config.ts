@@ -20,8 +20,8 @@ export default defineConfig({
       },
       includeAssets: ['icon-192.png', 'icon-512.png', 'push-sw.js'],
       manifest: {
-        name: '바비든든',
-        short_name: '바비든든',
+        name: '바비오더',
+        short_name: '바비오더',
         description: '바비든든 주문·관리',
         display: 'standalone',
         // 단일 PWA 매니페스트 — 실제 분기는 / 에서 마지막 사용 모드(유저/관리자)로 처리

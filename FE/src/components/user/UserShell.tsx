@@ -5,13 +5,15 @@ import {
   ensurePushSubscription,
   requestPermissionAndSubscribe,
 } from "../../utils/webPush";
+import ReadyOrderBanner from "./ReadyOrderBanner";
+import SwipeableNotificationItem from "./SwipeableNotificationItem";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, latestOrderId, markAsRead } = useUserData();
+  const { cart, notifications, activeOrders, markAsRead, removeNotification } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -20,21 +22,24 @@ export const UserShell: React.FC = () => {
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const readyOrders = activeOrders.filter((o) => o.status === "READY");
 
   // 헤더 구성 분기 처리
   const isMenuPage = pathname === "/user" || pathname === "/user/";
   const isCartPage = pathname === "/user/cart" || pathname === "/user/cart/";
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
+  const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
-  const isStatusPage = pathname.includes("/orders/") && !isCompletePage;
+  const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
   // 헤더 렌더링 여부
   const showHeader = true;
 
-  // 헤더 타이틀 결정 ("바비든든 컵밥" -> "바비든든"으로 변경)
+  // 헤더 타이틀 결정
   let headerTitle = "바비든든";
   if (isCartPage) headerTitle = "장바구니";
   if (isCheckoutPage) headerTitle = "결제하기";
+  if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
@@ -126,7 +131,10 @@ export const UserShell: React.FC = () => {
               {isMenuPage ? (
                 // 햄버거 메뉴 아이콘
                 <button
-                  onClick={() => setIsDrawerOpen(true)}
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    setIsDrawerOpen(true);
+                  }}
                   className="text-gray-700 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴"
                 >
@@ -216,6 +224,9 @@ export const UserShell: React.FC = () => {
           <Outlet />
         </main>
 
+        {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
+        <ReadyOrderBanner readyOrders={readyOrders} visible={isMenuPage} />
+
         {/* 1. 사이드 메뉴 드로어 오버레이 및 패널 */}
         {isDrawerOpen && (
           <div className="absolute inset-0 z-50 flex">
@@ -258,22 +269,24 @@ export const UserShell: React.FC = () => {
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   장바구니
+                  {totalCartItems > 0 && (
+                    <span className="ml-2 text-[10px] font-bold text-[#C59B62]">{totalCartItems}</span>
+                  )}
                 </button>
-                {latestOrderId ? (
-                  <button
-                    onClick={() => {
-                      navigate(`/user/orders/${latestOrderId}`);
-                      setIsDrawerOpen(false);
-                    }}
-                    className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    최근 주문 현황
-                  </button>
-                ) : (
-                  <div className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-300 select-none">
-                    최근 주문 현황 <span className="text-[10px] font-medium text-gray-400 ml-1">(주문 내역 없음)</span>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    navigate("/user/orders");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  최근 주문 내역
+                  {readyOrders.length > 0 && (
+                    <span className="ml-2 text-[10px] font-bold text-green-600">
+                      준비완료 {readyOrders.length}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={() => {
                     handleRequestNotification();
@@ -310,37 +323,17 @@ export const UserShell: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <p className="text-[9px] font-medium text-gray-400 px-0.5">
+                    ← 삭제 · 읽음 →
+                  </p>
                   {notifications.map((notif) => (
-                    <div
+                    <SwipeableNotificationItem
                       key={notif.id}
-                      onClick={() => handleNotifClick(notif.id, notif.orderId, notif.type)}
-                      className={`p-3 rounded-xl border transition-all text-left cursor-pointer flex gap-3 items-start ${
-                        notif.read
-                          ? "bg-white border-gray-100 opacity-60"
-                          : "bg-blue-50/30 border-blue-100 hover:border-blue-200"
-                      }`}
-                    >
-                      {/* 상태별 알림 아이콘 도트 연출 */}
-                      <span
-                        className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                          notif.type === "READY"
-                            ? "bg-green-500 animate-ping"
-                            : notif.type === "PREPARING"
-                            ? "bg-blue-500"
-                            : notif.type === "CANCELED"
-                            ? "bg-red-500"
-                            : "bg-gray-400"
-                        }`}
-                      ></span>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <h4 className="text-[10px] font-bold text-gray-800 truncate">{notif.title}</h4>
-                          <span className="text-[8px] text-gray-400 font-medium">{notif.createdAt}</span>
-                        </div>
-                        <p className="text-[9px] text-gray-500 mt-1 leading-normal">{notif.message}</p>
-                      </div>
-                    </div>
+                      notif={notif}
+                      onOpen={() => handleNotifClick(notif.id, notif.orderId, notif.type)}
+                      onMarkRead={() => markAsRead(notif.id)}
+                      onDelete={() => removeNotification(notif.id)}
+                    />
                   ))}
                 </div>
               )}
