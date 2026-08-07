@@ -66,6 +66,8 @@ export type PaymentStatus = "결제완료" | "취소됨" | "미결제";
 export interface Payment {
   id: string;
   paidAt: string;
+  /** 기간 필터용 epoch ms (승인 시각 기준) */
+  paidAtMs: number;
   orderNumber: number;
   method: string;
   amount: number;

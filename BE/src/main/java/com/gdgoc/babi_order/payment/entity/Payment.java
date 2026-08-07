@@ -42,6 +42,10 @@ public class Payment {
     @Column(name = "approved_at", nullable = false)
     private LocalDateTime approvedAt;
 
+    /** 화면 표시용 결제 수단 (예: 네이버페이, 카드(현대)) */
+    @Column(name = "method_label", length = 50)
+    private String methodLabel;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -50,13 +54,14 @@ public class Payment {
 
     @Builder
     public Payment(Order order, String tossOrderId, String paymentKey, Integer amount,
-                   PaymentStatus status, LocalDateTime approvedAt) {
+                   PaymentStatus status, LocalDateTime approvedAt, String methodLabel) {
         this.order = order;
         this.tossOrderId = tossOrderId;
         this.paymentKey = paymentKey;
         this.amount = amount;
         this.status = status;
         this.approvedAt = approvedAt;
+        this.methodLabel = methodLabel;
     }
 
     @PrePersist
@@ -77,5 +82,11 @@ public class Payment {
 
     public void syncStatus(PaymentStatus status) {
         this.status = status;
+    }
+
+    public void updateMethodLabel(String methodLabel) {
+        if (methodLabel != null && !methodLabel.isBlank()) {
+            this.methodLabel = methodLabel;
+        }
     }
 }

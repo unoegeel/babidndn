@@ -69,6 +69,7 @@ public class PaymentService {
                 .amount(request.getAmount())
                 .status(PaymentStatus.DONE)
                 .approvedAt(approvedAt)
+                .methodLabel(TossPaymentClient.formatMethodLabel(tossResponse))
                 .build();
 
         Payment saved = paymentRepository.save(payment);
@@ -206,15 +207,19 @@ public class PaymentService {
         return toPaymentResponse(payment);
     }
 
+    @Transactional
     public PaymentResponse getByPaymentKey(String paymentKey) {
         Payment payment = paymentRepository.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> PaymentNotFoundException.byPaymentKey(paymentKey));
+        enrichMethodLabelIfMissing(payment);
         return toPaymentResponse(payment);
     }
 
+    @Transactional
     public PaymentResponse getByOrderId(Long orderId) {
         Payment payment = paymentRepository.findByOrder_Id(orderId)
                 .orElseThrow(() -> PaymentNotFoundException.byOrderId(orderId));
+        enrichMethodLabelIfMissing(payment);
         return toPaymentResponse(payment);
     }
 
@@ -225,6 +230,27 @@ public class PaymentService {
                 .message(message)
                 .orderId(orderId)
                 .build();
+    }
+
+    /** 과거 결제건에 methodLabel 이 없거나 구형 카드사 표기면 토스 조회로 보강 */
+    private void enrichMethodLabelIfMissing(Payment payment) {
+        String current = payment.getMethodLabel();
+        boolean needsRefresh = current == null
+                || current.isBlank()
+                || current.startsWith("카드(")
+                || "카드".equals(current);
+        if (!needsRefresh) {
+            return;
+        }
+        try {
+            TossPaymentClient.TossPaymentResponse toss = tossPaymentClient.getPayment(payment.getPaymentKey());
+            String label = TossPaymentClient.formatMethodLabel(toss);
+            if (label != null) {
+                payment.updateMethodLabel(label);
+            }
+        } catch (Exception e) {
+            log.warn("결제 수단 라벨 보강 실패 paymentKey={}: {}", payment.getPaymentKey(), e.getMessage());
+        }
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
@@ -238,6 +264,7 @@ public class PaymentService {
                 .cancelReason(payment.getCancelReason())
                 .approvedAt(payment.getApprovedAt())
                 .createdAt(payment.getCreatedAt())
+                .methodLabel(payment.getMethodLabel())
                 .build();
     }
 }

@@ -64,6 +64,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
   {
     id: "p1",
     paidAt: "2026.07.09 14:48",
+    paidAtMs: Date.parse("2026-07-09T14:48:00+09:00"),
     orderNumber: 101,
     method: "카카오페이",
     amount: 11600,
@@ -73,6 +74,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
   {
     id: "p2",
     paidAt: "2026.07.09 14:48",
+    paidAtMs: Date.parse("2026-07-09T14:48:00+09:00"),
     orderNumber: 102,
     method: "애플페이",
     amount: 8600,
@@ -82,6 +84,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
   {
     id: "p3",
     paidAt: "2026.07.09 14:48",
+    paidAtMs: Date.parse("2026-07-09T14:48:00+09:00"),
     orderNumber: 103,
     method: "페이코",
     amount: 5500,
@@ -91,6 +94,7 @@ export const INITIAL_PAYMENTS: Payment[] = [
   {
     id: "p4",
     paidAt: "2026.07.09 14:48",
+    paidAtMs: Date.parse("2026-07-09T14:48:00+09:00"),
     orderNumber: 104,
     method: "토스페이",
     amount: 11600,

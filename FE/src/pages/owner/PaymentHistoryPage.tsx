@@ -7,9 +7,19 @@ import { formatOrderItemOptionLabels } from "../../utils/orderItemOptions";
 
 const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
+type PeriodFilter = "all" | "today" | "last3";
+
+function startOfSeoulDay(d = new Date()): number {
+  // 화면 표시와 동일하게 로컬(기기) 자정 기준
+  const start = new Date(d);
+  start.setHours(0, 0, 0, 0);
+  return start.getTime();
+}
+
 export default function PaymentHistoryPage() {
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
+  const [period, setPeriod] = useState<PeriodFilter>("all");
   const [target, setTarget] = useState<Payment | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,8 +37,22 @@ export default function PaymentHistoryPage() {
 
   const filtered = useMemo(() => {
     const k = keyword.trim();
-    return k ? payments.filter((p) => String(p.orderNumber).includes(k)) : payments;
-  }, [payments, keyword]);
+    const todayStart = startOfSeoulDay();
+    const threeDaysAgo = todayStart - 2 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 3일
+
+    return payments.filter((p) => {
+      if (k && String(p.orderNumber) !== k) {
+        return false;
+      }
+      if (period === "today" && p.paidAtMs < todayStart) {
+        return false;
+      }
+      if (period === "last3" && p.paidAtMs < threeDaysAgo) {
+        return false;
+      }
+      return true;
+    });
+  }, [payments, keyword, period]);
 
   const toggleExpand = (payment: Payment) => {
     setExpandedId((prev) => (prev === payment.id ? null : payment.id));
@@ -48,6 +72,7 @@ export default function PaymentHistoryPage() {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="주문번호 검색"
+              inputMode="numeric"
               className="h-[48px] w-[217px] rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[44px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
             />
             <svg
@@ -58,26 +83,15 @@ export default function PaymentHistoryPage() {
               <path d="M21 21l-4.3-4.3" />
             </svg>
           </div>
-          <select className="h-[48px] w-[160px] rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] tracking-[1px] outline-none focus:border-black">
-            <option>전체 기간</option>
-            <option>오늘</option>
-            <option>최근 7일</option>
-          </select>
-          <button className="flex size-[48px] items-center justify-center rounded-[10px] border border-black/50 bg-canvas text-black" aria-label="달력">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="17" rx="2" />
-              <path d="M3 9h18M8 2v4M16 2v4" />
-            </svg>
-          </button>
-          <button
-            onClick={loadPayments}
-            className="flex size-[48px] items-center justify-center rounded-[10px] border border-black/50 bg-canvas text-black"
-            aria-label="새로고침"
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+            className="h-[48px] w-[160px] rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] tracking-[1px] outline-none focus:border-black"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5" />
-            </svg>
-          </button>
+            <option value="all">전체 기간</option>
+            <option value="today">오늘</option>
+            <option value="last3">최근 3일</option>
+          </select>
         </div>
 
         {/* 표 */}

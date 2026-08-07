@@ -155,6 +155,8 @@ export interface PaymentResponse {
   cancelReason?: string | null;
   approvedAt?: string | null;
   createdAt: string;
+  /** 네이버페이, 카드(현대) 등 표시용 */
+  methodLabel?: string | null;
 }
 
 export interface PaymentCancelRequest {

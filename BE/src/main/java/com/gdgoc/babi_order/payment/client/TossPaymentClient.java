@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.payment.client;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.gdgoc.babi_order.payment.config.TossPaymentProperties;
 import com.gdgoc.babi_order.payment.exception.TossPaymentException;
 import lombok.Getter;
@@ -85,15 +86,74 @@ public class TossPaymentClient {
         }
     }
 
+    /**
+     * 토스 응답에서 화면 표시용 결제 수단 라벨을 만듭니다.
+     * 예: 네이버페이, 토스페이, 카드(현대)
+     */
+    public static String formatMethodLabel(TossPaymentResponse response) {
+        if (response == null) {
+            return null;
+        }
+        if (response.getEasyPay() != null
+                && response.getEasyPay().getProvider() != null
+                && !response.getEasyPay().getProvider().isBlank()) {
+            return normalizeEasyPayProvider(response.getEasyPay().getProvider());
+        }
+        if (response.getCard() != null
+                || "카드".equals(response.getMethod())
+                || "CARD".equalsIgnoreCase(response.getMethod())) {
+            return "신용/체크카드";
+        }
+        if (response.getMethod() != null && !response.getMethod().isBlank()) {
+            return response.getMethod();
+        }
+        return null;
+    }
+
+    private static String normalizeEasyPayProvider(String provider) {
+        return switch (provider.trim()) {
+            case "NAVERPAY", "네이버페이" -> "네이버페이";
+            case "TOSSPAY", "토스페이" -> "토스페이";
+            case "KAKAOPAY", "카카오페이" -> "카카오페이";
+            case "PAYCO", "페이코" -> "페이코";
+            case "SAMSUNGPAY", "삼성페이" -> "삼성페이";
+            case "APPLEPAY", "애플페이" -> "애플페이";
+            default -> provider.trim();
+        };
+    }
+
     @Getter
     @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TossPaymentResponse {
         private String paymentKey;
         private String orderId;
         private String status;
         private String approvedAt;
         private Integer totalAmount;
+        /** 카드 / 간편결제 / 가상계좌 등 */
         private String method;
+        private Card card;
+        private EasyPay easyPay;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Card {
+        /** 카드사 한글명 (예: 현대) */
+        private String company;
+        private String issuerCode;
+        private String acquirerCode;
+        private String number;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class EasyPay {
+        /** 네이버페이, 카카오페이, 토스페이, 페이코 등 */
+        private String provider;
     }
 
     @Getter
