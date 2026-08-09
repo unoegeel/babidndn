@@ -35,6 +35,7 @@ export const UserShell: React.FC = () => {
   const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
   const isReviewPage = pathname === "/user/reviews" || pathname === "/user/reviews/";
   const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
+  const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
@@ -48,6 +49,7 @@ export const UserShell: React.FC = () => {
   if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
   if (isNoticesPage) headerTitle = "공지사항";
   if (isReviewPage) headerTitle = "리뷰";
+  if (isContactPage) headerTitle = "서비스 문의";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
@@ -278,7 +280,7 @@ export const UserShell: React.FC = () => {
                 </button>
               </div>
 
-              <nav className="flex-1 py-4 space-y-2">
+              <nav className="flex-1 py-4 space-y-2 overflow-y-auto">
                 <button
                   onClick={() => {
                     navigate("/user");
@@ -337,6 +339,27 @@ export const UserShell: React.FC = () => {
                   브라우저 알림 설정
                 </button>
               </nav>
+
+              <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
+                <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
+                <p className="mt-1 px-2 text-[10px] leading-relaxed text-gray-400">
+                  이용 중 불편한 점이 있나요?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate("/user/contact");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  문의하기 →
+                </button>
+                <div className="mt-4 px-2">
+                  <p className="text-[11px] font-extrabold tracking-wide text-gray-900">바비오더</p>
+                  <p className="mt-0.5 text-[9px] text-gray-400">(C) 2026 BabiOrder</p>
+                </div>
+              </div>
             </aside>
           </div>
         )}
