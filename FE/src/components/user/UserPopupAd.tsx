@@ -204,14 +204,14 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
         className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in"
       >
         <div
-          className="relative h-[min(70vh,520px)] w-full overflow-hidden bg-black/[0.03] touch-pan-y"
+          className="relative w-full overflow-hidden bg-black/[0.03] touch-pan-y"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
           onTouchCancel={onTouchEnd}
         >
           <div
-            className={`flex h-full w-full ${
+            className={`flex w-full items-stretch ${
               animate && dragX === 0 ? "transition-transform duration-500 ease-out" : ""
             }`}
             style={{ transform }}
@@ -223,12 +223,12 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
             {trackSlides.map((ad, i) => (
               <div
                 key={`${ad.id}-${i}`}
-                className="flex h-full w-full shrink-0 grow-0 basis-full items-center justify-center"
+                className="flex w-full shrink-0 grow-0 basis-full items-center justify-center"
               >
                 <img
                   src={ad.imageUrl}
                   alt="팝업 광고"
-                  className="max-h-full max-w-full object-contain"
+                  className="block max-h-[min(70vh,520px)] w-full object-contain"
                   draggable={false}
                 />
               </div>

@@ -53,6 +53,7 @@ export const popupAdService = {
     return api.get<PopupAd[]>("/api/popup-ads/active");
   },
 
+  /** 공지사항용: 사용 중인 광고만 */
   getAll(): Promise<PopupAd[]> {
     return api.get<PopupAd[]>("/api/popup-ads");
   },

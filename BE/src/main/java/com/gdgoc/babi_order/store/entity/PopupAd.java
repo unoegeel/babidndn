@@ -60,6 +60,10 @@ public class PopupAd {
         }
     }
 
+    public void disable() {
+        this.enabled = false;
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();

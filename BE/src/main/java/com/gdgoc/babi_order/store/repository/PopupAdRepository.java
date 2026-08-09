@@ -12,6 +12,10 @@ public interface PopupAdRepository extends JpaRepository<PopupAd, Long> {
 
     List<PopupAd> findAllByOrderByStartAtDescIdDesc();
 
+    List<PopupAd> findByEnabledTrueAndEndAtBefore(LocalDateTime endAt);
+
+    List<PopupAd> findByEnabledTrueOrderByCreatedAtDescIdDesc();
+
     @Query("""
             select p from PopupAd p
             where p.enabled = true

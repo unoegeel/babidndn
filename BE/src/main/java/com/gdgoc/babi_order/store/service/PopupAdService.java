@@ -16,20 +16,32 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class PopupAdService {
 
     private static final ZoneId STORE_ZONE = ZoneId.of("Asia/Seoul");
 
     private final PopupAdRepository popupAdRepository;
 
+    @Transactional
     public List<PopupAdResponse> getAll() {
+        disableExpiredAds();
         return popupAdRepository.findAllByOrderByStartAtDescIdDesc().stream()
                 .map(PopupAdResponse::from)
                 .toList();
     }
 
+    /** 공지사항 갤러리: 사용 중인 광고만 */
+    @Transactional
+    public List<PopupAdResponse> getEnabled() {
+        disableExpiredAds();
+        return popupAdRepository.findByEnabledTrueOrderByCreatedAtDescIdDesc().stream()
+                .map(PopupAdResponse::from)
+                .toList();
+    }
+
+    @Transactional
     public List<PopupAdResponse> getActive() {
+        disableExpiredAds();
         LocalDateTime now = LocalDateTime.now(STORE_ZONE);
         return popupAdRepository.findActiveAt(now).stream()
                 .map(PopupAdResponse::from)
@@ -64,6 +76,15 @@ public class PopupAdService {
     public void delete(Long id) {
         PopupAd ad = findOrThrow(id);
         popupAdRepository.delete(ad);
+    }
+
+    /** 게시 종료가 지난 광고를 사용 안 함으로 전환 */
+    private void disableExpiredAds() {
+        LocalDateTime now = LocalDateTime.now(STORE_ZONE);
+        List<PopupAd> expired = popupAdRepository.findByEnabledTrueAndEndAtBefore(now);
+        for (PopupAd ad : expired) {
+            ad.disable();
+        }
     }
 
     private PopupAd findOrThrow(Long id) {

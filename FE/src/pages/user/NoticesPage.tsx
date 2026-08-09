@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
 import { popupAdService, type PopupAd } from "../../services/popupAdService";
 
-function formatPeriod(startAt: string, endAt: string): string {
-  const fmt = (s: string) => s.replace("T", " ").slice(0, 10);
-  return `${fmt(startAt)} ~ ${fmt(endAt)}`;
-}
-
 /**
- * 등록된 팝업 광고를 갤러리로 보고, 클릭 시 크게 띄웁니다.
+ * 등록된(사용 중) 팝업 광고를 갤러리로 보고, 클릭 시 크게 띄웁니다.
  */
 export default function NoticesPage() {
   const [ads, setAds] = useState<PopupAd[]>([]);
@@ -75,9 +70,6 @@ export default function NoticesPage() {
                     loading="lazy"
                   />
                 </div>
-                <p className="truncate px-2.5 py-2 text-[10px] font-medium text-gray-500">
-                  {formatPeriod(ad.startAt, ad.endAt)}
-                </p>
               </button>
             ))}
           </div>
@@ -96,17 +88,14 @@ export default function NoticesPage() {
             className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex max-h-[min(70vh,520px)] items-center justify-center overflow-hidden bg-black/[0.03]">
+            <div className="flex items-center justify-center overflow-hidden bg-black/[0.03]">
               <img
                 src={selected.imageUrl}
                 alt="공지사항"
-                className="max-h-[min(70vh,520px)] max-w-full object-contain"
+                className="max-h-[min(70vh,520px)] w-full object-contain"
               />
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-              <p className="text-[11px] text-gray-400">
-                {formatPeriod(selected.startAt, selected.endAt)}
-              </p>
+            <div className="flex justify-end border-t border-gray-100 px-4 py-3">
               <button
                 type="button"
                 onClick={() => setSelected(null)}
