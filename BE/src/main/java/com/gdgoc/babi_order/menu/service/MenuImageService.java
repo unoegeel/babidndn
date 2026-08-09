@@ -32,6 +32,15 @@ public class MenuImageService {
     private final AwsS3Properties awsS3Properties;
 
     public MenuImageUploadUrlResponse createUploadUrl(String contentType) {
+        return createUploadUrl(contentType, KEY_PREFIX);
+    }
+
+    /** 팝업도 menu/ prefix 사용 — IAM이 menu/* PutObject만 허용하는 환경 대응 */
+    public MenuImageUploadUrlResponse createPopupUploadUrl(String contentType) {
+        return createUploadUrl(contentType, KEY_PREFIX);
+    }
+
+    public MenuImageUploadUrlResponse createUploadUrl(String contentType, String keyPrefix) {
         String extension = EXTENSIONS_BY_CONTENT_TYPE.get(contentType);
         if (extension == null) {
             throw new MenuApiException(
@@ -41,7 +50,7 @@ public class MenuImageService {
             );
         }
 
-        String key = KEY_PREFIX + UUID.randomUUID() + "." + extension;
+        String key = keyPrefix + UUID.randomUUID() + "." + extension;
         String bucket = awsS3Properties.getBucket();
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()

@@ -7,6 +7,7 @@ import {
 } from "../../utils/webPush";
 import ReadyOrderBanner from "./ReadyOrderBanner";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
+import UserPopupAd from "./UserPopupAd";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
@@ -19,6 +20,9 @@ export const UserShell: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
+  /** 알림 권한 팝업이 끝난 뒤에만 매장 팝업 광고 표시 */
+  const [allowPopupAds, setAllowPopupAds] = useState(false);
+
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -29,6 +33,9 @@ export const UserShell: React.FC = () => {
   const isCartPage = pathname === "/user/cart" || pathname === "/user/cart/";
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
   const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
+  const isReviewPage = pathname === "/user/reviews" || pathname === "/user/reviews/";
+  const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
+  const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
@@ -40,6 +47,9 @@ export const UserShell: React.FC = () => {
   if (isCartPage) headerTitle = "장바구니";
   if (isCheckoutPage) headerTitle = "결제하기";
   if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
+  if (isNoticesPage) headerTitle = "공지사항";
+  if (isReviewPage) headerTitle = "리뷰";
+  if (isContactPage) headerTitle = "서비스 문의";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
@@ -55,19 +65,34 @@ export const UserShell: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // 유저 페이지 진입 시 알림 권한 안내 팝업 / 기존 허용 시 구독 보장
+  // 1) 알림 권한 안내 → 2) 팝업 광고 → 3) 첫 화면
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-
-    if (Notification.permission === "granted") {
-      void ensurePushSubscription();
+    if (typeof window === "undefined") {
+      setAllowPopupAds(true);
       return;
     }
 
-    if (Notification.permission !== "default") return;
-    if (sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1") return;
+    if (!("Notification" in window)) {
+      setAllowPopupAds(true);
+      return;
+    }
 
-    // 첫 페인트 직후 팝업 (브라우저 제스처 요구는 버튼 클릭에서 충족)
+    if (Notification.permission === "granted") {
+      void ensurePushSubscription();
+      setAllowPopupAds(true);
+      return;
+    }
+
+    if (Notification.permission !== "default") {
+      setAllowPopupAds(true);
+      return;
+    }
+
+    if (sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1") {
+      setAllowPopupAds(true);
+      return;
+    }
+
     const timer = window.setTimeout(() => setShowNotifPrompt(true), 400);
     return () => window.clearTimeout(timer);
   }, []);
@@ -75,6 +100,7 @@ export const UserShell: React.FC = () => {
   const dismissNotifPrompt = () => {
     sessionStorage.setItem(NOTIF_PROMPT_SESSION_KEY, "1");
     setShowNotifPrompt(false);
+    setAllowPopupAds(true);
   };
 
   const handleAllowNotifications = async () => {
@@ -227,6 +253,9 @@ export const UserShell: React.FC = () => {
         {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
         <ReadyOrderBanner readyOrders={readyOrders} visible={isMenuPage} />
 
+        {/* 메뉴 첫 화면: 매장 팝업 광고 (알림 권한 안내 이후) */}
+        <UserPopupAd visible={isMenuPage && allowPopupAds} />
+
         {/* 1. 사이드 메뉴 드로어 오버레이 및 패널 */}
         {isDrawerOpen && (
           <div className="absolute inset-0 z-50 flex">
@@ -251,7 +280,7 @@ export const UserShell: React.FC = () => {
                 </button>
               </div>
 
-              <nav className="flex-1 py-4 space-y-2">
+              <nav className="flex-1 py-4 space-y-2 overflow-y-auto">
                 <button
                   onClick={() => {
                     navigate("/user");
@@ -281,11 +310,24 @@ export const UserShell: React.FC = () => {
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   최근 주문 내역
-                  {readyOrders.length > 0 && (
-                    <span className="ml-2 text-[10px] font-bold text-green-600">
-                      준비완료 {readyOrders.length}
-                    </span>
-                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/user/notices");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  공지사항
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/user/reviews");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  리뷰
                 </button>
                 <button
                   onClick={() => {
@@ -297,6 +339,27 @@ export const UserShell: React.FC = () => {
                   브라우저 알림 설정
                 </button>
               </nav>
+
+              <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
+                <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
+                <p className="mt-1 px-2 text-[10px] leading-relaxed text-gray-400">
+                  이용 중 불편한 점이 있나요?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate("/user/contact");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  문의하기 →
+                </button>
+                <div className="mt-4 px-2">
+                  <p className="text-[11px] font-extrabold tracking-wide text-gray-900">바비오더</p>
+                  <p className="mt-0.5 text-[9px] text-gray-400">(C) 2026 BabiOrder</p>
+                </div>
+              </div>
             </aside>
           </div>
         )}
@@ -342,7 +405,7 @@ export const UserShell: React.FC = () => {
         )}
         {/* 3. 알림 권한 안내 팝업 (유저 페이지 첫 진입) */}
         {showNotifPrompt && (
-          <div className="absolute inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="absolute inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-4">
             <div
               role="dialog"
               aria-modal="true"

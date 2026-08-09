@@ -12,6 +12,8 @@ import OrdersDashboardPage from "./pages/owner/OrdersDashboardPage";
 import MenuManagementPage from "./pages/owner/MenuManagementPage";
 import PaymentHistoryPage from "./pages/owner/PaymentHistoryPage";
 import SettingsPage from "./pages/owner/SettingsPage";
+import StoreManagementPage from "./pages/owner/StoreManagementPage";
+import StoreReviewsPage from "./pages/owner/StoreReviewsPage";
 
 // 학생용 컴포넌트 임포트
 import { UserDataProvider } from "./store/UserDataContext";
@@ -22,6 +24,9 @@ import CheckoutPage from "./pages/user/CheckoutPage";
 import OrderStatusPage from "./pages/user/OrderStatusPage";
 import OrderCompletePage from "./pages/user/OrderCompletePage";
 import OrderHistoryPage from "./pages/user/OrderHistoryPage";
+import ReviewPage from "./pages/user/ReviewPage";
+import NoticesPage from "./pages/user/NoticesPage";
+import ContactPage from "./pages/user/ContactPage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
@@ -58,6 +63,8 @@ const router = createBrowserRouter([
       { path: "/admin/orders", element: adminPage(<OrdersDashboardPage />) },
       { path: "/admin/menus", element: adminPage(<MenuManagementPage />) },
       { path: "/admin/payments", element: adminPage(<PaymentHistoryPage />) },
+      { path: "/admin/store", element: adminPage(<StoreManagementPage />) },
+      { path: "/admin/store/reviews", element: adminPage(<StoreReviewsPage />) },
       { path: "/admin/settings", element: adminPage(<SettingsPage />) },
       {
         path: "/user",
@@ -73,6 +80,9 @@ const router = createBrowserRouter([
           { path: "payment/success", element: <PaymentSuccessPage /> },
           { path: "payment/fail", element: <PaymentFailPage /> },
           { path: "orders", element: <OrderHistoryPage /> },
+          { path: "notices", element: <NoticesPage /> },
+          { path: "reviews", element: <ReviewPage /> },
+          { path: "contact", element: <ContactPage /> },
           { path: "orders/:orderId", element: <OrderStatusPage /> },
           { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
         ],
