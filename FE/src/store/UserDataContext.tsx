@@ -4,6 +4,8 @@ import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from ".
 
 const ORDERS_STORAGE_KEY = "babi_user_orders";
 const NOTIFS_STORAGE_KEY = "babi_user_notifications";
+/** 마지막으로 알림을 유지한 서울 달력일 (YYYY-MM-DD). 날짜가 바뀌면 전체 삭제 */
+const NOTIFS_DAY_KEY = "babi_user_notifications_day";
 const SEOUL = "Asia/Seoul";
 
 /** Asia/Seoul 기준 YYYY-MM-DD */
@@ -14,6 +16,36 @@ function seoulDateKey(ms: number = Date.now()): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(ms));
+}
+
+/** 다음 서울 자정까지 남은 ms */
+function msUntilNextSeoulMidnight(nowMs: number = Date.now()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SEOUL,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(nowMs));
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
+  const y = get("year");
+  const m = get("month");
+  const d = get("day");
+  const h = get("hour");
+  const min = get("minute");
+  const s = get("second");
+
+  // 서울 벽시계 → 다음 날 00:00 까지 남은 초
+  const secondsToday = h * 3600 + min * 60 + s;
+  const secondsInDay = 24 * 3600;
+  let remainMs = (secondsInDay - secondsToday) * 1000;
+  if (remainMs <= 0) remainMs = 1000;
+  // 날짜 경계 직후 한 번 더 돌도록 약간의 버퍼
+  return remainMs + 200;
 }
 
 function notificationCreatedAtMs(n: NotificationItem): number | null {
@@ -28,12 +60,25 @@ function notificationCreatedAtMs(n: NotificationItem): number | null {
   return null;
 }
 
-/** 서울 기준 오늘이 아닌 알림 제거 (매일 00시 이후 전날 알림 삭제) */
+/**
+ * 서울 자정 기준 알림 정리.
+ * - 달력일이 바뀌면 알림을 전부 삭제
+ * - 같은 날이어도 오늘이 아닌 생성 시각 알림은 제거
+ */
 function pruneOldNotifications(list: NotificationItem[]): NotificationItem[] {
   const todayKey = seoulDateKey();
+  try {
+    const storedDay = localStorage.getItem(NOTIFS_DAY_KEY);
+    if (storedDay !== todayKey) {
+      localStorage.setItem(NOTIFS_DAY_KEY, todayKey);
+      return [];
+    }
+  } catch {
+    // localStorage 실패 시에도 일자 필터는 적용
+  }
+
   return list.filter((n) => {
     const ms = notificationCreatedAtMs(n);
-    // 생성 시각을 알 수 없는 구알림은 정리
     if (ms == null) return false;
     return seoulDateKey(ms) === todayKey;
   });
@@ -105,7 +150,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
   const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
 
-  // 서울 00시 기준으로 전날 알림 정리 (1분마다·탭 복귀 시)
+  // 서울 00시 기준 알림 전체 삭제 (자정 타이머 + 1분 폴링 + 탭 복귀)
   useEffect(() => {
     const prune = () => {
       setNotifications((prev) => {
@@ -113,13 +158,26 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return next.length === prev.length ? prev : next;
       });
     };
+
     prune();
+
+    let midnightTimer = 0;
+    const scheduleMidnight = () => {
+      window.clearTimeout(midnightTimer);
+      midnightTimer = window.setTimeout(() => {
+        prune();
+        scheduleMidnight();
+      }, msUntilNextSeoulMidnight());
+    };
+    scheduleMidnight();
+
     const intervalId = window.setInterval(prune, 60_000);
     const onVisible = () => {
       if (document.visibilityState === "visible") prune();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      window.clearTimeout(midnightTimer);
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisible);
     };
@@ -323,20 +381,21 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [orders],
   );
 
-  const preparingOrderIdsKey = useMemo(
+  /** 조리중·준비완료 주문은 COMPLETED/CANCELED 될 때까지 폴링 */
+  const pollableOrderIdsKey = useMemo(
     () =>
       orders
-        .filter((o) => o.status === "PREPARING")
+        .filter((o) => o.status === "PREPARING" || o.status === "READY")
         .map((o) => o.orderId)
         .sort()
         .join(","),
     [orders],
   );
 
-  // 진행 중 주문 전체를 백그라운드에서 폴링 — 다른 주문 화면을 보더라도 알림 유지
+  // 진행 중 주문 전체를 백그라운드에서 폴링 — READY 이후에도 픽업완료 반영
   useEffect(() => {
-    const preparingIds = preparingOrderIdsKey ? preparingOrderIdsKey.split(",") : [];
-    if (preparingIds.length === 0) {
+    const pollableIds = pollableOrderIdsKey ? pollableOrderIdsKey.split(",") : [];
+    if (pollableIds.length === 0) {
       return;
     }
 
@@ -344,7 +403,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const poll = async () => {
       await Promise.all(
-        preparingIds.map(async (id) => {
+        pollableIds.map(async (id) => {
           try {
             const res = await orderService.getOrder(id);
             if (cancelled) return;
@@ -401,7 +460,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [preparingOrderIdsKey, saveOrderToState, addNotification]);
+  }, [pollableOrderIdsKey, saveOrderToState, addNotification]);
 
   return (
     <UserDataContext.Provider

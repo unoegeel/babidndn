@@ -21,6 +21,7 @@ public class MenuImageService {
 
     private static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(5);
     private static final String KEY_PREFIX = "menu/";
+    private static final String POPUP_KEY_PREFIX = "popup/";
     private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
@@ -32,6 +33,14 @@ public class MenuImageService {
     private final AwsS3Properties awsS3Properties;
 
     public MenuImageUploadUrlResponse createUploadUrl(String contentType) {
+        return createUploadUrl(contentType, KEY_PREFIX);
+    }
+
+    public MenuImageUploadUrlResponse createPopupUploadUrl(String contentType) {
+        return createUploadUrl(contentType, POPUP_KEY_PREFIX);
+    }
+
+    public MenuImageUploadUrlResponse createUploadUrl(String contentType, String keyPrefix) {
         String extension = EXTENSIONS_BY_CONTENT_TYPE.get(contentType);
         if (extension == null) {
             throw new MenuApiException(
@@ -41,7 +50,7 @@ public class MenuImageService {
             );
         }
 
-        String key = KEY_PREFIX + UUID.randomUUID() + "." + extension;
+        String key = keyPrefix + UUID.randomUUID() + "." + extension;
         String bucket = awsS3Properties.getBucket();
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()

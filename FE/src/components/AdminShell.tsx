@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { signOutAdmin } from "../constants/adminAccount";
+import { NavLink } from "react-router-dom";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -9,6 +8,7 @@ const NAV = [
   { to: "/admin/orders", label: "주문 현황" },
   { to: "/admin/menus", label: "메뉴 관리" },
   { to: "/admin/payments", label: "결제 내역" },
+  { to: "/admin/store", label: "매장 관리" },
   { to: "/admin/settings", label: "설정" },
 ];
 
@@ -20,8 +20,6 @@ interface AdminShellProps {
 
 /** 관리자 공통 레이아웃 (사이드바 + 메인) — 피그마 기준 */
 export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
-  const navigate = useNavigate();
-
   return (
     // --app-height: 태블릿 브라우저 상·하단 바를 제외한 실제 가시 높이
     <div
@@ -45,23 +43,13 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
         {/* 구분선 */}
         <div className="my-[12px] shrink-0 border-t border-black/40 short:my-[6px]" />
 
-        {/* 네비게이션 (버튼 150%, 간격 200%) */}
+        {/* 네비게이션: 매장 관리(기존 설정 자리) + 설정(기존 로그아웃 자리) */}
         <nav className="flex shrink-0 flex-col gap-[20px] short:gap-[8px]">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} className="block">
               {({ isActive }) => <NavPill label={item.label} active={isActive} />}
             </NavLink>
           ))}
-          <button
-            type="button"
-            onClick={() => {
-              signOutAdmin();
-              navigate("/login", { replace: true });
-            }}
-            className="block text-left"
-          >
-            <NavPill label="로그아웃" active={false} />
-          </button>
         </nav>
 
         {/* 날짜 / 현재 시각 (실시간 갱신) */}

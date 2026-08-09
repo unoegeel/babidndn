@@ -7,6 +7,7 @@ import {
 } from "../../utils/webPush";
 import ReadyOrderBanner from "./ReadyOrderBanner";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
+import UserPopupAd from "./UserPopupAd";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 
@@ -19,6 +20,7 @@ export const UserShell: React.FC = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
+  const [popupAdOpen, setPopupAdOpen] = useState(false);
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -29,6 +31,7 @@ export const UserShell: React.FC = () => {
   const isCartPage = pathname === "/user/cart" || pathname === "/user/cart/";
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
   const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
+  const isReviewPage = pathname === "/user/reviews" || pathname === "/user/reviews/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
@@ -40,6 +43,7 @@ export const UserShell: React.FC = () => {
   if (isCartPage) headerTitle = "장바구니";
   if (isCheckoutPage) headerTitle = "결제하기";
   if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
+  if (isReviewPage) headerTitle = "리뷰";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
@@ -56,6 +60,7 @@ export const UserShell: React.FC = () => {
   }, []);
 
   // 유저 페이지 진입 시 알림 권한 안내 팝업 / 기존 허용 시 구독 보장
+  // 매장 팝업 광고가 열려 있으면 겹치지 않도록 잠시 미룸
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
 
@@ -66,11 +71,12 @@ export const UserShell: React.FC = () => {
 
     if (Notification.permission !== "default") return;
     if (sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1") return;
+    if (popupAdOpen) return;
 
     // 첫 페인트 직후 팝업 (브라우저 제스처 요구는 버튼 클릭에서 충족)
     const timer = window.setTimeout(() => setShowNotifPrompt(true), 400);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [popupAdOpen]);
 
   const dismissNotifPrompt = () => {
     sessionStorage.setItem(NOTIF_PROMPT_SESSION_KEY, "1");
@@ -227,6 +233,9 @@ export const UserShell: React.FC = () => {
         {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
         <ReadyOrderBanner readyOrders={readyOrders} visible={isMenuPage} />
 
+        {/* 메뉴 첫 화면: 매장 팝업 광고 */}
+        <UserPopupAd visible={isMenuPage} onOpenChange={setPopupAdOpen} />
+
         {/* 1. 사이드 메뉴 드로어 오버레이 및 패널 */}
         {isDrawerOpen && (
           <div className="absolute inset-0 z-50 flex">
@@ -281,11 +290,15 @@ export const UserShell: React.FC = () => {
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   최근 주문 내역
-                  {readyOrders.length > 0 && (
-                    <span className="ml-2 text-[10px] font-bold text-green-600">
-                      준비완료 {readyOrders.length}
-                    </span>
-                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/user/reviews");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  리뷰
                 </button>
                 <button
                   onClick={() => {
