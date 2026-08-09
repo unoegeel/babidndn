@@ -32,9 +32,6 @@ function msUntilNextSeoulMidnight(nowMs: number = Date.now()): number {
   }).formatToParts(new Date(nowMs));
 
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
-  const y = get("year");
-  const m = get("month");
-  const d = get("day");
   const h = get("hour");
   const min = get("minute");
   const s = get("second");
