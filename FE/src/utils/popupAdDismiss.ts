@@ -1,48 +1,62 @@
-const FOREVER_KEY = "babi_popup_dismissed_forever";
-const SESSION_KEY = "babi_popup_dismissed_session";
+/** 서울 기준 YYYY-MM-DD */
+export function seoulDateKey(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
 
-function readIds(storage: Storage, key: string): number[] {
+const TODAY_KEY = "babi_popup_dismissed_today"; // { [id: string]: "YYYY-MM-DD" }
+const SESSION_CLOSED_KEY = "babi_popup_session_closed";
+
+function readTodayMap(): Record<string, string> {
   try {
-    const raw = storage.getItem(key);
-    if (!raw) return [];
+    const raw = localStorage.getItem(TODAY_KEY);
+    if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((v) => Number(v))
-      .filter((n) => Number.isFinite(n) && n > 0);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return parsed as Record<string, string>;
   } catch {
-    return [];
+    return {};
   }
 }
 
-function writeIds(storage: Storage, key: string, ids: number[]) {
-  storage.setItem(key, JSON.stringify([...new Set(ids)]));
+function writeTodayMap(map: Record<string, string>) {
+  localStorage.setItem(TODAY_KEY, JSON.stringify(map));
 }
 
-export function isPopupDismissedForever(id: number): boolean {
+/** 자정이 지나면 자동으로 무효 — 오늘 날짜와 다르면 숨김 해제 */
+export function isPopupDismissedToday(id: number): boolean {
   if (typeof window === "undefined") return false;
-  return readIds(localStorage, FOREVER_KEY).includes(id);
+  const today = seoulDateKey();
+  const map = readTodayMap();
+  return map[String(id)] === today;
 }
 
-export function isPopupDismissedThisSession(id: number): boolean {
+export function dismissPopupToday(id: number) {
+  if (typeof window === "undefined") return;
+  const map = readTodayMap();
+  map[String(id)] = seoulDateKey();
+  writeTodayMap(map);
+}
+
+export function isPopupClosedThisSession(): boolean {
   if (typeof window === "undefined") return false;
-  return readIds(sessionStorage, SESSION_KEY).includes(id);
+  return sessionStorage.getItem(SESSION_CLOSED_KEY) === "1";
 }
 
-export function dismissPopupForever(id: number) {
+export function closePopupThisSession() {
   if (typeof window === "undefined") return;
-  const ids = readIds(localStorage, FOREVER_KEY);
-  ids.push(id);
-  writeIds(localStorage, FOREVER_KEY, ids);
-}
-
-export function dismissPopupThisSession(id: number) {
-  if (typeof window === "undefined") return;
-  const ids = readIds(sessionStorage, SESSION_KEY);
-  ids.push(id);
-  writeIds(sessionStorage, SESSION_KEY, ids);
+  sessionStorage.setItem(SESSION_CLOSED_KEY, "1");
 }
 
 export function shouldShowPopupAd(id: number): boolean {
-  return !isPopupDismissedForever(id) && !isPopupDismissedThisSession(id);
+  return !isPopupDismissedToday(id);
+}
+
+export function filterShowablePopupAds<T extends { id: number }>(ads: T[]): T[] {
+  if (isPopupClosedThisSession()) return [];
+  return ads.filter((ad) => shouldShowPopupAd(ad.id));
 }

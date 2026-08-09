@@ -20,6 +20,12 @@ public class PopupAdController {
 
     private final PopupAdService popupAdService;
 
+    @GetMapping
+    @Operation(summary = "등록된 팝업 광고 전체 조회 (공지사항 갤러리)")
+    public ResponseEntity<List<PopupAdResponse>> getAll() {
+        return ResponseEntity.ok(popupAdService.getAll());
+    }
+
     @GetMapping("/active")
     @Operation(summary = "현재 게시 중인 팝업 광고 조회")
     public ResponseEntity<List<PopupAdResponse>> getActive() {

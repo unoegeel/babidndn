@@ -9,13 +9,13 @@ import {
   defaultExportRangeLocal,
   downloadPaymentExport,
   formatPaymentMenusForExport,
-  rangeFromDatetimeLocal,
+  rangeFromDateInputs,
   type PaymentExportFormat,
 } from "../../utils/paymentExport";
 
 const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
-type PeriodFilter = "all" | "today" | "last3";
+type PeriodFilter = "all" | "today" | "last3" | "custom";
 
 function startOfSeoulDay(d = new Date()): number {
   // 화면 표시와 동일하게 로컬(기기) 자정 기준
@@ -24,10 +24,26 @@ function startOfSeoulDay(d = new Date()): number {
   return start.getTime();
 }
 
+function endOfLocalDay(dateStr: string): number {
+  return new Date(`${dateStr}T23:59:59.999`).getTime();
+}
+
+function startOfLocalDay(dateStr: string): number {
+  return new Date(`${dateStr}T00:00:00`).getTime();
+}
+
+function todayDateInputValue(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function PaymentHistoryPage() {
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
   const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [customStart, setCustomStart] = useState(todayDateInputValue);
+  const [customEnd, setCustomEnd] = useState(todayDateInputValue);
   const [target, setTarget] = useState<Payment | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +64,13 @@ export default function PaymentHistoryPage() {
     const k = keyword.trim();
     const todayStart = startOfSeoulDay();
     const threeDaysAgo = todayStart - 2 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 3일
+    const customRange =
+      period === "custom" && customStart && customEnd
+        ? {
+            startMs: startOfLocalDay(customStart),
+            endMs: endOfLocalDay(customEnd),
+          }
+        : null;
 
     return payments.filter((p) => {
       if (k && String(p.orderNumber) !== k) {
@@ -59,16 +82,22 @@ export default function PaymentHistoryPage() {
       if (period === "last3" && p.paidAtMs < threeDaysAgo) {
         return false;
       }
+      if (period === "custom") {
+        if (!customRange || customRange.endMs < customRange.startMs) return false;
+        if (p.paidAtMs < customRange.startMs || p.paidAtMs > customRange.endMs) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [payments, keyword, period]);
+  }, [payments, keyword, period, customStart, customEnd]);
 
   const toggleExpand = (payment: Payment) => {
     setExpandedId((prev) => (prev === payment.id ? null : payment.id));
   };
 
   const handleExport = (startLocal: string, endLocal: string, format: PaymentExportFormat) => {
-    const range = rangeFromDatetimeLocal(startLocal, endLocal);
+    const range = rangeFromDateInputs(startLocal, endLocal);
     if (!range) {
       alert("내려받을 기간을 올바르게 설정해 주세요.");
       return;
@@ -129,15 +158,47 @@ export default function PaymentHistoryPage() {
               <path d="M21 21l-4.3-4.3" />
             </svg>
           </div>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
-            className="h-[48px] w-[160px] rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] tracking-[1px] outline-none focus:border-black"
-          >
-            <option value="all">전체 기간</option>
-            <option value="today">오늘</option>
-            <option value="last3">최근 3일</option>
-          </select>
+          <div className="relative">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
+              className="h-[48px] w-[160px] appearance-none rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[40px] text-[15px] tracking-[1px] outline-none focus:border-black"
+            >
+              <option value="all">전체 기간</option>
+              <option value="today">오늘</option>
+              <option value="last3">최근 3일</option>
+              <option value="custom">기간 선택</option>
+            </select>
+            <svg
+              className="pointer-events-none absolute right-[14px] top-1/2 -translate-y-1/2 text-black"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              aria-hidden
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          {period === "custom" && (
+            <div className="flex flex-wrap items-center gap-[8px]">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] tracking-[1px] outline-none focus:border-black"
+              />
+              <span className="text-[14px] text-black/50">~</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] tracking-[1px] outline-none focus:border-black"
+              />
+            </div>
+          )}
         </div>
 
         {/* 표 */}
@@ -234,23 +295,23 @@ function ExportPopup({
           선택한 기간의 결제 내역을 CSV 또는 TXT로 저장합니다.
         </p>
 
-        <div className="mt-[20px] grid gap-[12px] sm:grid-cols-2">
-          <label className="flex flex-col gap-[6px] text-[13px] text-black/70">
+        <div className="mt-[20px] flex gap-[10px]">
+          <label className="flex min-w-0 flex-1 flex-col gap-[6px] text-[13px] text-black/70">
             시작
             <input
-              type="datetime-local"
+              type="date"
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
-              className="h-[44px] rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
+              className="h-[40px] w-full rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
             />
           </label>
-          <label className="flex flex-col gap-[6px] text-[13px] text-black/70">
+          <label className="flex min-w-0 flex-1 flex-col gap-[6px] text-[13px] text-black/70">
             종료
             <input
-              type="datetime-local"
+              type="date"
               value={endAt}
               onChange={(e) => setEndAt(e.target.value)}
-              className="h-[44px] rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
+              className="h-[40px] w-full rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
             />
           </label>
         </div>

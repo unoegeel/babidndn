@@ -24,6 +24,7 @@ import OrderStatusPage from "./pages/user/OrderStatusPage";
 import OrderCompletePage from "./pages/user/OrderCompletePage";
 import OrderHistoryPage from "./pages/user/OrderHistoryPage";
 import ReviewPage from "./pages/user/ReviewPage";
+import NoticesPage from "./pages/user/NoticesPage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
@@ -76,6 +77,7 @@ const router = createBrowserRouter([
           { path: "payment/success", element: <PaymentSuccessPage /> },
           { path: "payment/fail", element: <PaymentFailPage /> },
           { path: "orders", element: <OrderHistoryPage /> },
+          { path: "notices", element: <NoticesPage /> },
           { path: "reviews", element: <ReviewPage /> },
           { path: "orders/:orderId", element: <OrderStatusPage /> },
           { path: "orders/:orderId/complete", element: <OrderCompletePage /> },

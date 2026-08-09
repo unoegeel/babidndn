@@ -32,6 +32,7 @@ export const UserShell: React.FC = () => {
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
   const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
   const isReviewPage = pathname === "/user/reviews" || pathname === "/user/reviews/";
+  const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
@@ -43,6 +44,7 @@ export const UserShell: React.FC = () => {
   if (isCartPage) headerTitle = "장바구니";
   if (isCheckoutPage) headerTitle = "결제하기";
   if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
+  if (isNoticesPage) headerTitle = "공지사항";
   if (isReviewPage) headerTitle = "리뷰";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
 
@@ -290,6 +292,15 @@ export const UserShell: React.FC = () => {
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   최근 주문 내역
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/user/notices");
+                    setIsDrawerOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  공지사항
                 </button>
                 <button
                   onClick={() => {

@@ -81,30 +81,41 @@ export function downloadPaymentExport(
   URL.revokeObjectURL(url);
 }
 
-/** datetime-local 값 → 포함 시작(ms) / 종료(ms, 해당 분 끝까지) */
-export function rangeFromDatetimeLocal(
+/** date(YYYY-MM-DD) 또는 datetime-local → 포함 시작/종료(ms) */
+export function rangeFromDateInputs(
   startLocal: string,
   endLocal: string,
 ): { startMs: number; endMs: number } | null {
   if (!startLocal || !endLocal) return null;
-  const startMs = new Date(startLocal).getTime();
-  const endMs = new Date(endLocal).getTime();
+
+  const startDay = startLocal.slice(0, 10);
+  const endDay = endLocal.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDay) || !/^\d{4}-\d{2}-\d{2}$/.test(endDay)) {
+    return null;
+  }
+
+  const startMs = new Date(`${startDay}T00:00:00`).getTime();
+  const endMs = new Date(`${endDay}T23:59:59.999`).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
   if (endMs < startMs) return null;
-  // datetime-local은 초가 없으면 :00 — 종료 시각의 해당 분 끝까지 포함
-  const endInclusive = endLocal.length === 16 ? endMs + 59_999 : endMs;
-  return { startMs, endMs: endInclusive };
+  return { startMs, endMs };
+}
+
+/** @deprecated rangeFromDateInputs 사용 */
+export function rangeFromDatetimeLocal(
+  startLocal: string,
+  endLocal: string,
+): { startMs: number; endMs: number } | null {
+  return rangeFromDateInputs(startLocal, endLocal);
 }
 
 export function defaultExportRangeLocal(): { start: string; end: string } {
   const end = new Date();
   const start = new Date(end);
   start.setDate(start.getDate() - 6);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 0, 0);
-  const toLocal = (d: Date) => {
+  const toDate = (d: Date) => {
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
-  return { start: toLocal(start), end: toLocal(end) };
+  return { start: toDate(start), end: toDate(end) };
 }

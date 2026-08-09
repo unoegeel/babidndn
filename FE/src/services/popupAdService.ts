@@ -52,4 +52,8 @@ export const popupAdService = {
   getActive(): Promise<PopupAd[]> {
     return api.get<PopupAd[]>("/api/popup-ads/active");
   },
+
+  getAll(): Promise<PopupAd[]> {
+    return api.get<PopupAd[]>("/api/popup-ads");
+  },
 };

@@ -34,6 +34,12 @@ function formatReviewDate(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
 }
 
+function nowDatetimeLocal(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function isCurrentlyActive(ad: PopupAd): boolean {
   if (!ad.enabled) return false;
   const now = Date.now();
@@ -53,7 +59,7 @@ export default function StoreManagementPage() {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [startAt, setStartAt] = useState("");
+  const [startAt, setStartAt] = useState(nowDatetimeLocal);
   const [endAt, setEndAt] = useState("");
   const [enabled, setEnabled] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -95,7 +101,7 @@ export default function StoreManagementPage() {
   const resetForm = () => {
     setEditingId(null);
     setImageUrl(null);
-    setStartAt("");
+    setStartAt(nowDatetimeLocal());
     setEndAt("");
     setEnabled(true);
   };
