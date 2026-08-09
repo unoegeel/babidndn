@@ -1,13 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminShell from "../../components/AdminShell";
 import {
   adminPopupAdService,
   type PopupAd,
 } from "../../services/popupAdService";
-import {
-  adminReviewService,
-  type StoreReview,
-} from "../../services/reviewService";
 import {
   uploadPopupAdImageFile,
   validatePopupAdImageFile,
@@ -29,11 +26,6 @@ function formatPeriod(startAt: string, endAt: string): string {
   return `${fmt(startAt)} ~ ${fmt(endAt)}`;
 }
 
-function formatReviewDate(iso: string): string {
-  if (!iso) return "";
-  return iso.replace("T", " ").slice(0, 16);
-}
-
 function nowDatetimeLocal(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -49,13 +41,10 @@ function isCurrentlyActive(ad: PopupAd): boolean {
 }
 
 export default function StoreManagementPage() {
+  const navigate = useNavigate();
   const [ads, setAds] = useState<PopupAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [reviews, setReviews] = useState<StoreReview[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -79,23 +68,8 @@ export default function StoreManagementPage() {
     }
   };
 
-  const loadReviews = async () => {
-    setReviewsLoading(true);
-    setReviewsError(null);
-    try {
-      const list = await adminReviewService.getAll();
-      setReviews(list);
-    } catch (err) {
-      console.error(err);
-      setReviewsError(err instanceof Error ? err.message : "리뷰를 불러오지 못했습니다.");
-    } finally {
-      setReviewsLoading(false);
-    }
-  };
-
   useEffect(() => {
     void loadAds();
-    void loadReviews();
   }, []);
 
   const resetForm = () => {
@@ -180,17 +154,6 @@ export default function StoreManagementPage() {
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "삭제에 실패했습니다.");
-    }
-  };
-
-  const handleDeleteReview = async (id: number) => {
-    if (!confirm("이 리뷰를 삭제할까요?")) return;
-    try {
-      await adminReviewService.delete(id);
-      await loadReviews();
-    } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : "리뷰 삭제에 실패했습니다.");
     }
   };
 
@@ -348,44 +311,13 @@ export default function StoreManagementPage() {
 
         <section className="mt-[40px] max-w-[720px]">
           <h2 className="text-[18px] font-medium tracking-[1px] text-black">리뷰</h2>
-          <p className="mt-[6px] text-[14px] text-black/55">
-            유저가 남긴 고객 의견입니다. 이 화면에서만 확인할 수 있습니다.
-          </p>
-
-          {reviewsLoading && (
-            <p className="mt-[16px] text-[14px] text-black/50">불러오는 중…</p>
-          )}
-          {reviewsError && (
-            <p className="mt-[16px] text-[14px] text-red-600">{reviewsError}</p>
-          )}
-          {!reviewsLoading && !reviewsError && reviews.length === 0 && (
-            <p className="mt-[16px] text-[14px] text-black/50">아직 등록된 리뷰가 없습니다.</p>
-          )}
-
-          <ul className="mt-[16px] space-y-[12px]">
-            {reviews.map((review) => (
-              <li
-                key={review.id}
-                className="rounded-[20px] border border-black/40 bg-canvas p-[20px]"
-              >
-                <div className="flex items-start justify-between gap-[12px]">
-                  <p className="text-[13px] text-black/50">
-                    {formatReviewDate(review.createdAt)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteReview(review.id)}
-                    className="shrink-0 rounded-[8px] border border-red-300 px-[10px] py-[4px] text-[12px] font-medium text-red-600"
-                  >
-                    삭제
-                  </button>
-                </div>
-                <p className="mt-[10px] whitespace-pre-wrap text-[15px] leading-relaxed text-black">
-                  {review.content}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/store/reviews")}
+            className="mt-[16px] rounded-[12px] border border-black/40 bg-canvas px-[20px] py-[12px] text-[15px] font-medium text-black"
+          >
+            리뷰 보기
+          </button>
         </section>
       </div>
     </AdminShell>

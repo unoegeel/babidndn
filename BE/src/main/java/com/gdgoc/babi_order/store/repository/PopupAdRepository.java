@@ -17,7 +17,7 @@ public interface PopupAdRepository extends JpaRepository<PopupAd, Long> {
             where p.enabled = true
               and p.startAt <= :now
               and p.endAt >= :now
-            order by p.startAt desc, p.id desc
+            order by p.createdAt asc, p.id asc
             """)
     List<PopupAd> findActiveAt(@Param("now") LocalDateTime now);
 }

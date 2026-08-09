@@ -121,7 +121,7 @@ export default function PaymentHistoryPage() {
     }
 
     const content = buildPaymentExportText(rows);
-    const stem = `결제내역_${startLocal.slice(0, 10)}_${endLocal.slice(0, 10)}`;
+    const stem = `바비오더_결제내역_${startLocal.slice(0, 10)}_${endLocal.slice(0, 10)}`;
     downloadPaymentExport(content, format, stem);
     setExportOpen(false);
   };

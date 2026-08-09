@@ -13,6 +13,7 @@ import MenuManagementPage from "./pages/owner/MenuManagementPage";
 import PaymentHistoryPage from "./pages/owner/PaymentHistoryPage";
 import SettingsPage from "./pages/owner/SettingsPage";
 import StoreManagementPage from "./pages/owner/StoreManagementPage";
+import StoreReviewsPage from "./pages/owner/StoreReviewsPage";
 
 // 학생용 컴포넌트 임포트
 import { UserDataProvider } from "./store/UserDataContext";
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
       { path: "/admin/menus", element: adminPage(<MenuManagementPage />) },
       { path: "/admin/payments", element: adminPage(<PaymentHistoryPage />) },
       { path: "/admin/store", element: adminPage(<StoreManagementPage />) },
+      { path: "/admin/store/reviews", element: adminPage(<StoreReviewsPage />) },
       { path: "/admin/settings", element: adminPage(<SettingsPage />) },
       {
         path: "/user",

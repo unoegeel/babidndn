@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type TouchEvent } from "react";
 import { popupAdService, type PopupAd } from "../../services/popupAdService";
 import {
   closePopupThisSession,
@@ -14,20 +14,30 @@ type Props = {
 };
 
 const SLIDE_MS = 4000;
+const SWIPE_THRESHOLD_PX = 48;
 
 /**
- * 유저 메뉴 첫 화면 팝업 광고 (다중 시 자동 슬라이드).
- * - 닫기: 이번 접속에서 팝업 전체 숨김
- * - 오늘 하루 보지 않기: 해당 광고만 서울 자정까지 숨김
+ * 유저 메뉴 첫 화면 팝업 광고.
+ * - 등록 오래된 순, 자동은 항상 다음 방향(오른쪽에서 들어옴)으로만 순환
+ * - 좌우 스와이프로 이전/다음
  */
 export default function UserPopupAd({ visible, onOpenChange }: Props) {
   const [ads, setAds] = useState<PopupAd[]>([]);
-  const [index, setIndex] = useState(0);
+  /** 무한 트랙: [last, ...ads, first], 실제 시작 위치=1 */
+  const [trackIndex, setTrackIndex] = useState(1);
+  const [animate, setAnimate] = useState(true);
+  const [dragX, setDragX] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const lockAxis = useRef<"x" | "y" | null>(null);
+  const jumpPending = useRef(false);
 
   useEffect(() => {
     if (!visible) {
       setAds([]);
-      setIndex(0);
+      setTrackIndex(1);
       onOpenChange?.(false);
       return;
     }
@@ -38,9 +48,16 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
       try {
         const list = await popupAdService.getActive();
         if (cancelled) return;
-        const showable = filterShowablePopupAds(list);
+        const sorted = [...list].sort((a, b) => {
+          const ca = a.createdAt ?? "";
+          const cb = b.createdAt ?? "";
+          if (ca && cb && ca !== cb) return ca.localeCompare(cb);
+          return a.id - b.id;
+        });
+        const showable = filterShowablePopupAds(sorted);
         setAds(showable);
-        setIndex(0);
+        setTrackIndex(1);
+        setAnimate(true);
         onOpenChange?.(showable.length > 0);
       } catch (err) {
         console.error("팝업 광고 조회 실패:", err);
@@ -57,17 +74,65 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // 자동 슬라이드
+  const n = ads.length;
+  const trackSlides =
+    n <= 1 ? ads : ([ads[n - 1], ...ads, ads[0]] as PopupAd[]);
+
+  const realIndex = (() => {
+    if (n <= 1) return 0;
+    if (trackIndex <= 0) return n - 1;
+    if (trackIndex >= n + 1) return 0;
+    return trackIndex - 1;
+  })();
+
   useEffect(() => {
-    if (ads.length <= 1) return;
+    if (n <= 1 || paused || dragX !== 0) return;
     const timer = window.setInterval(() => {
-      setIndex((prev) => (prev + 1) % ads.length);
+      setAnimate(true);
+      setTrackIndex((prev) => prev + 1);
     }, SLIDE_MS);
     return () => window.clearInterval(timer);
-  }, [ads]);
+  }, [n, paused, dragX, ads]);
+
+  const snapTrackIfNeeded = (idx: number) => {
+    if (n <= 1) return;
+    if (idx === n + 1) {
+      jumpPending.current = true;
+      setAnimate(false);
+      setTrackIndex(1);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimate(true);
+          jumpPending.current = false;
+        });
+      });
+    } else if (idx === 0) {
+      jumpPending.current = true;
+      setAnimate(false);
+      setTrackIndex(n);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimate(true);
+          jumpPending.current = false;
+        });
+      });
+    }
+  };
+
+  const goNext = () => {
+    if (n <= 1 || jumpPending.current) return;
+    setAnimate(true);
+    setTrackIndex((prev) => prev + 1);
+  };
+
+  const goPrev = () => {
+    if (n <= 1 || jumpPending.current) return;
+    setAnimate(true);
+    setTrackIndex((prev) => prev - 1);
+  };
 
   const dismissTodayCurrent = () => {
-    const current = ads[index];
+    const current = ads[realIndex];
     if (!current) return;
     dismissPopupToday(current.id);
     const next = ads.filter((a) => a.id !== current.id);
@@ -77,7 +142,9 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
       return;
     }
     setAds(next);
-    setIndex((prev) => Math.min(prev, next.length - 1));
+    setTrackIndex(1);
+    setAnimate(false);
+    requestAnimationFrame(() => setAnimate(true));
   };
 
   const closeSession = () => {
@@ -86,9 +153,47 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
     onOpenChange?.(false);
   };
 
+  const onTouchStart = (e: TouchEvent) => {
+    if (n <= 1) return;
+    const t = e.touches[0];
+    touchStartX.current = t.clientX;
+    touchStartY.current = t.clientY;
+    lockAxis.current = null;
+    setPaused(true);
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    if (touchStartX.current == null || touchStartY.current == null || n <= 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchStartX.current;
+    const dy = t.clientY - touchStartY.current;
+
+    if (lockAxis.current == null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      lockAxis.current = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+    }
+    if (lockAxis.current !== "x") return;
+    setDragX(dx);
+  };
+
+  const onTouchEnd = () => {
+    const dx = dragX;
+    const axis = lockAxis.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    lockAxis.current = null;
+    setDragX(0);
+    setPaused(false);
+
+    if (axis !== "x" || n <= 1) return;
+    if (dx <= -SWIPE_THRESHOLD_PX) goNext();
+    else if (dx >= SWIPE_THRESHOLD_PX) goPrev();
+  };
+
   if (!visible || ads.length === 0) return null;
 
-  const safeIndex = ((index % ads.length) + ads.length) % ads.length;
+  // track width = viewport; translateX % 는 track(뷰포트) 너비 기준 → 한 칸 = 100%
+  const transform = `translateX(calc(-${(n <= 1 ? 0 : trackIndex) * 100}% + ${dragX}px))`;
 
   return (
     <div className="absolute inset-0 z-[65] flex items-center justify-center bg-black/50 p-4">
@@ -98,32 +203,44 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
         aria-label="매장 안내"
         className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in"
       >
-        <div className="relative max-h-[min(70vh,520px)] overflow-hidden bg-black/[0.03]">
+        <div
+          className="relative h-[min(70vh,520px)] w-full overflow-hidden bg-black/[0.03] touch-pan-y"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
+        >
           <div
-            className="flex transition-transform duration-500 ease-out"
-            style={{ transform: `translateX(-${safeIndex * 100}%)` }}
+            className={`flex h-full w-full ${
+              animate && dragX === 0 ? "transition-transform duration-500 ease-out" : ""
+            }`}
+            style={{ transform }}
+            onTransitionEnd={() => {
+              if (dragX !== 0) return;
+              snapTrackIfNeeded(trackIndex);
+            }}
           >
-            {ads.map((ad) => (
-              <div key={ad.id} className="w-full shrink-0">
+            {trackSlides.map((ad, i) => (
+              <div
+                key={`${ad.id}-${i}`}
+                className="flex h-full w-full shrink-0 grow-0 basis-full items-center justify-center"
+              >
                 <img
                   src={ad.imageUrl}
                   alt="팝업 광고"
-                  className="mx-auto max-h-[min(70vh,520px)] w-full object-contain"
+                  className="max-h-full max-w-full object-contain"
                   draggable={false}
                 />
               </div>
             ))}
           </div>
-          {ads.length > 1 && (
-            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          {n > 1 && (
+            <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
               {ads.map((ad, i) => (
-                <button
+                <span
                   key={ad.id}
-                  type="button"
-                  aria-label={`${i + 1}번째 광고`}
-                  onClick={() => setIndex(i)}
-                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    i === safeIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === realIndex ? "w-4 bg-black/50" : "w-1.5 bg-black/25"
                   }`}
                 />
               ))}

@@ -67,11 +67,11 @@ export default function NoticesPage() {
                 onClick={() => setSelected(ad)}
                 className="overflow-hidden rounded-2xl border border-gray-100 bg-white text-left shadow-sm transition active:scale-[0.98] cursor-pointer"
               >
-                <div className="aspect-[3/4] bg-gray-50">
+                <div className="flex aspect-[3/4] items-center justify-center bg-gray-50 p-2">
                   <img
                     src={ad.imageUrl}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="max-h-full max-w-full object-contain"
                     loading="lazy"
                   />
                 </div>
@@ -96,11 +96,11 @@ export default function NoticesPage() {
             className="flex w-full max-w-[340px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="max-h-[min(70vh,520px)] overflow-hidden bg-black/[0.03]">
+            <div className="flex max-h-[min(70vh,520px)] items-center justify-center overflow-hidden bg-black/[0.03]">
               <img
                 src={selected.imageUrl}
                 alt="공지사항"
-                className="mx-auto max-h-[min(70vh,520px)] w-full object-contain"
+                className="max-h-[min(70vh,520px)] max-w-full object-contain"
               />
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
