@@ -4,6 +4,14 @@ import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
 import type { OrderDetailResponse } from "../../types/api";
 import { formatOrderItemOptionLabels } from "../../utils/orderItemOptions";
+import {
+  buildPaymentExportText,
+  defaultExportRangeLocal,
+  downloadPaymentExport,
+  formatPaymentMenusForExport,
+  rangeFromDatetimeLocal,
+  type PaymentExportFormat,
+} from "../../utils/paymentExport";
 
 const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
@@ -23,6 +31,7 @@ export default function PaymentHistoryPage() {
   const [target, setTarget] = useState<Payment | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const loadPayments = () => {
     refreshPayments()
@@ -58,12 +67,49 @@ export default function PaymentHistoryPage() {
     setExpandedId((prev) => (prev === payment.id ? null : payment.id));
   };
 
+  const handleExport = (startLocal: string, endLocal: string, format: PaymentExportFormat) => {
+    const range = rangeFromDatetimeLocal(startLocal, endLocal);
+    if (!range) {
+      alert("내려받을 기간을 올바르게 설정해 주세요.");
+      return;
+    }
+
+    const rows = payments
+      .filter((p) => p.paidAtMs >= range.startMs && p.paidAtMs <= range.endMs)
+      .sort((a, b) => b.paidAtMs - a.paidAtMs)
+      .map((payment) => {
+        const detail =
+          payment.orderId !== undefined ? getOrderDetail(payment.orderId) : undefined;
+        return {
+          payment,
+          menus: formatPaymentMenusForExport(detail, payment.summary),
+        };
+      });
+
+    if (rows.length === 0) {
+      alert("해당 기간에 결제 내역이 없습니다.");
+      return;
+    }
+
+    const content = buildPaymentExportText(rows);
+    const stem = `결제내역_${startLocal.slice(0, 10)}_${endLocal.slice(0, 10)}`;
+    downloadPaymentExport(content, format, stem);
+    setExportOpen(false);
+  };
+
   return (
     <AdminShell>
       <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
-        <h1 className="mb-[16px] shrink-0 text-[22px] font-bold text-black short:mb-[10px] short:text-[18px]">
-          결제 내역
-        </h1>
+        <div className="mb-[16px] flex shrink-0 items-center justify-between gap-[12px] short:mb-[10px]">
+          <h1 className="text-[22px] font-bold text-black short:text-[18px]">결제 내역</h1>
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium tracking-[1px] text-black short:h-[36px] short:text-[13px]"
+          >
+            내려받기
+          </button>
+        </div>
 
         {/* 필터 */}
         <div className="mb-[24px] flex flex-wrap items-center gap-[12px] md:gap-[16px]">
@@ -136,6 +182,13 @@ export default function PaymentHistoryPage() {
         </div>
       </div>
 
+      {exportOpen && (
+        <ExportPopup
+          onClose={() => setExportOpen(false)}
+          onConfirm={handleExport}
+        />
+      )}
+
       {target && (
         <CancelPopup
           payment={target}
@@ -150,6 +203,102 @@ export default function PaymentHistoryPage() {
         />
       )}
     </AdminShell>
+  );
+}
+
+function ExportPopup({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void;
+  onConfirm: (startLocal: string, endLocal: string, format: PaymentExportFormat) => void;
+}) {
+  const defaults = defaultExportRangeLocal();
+  const [startAt, setStartAt] = useState(defaults.start);
+  const [endAt, setEndAt] = useState(defaults.end);
+  const [format, setFormat] = useState<PaymentExportFormat>("csv");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/10 p-[20px]"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[460px] rounded-[25px] border border-black/50 bg-canvas p-[24px] shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-[22px] font-medium tracking-[1.5px] text-black">
+          결제 내역 내려받기
+        </h2>
+        <p className="mt-[8px] text-[14px] text-black/55">
+          선택한 기간의 결제 내역을 CSV 또는 TXT로 저장합니다.
+        </p>
+
+        <div className="mt-[20px] grid gap-[12px] sm:grid-cols-2">
+          <label className="flex flex-col gap-[6px] text-[13px] text-black/70">
+            시작
+            <input
+              type="datetime-local"
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
+              className="h-[44px] rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
+            />
+          </label>
+          <label className="flex flex-col gap-[6px] text-[13px] text-black/70">
+            종료
+            <input
+              type="datetime-local"
+              value={endAt}
+              onChange={(e) => setEndAt(e.target.value)}
+              className="h-[44px] rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
+            />
+          </label>
+        </div>
+
+        <p className="mt-[16px] text-[13px] font-medium text-black/70">파일 형식</p>
+        <div className="mt-[8px] flex gap-[10px]">
+          <button
+            type="button"
+            onClick={() => setFormat("csv")}
+            className={`h-[40px] flex-1 rounded-[10px] border text-[14px] font-medium ${
+              format === "csv"
+                ? "border-black bg-black text-canvas"
+                : "border-black/40 bg-canvas text-black"
+            }`}
+          >
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormat("txt")}
+            className={`h-[40px] flex-1 rounded-[10px] border text-[14px] font-medium ${
+              format === "txt"
+                ? "border-black bg-black text-canvas"
+                : "border-black/40 bg-canvas text-black"
+            }`}
+          >
+            TXT
+          </button>
+        </div>
+
+        <div className="mt-[24px] flex gap-[12px]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[48px] w-[120px] rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(startAt, endAt, format)}
+            className="h-[48px] flex-1 rounded-[10px] bg-black text-[15px] font-medium text-canvas"
+          >
+            내려받기
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

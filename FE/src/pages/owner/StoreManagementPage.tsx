@@ -192,9 +192,6 @@ export default function StoreManagementPage() {
     <AdminShell>
       <div className="p-[20px] md:p-[32px]">
         <h1 className="text-[24px] font-bold text-black">매장 관리</h1>
-        <p className="mt-[8px] text-[15px] text-black/60">
-          팝업 광고와 고객 리뷰(의견)를 관리합니다.
-        </p>
 
         <section className="mt-[28px] max-w-[720px]">
           <h2 className="text-[18px] font-medium tracking-[1px] text-black">팝업 광고</h2>

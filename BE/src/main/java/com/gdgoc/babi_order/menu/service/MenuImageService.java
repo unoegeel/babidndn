@@ -21,7 +21,6 @@ public class MenuImageService {
 
     private static final Duration UPLOAD_URL_TTL = Duration.ofMinutes(5);
     private static final String KEY_PREFIX = "menu/";
-    private static final String POPUP_KEY_PREFIX = "popup/";
     private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
@@ -36,8 +35,9 @@ public class MenuImageService {
         return createUploadUrl(contentType, KEY_PREFIX);
     }
 
+    /** 팝업도 menu/ prefix 사용 — IAM이 menu/* PutObject만 허용하는 환경 대응 */
     public MenuImageUploadUrlResponse createPopupUploadUrl(String contentType) {
-        return createUploadUrl(contentType, POPUP_KEY_PREFIX);
+        return createUploadUrl(contentType, KEY_PREFIX);
     }
 
     public MenuImageUploadUrlResponse createUploadUrl(String contentType, String keyPrefix) {
