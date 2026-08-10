@@ -7,9 +7,6 @@ import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
 import type { Order, OrderStatus } from "../../types/user";
 
-/** confetti onDone 누락 시 완료 페이지 이동 안전망 */
-const READY_CONFETTI_NAVIGATE_FALLBACK_MS = 10000;
-
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -27,9 +24,6 @@ export const OrderStatusPage: React.FC = () => {
   /** null = 아직 서버/폴링 상태를 한 번도 받지 않음 (이미 READY인 진입은 confetti 금지) */
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const readyConfettiFiredRef = useRef(false);
-  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** confetti 종료 후 완료 페이지로 이동 예약 여부 */
-  const navigateAfterConfettiRef = useRef(false);
   /** Strict Mode 리마운트 시 폴링/상태 초기화 중복 방지 */
   const pollSessionRef = useRef<string | null>(null);
 
@@ -67,11 +61,6 @@ export const OrderStatusPage: React.FC = () => {
       alertSentRef.current = { preparing: false, ready: false, canceled: false };
       prevStatusRef.current = null;
       readyConfettiFiredRef.current = false;
-      navigateAfterConfettiRef.current = false;
-      if (navigateTimerRef.current) {
-        clearTimeout(navigateTimerRef.current);
-        navigateTimerRef.current = null;
-      }
     }
 
     void linkPushSubscriptionToOrder(orderId);
@@ -102,17 +91,6 @@ export const OrderStatusPage: React.FC = () => {
       navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
     };
 
-    const scheduleNavigateFallback = () => {
-      if (navigateTimerRef.current) return;
-      navigateTimerRef.current = setTimeout(() => {
-        navigateTimerRef.current = null;
-        if (navigateAfterConfettiRef.current) {
-          navigateAfterConfettiRef.current = false;
-          goToComplete();
-        }
-      }, READY_CONFETTI_NAVIGATE_FALLBACK_MS);
-    };
-
     const fetchOrderDetails = async () => {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
@@ -123,6 +101,7 @@ export const OrderStatusPage: React.FC = () => {
 
         const updatedOrder = mapOrderDetailToOrder(res);
         const shouldCelebrate = noteReadyTransition(updatedOrder.status);
+        // Confetti는 UserShell에 있어 페이지 전환과 독립 — 완료 UI와 동시에 시작
         if (shouldCelebrate) {
           let canShow = true;
           if (updatedOrder.updatedAt) {
@@ -131,16 +110,7 @@ export const OrderStatusPage: React.FC = () => {
           }
           if (canShow) {
             const playKey = updatedOrder.updatedAt || `${orderId}-ready`;
-            navigateAfterConfettiRef.current = true;
-            startConfettiRef.current(playKey, () => {
-              navigateAfterConfettiRef.current = false;
-              if (navigateTimerRef.current) {
-                clearTimeout(navigateTimerRef.current);
-                navigateTimerRef.current = null;
-              }
-              goToComplete();
-            });
-            scheduleNavigateFallback();
+            startConfettiRef.current(playKey);
           }
         }
         setOrder(updatedOrder);
@@ -170,9 +140,8 @@ export const OrderStatusPage: React.FC = () => {
 
           if (intervalId) clearInterval(intervalId);
 
-          if (!navigateAfterConfettiRef.current && !navigateTimerRef.current) {
-            goToComplete();
-          }
+          // Confetti 종료를 기다리지 않고 완료 UI 즉시 표시
+          goToComplete();
           return;
         }
 
