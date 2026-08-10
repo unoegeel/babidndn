@@ -1,5 +1,7 @@
 // API 요청을 위한 가벼운 fetch 래퍼입니다.
 // 웹·API 도메인이 분리되어 있으므로 호스트명으로 API 서버를 고릅니다.
+// 공개 요청(api)과 관리자 인증 요청(adminApi)을 분리해
+// 일반 API가 관리자 Bearer·세션에 종속되지 않도록 합니다.
 import { getAdminToken, signOutAdmin } from "../constants/adminAccount";
 
 /** 주문·결제 API 호출 시 사용한 서버 (결제 승인 시 동일 서버 보장) */
@@ -109,12 +111,17 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   baseUrl?: string;
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+type AuthMode = "public" | "admin";
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  authMode: AuthMode = "public",
+): Promise<T> {
   const { body, headers, baseUrl, ...rest } = options;
   const root = baseUrl ?? resolveApiBaseUrl();
 
-  // 관리자 로그인 후에는 모든 요청에 Bearer 토큰을 함께 보냅니다.
-  const token = getAdminToken();
+  const token = authMode === "admin" ? getAdminToken() : null;
 
   const response = await fetch(`${root}${path}`, {
     ...rest,
@@ -135,8 +142,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch {
       // JSON 이 아닌 오류 응답은 상태 코드만 사용
     }
-    // 토큰 만료 등으로 인증이 풀리면 저장된 토큰을 제거해 로그인 화면으로 유도
-    if (response.status === 401 && token) {
+    // 관리자 인증 요청에서만 토큰 만료 시 로그아웃 유도
+    if (response.status === 401 && authMode === "admin" && token) {
       signOutAdmin();
     }
     throw new ApiError(response.status, parsed?.code, parsed?.message);
@@ -146,15 +153,23 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
-export const api = {
-  get: <T>(path: string, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: "GET" }),
-  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: "POST", body }),
-  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: "PATCH", body }),
-  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: "PUT", body }),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: "DELETE" }),
-};
+function createClient(authMode: AuthMode) {
+  return {
+    get: <T>(path: string, options?: RequestOptions) =>
+      request<T>(path, { ...options, method: "GET" }, authMode),
+    post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+      request<T>(path, { ...options, method: "POST", body }, authMode),
+    patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+      request<T>(path, { ...options, method: "PATCH", body }, authMode),
+    put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+      request<T>(path, { ...options, method: "PUT", body }, authMode),
+    delete: <T>(path: string, options?: RequestOptions) =>
+      request<T>(path, { ...options, method: "DELETE" }, authMode),
+  };
+}
+
+/** 공개·사용자 API (Authorization / signOutAdmin 없음) */
+export const api = createClient("public");
+
+/** 관리자 인증이 필요한 API (Bearer + 401 시 signOutAdmin) */
+export const adminApi = createClient("admin");

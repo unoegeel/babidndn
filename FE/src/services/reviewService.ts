@@ -1,4 +1,4 @@
-import { api } from "../api/client";
+import { adminApi, api } from "../api/client";
 
 export interface StoreReview {
   id: number;
@@ -14,10 +14,10 @@ export const reviewService = {
 
 export const adminReviewService = {
   getAll(): Promise<StoreReview[]> {
-    return api.get<StoreReview[]>("/api/admin/reviews");
+    return adminApi.get<StoreReview[]>("/api/admin/reviews");
   },
 
   delete(id: number): Promise<void> {
-    return api.delete<void>(`/api/admin/reviews/${id}`);
+    return adminApi.delete<void>(`/api/admin/reviews/${id}`);
   },
 };
