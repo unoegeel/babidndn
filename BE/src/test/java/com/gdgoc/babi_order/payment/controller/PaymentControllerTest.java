@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.payment.controller;
 
+import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
 import com.gdgoc.babi_order.payment.dto.response.PaymentConfirmResponse;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaymentController.class)
-@Import({SecurityConfig.class, CorsProperties.class, PaymentExceptionHandler.class})
+@Import({SecurityConfig.class, CorsProperties.class, PaymentExceptionHandler.class, ApiExceptionHandler.class})
 class PaymentControllerTest {
 
     @Autowired
