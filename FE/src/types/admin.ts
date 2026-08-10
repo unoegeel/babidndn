@@ -56,7 +56,7 @@ export interface Order {
   time: string;
   items: OrderItem[];
   status: OrderStatus;
-  /** 호출 여부 (주문번호가 초록색으로 표시됨. 재호출 가능) — 화면 전용 상태 */
+  /** 호출 여부 (주문번호 초록색·재호출 가능). 서버 READY(/call)와 동기화 */
   called: boolean;
 }
 

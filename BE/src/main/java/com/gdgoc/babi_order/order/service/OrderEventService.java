@@ -43,9 +43,13 @@ public class OrderEventService {
                         .name(eventName)
                         .id(String.valueOf(order.getId()))
                         .data(order));
-            } catch (IOException exception) {
+            } catch (Exception exception) {
                 emitters.remove(emitterId);
-                emitter.complete();
+                try {
+                    emitter.complete();
+                } catch (Exception ignored) {
+                    // already completed
+                }
             }
         });
     }

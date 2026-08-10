@@ -87,7 +87,7 @@ export const OrderHistoryPage: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-gray-50/30 p-4">
-      <p className="mb-3 text-[10px] font-semibold text-gray-400">최근 7일 주문만 표시됩니다</p>
+      <p className="mb-3 text-[11px] font-medium text-gray-400 leading-snug">최근 7일 주문만 표시됩니다</p>
 
       {recentOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -112,11 +112,11 @@ export const OrderHistoryPage: React.FC = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-extrabold text-gray-900">
+                      <span className="text-sm font-bold text-gray-900">
                         {order.pickupNumber}번
                       </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${statusClass(order.status)}`}
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold leading-snug ${statusClass(order.status)}`}
                       >
                         {statusLabel(order.status)}
                       </span>
@@ -124,13 +124,13 @@ export const OrderHistoryPage: React.FC = () => {
                     <p className="mt-1 truncate text-xs font-bold text-gray-700">
                       {summarizeItems(order)}
                     </p>
-                    <p className="mt-1 text-[10px] font-medium text-gray-400">{order.createdAt}</p>
+                    <p className="mt-1 text-[11px] font-medium text-gray-400 leading-snug">{order.createdAt}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-extrabold text-gray-900">
+                    <p className="text-xs font-bold text-gray-900">
                       {order.totalPrice.toLocaleString()}원
                     </p>
-                    <span className="mt-2 inline-block text-[10px] font-bold text-gray-400">보기 →</span>
+                    <span className="mt-2 inline-block text-[11px] font-semibold text-gray-400">보기 →</span>
                   </div>
                 </div>
               </button>

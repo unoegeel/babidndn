@@ -25,8 +25,35 @@ export const MenuPage: React.FC = () => {
   const menuListRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const swipeLockedRef = useRef(false);
+  const [categorySlideClass, setCategorySlideClass] = useState("");
 
   const sortedCategories = [...categories].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  const selectCategory = useCallback(
+    (categoryId: number, direction?: "next" | "prev") => {
+      if (selectedCategoryId === categoryId) return;
+
+      // 최초 로드(아직 선택 없음)는 슬라이드 없이 바로 표시
+      if (selectedCategoryId === null) {
+        setCategorySlideClass("");
+        setSelectedCategoryId(categoryId);
+        return;
+      }
+
+      let slideDir = direction;
+      if (!slideDir) {
+        const fromIdx = sortedCategories.findIndex((c) => c.categoryId === selectedCategoryId);
+        const toIdx = sortedCategories.findIndex((c) => c.categoryId === categoryId);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          slideDir = toIdx > fromIdx ? "next" : "prev";
+        }
+      }
+
+      setCategorySlideClass(slideDir === "prev" ? "animate-cat-prev" : "animate-cat-next");
+      setSelectedCategoryId(categoryId);
+    },
+    [selectedCategoryId, sortedCategories],
+  );
 
   // 전체 카테고리 로드
   useEffect(() => {
@@ -70,9 +97,9 @@ export const MenuPage: React.FC = () => {
       if (currentIndex < 0) return;
       const nextIndex = currentIndex + offset;
       if (nextIndex < 0 || nextIndex >= sortedCategories.length) return;
-      setSelectedCategoryId(sortedCategories[nextIndex].categoryId);
+      selectCategory(sortedCategories[nextIndex].categoryId, offset > 0 ? "next" : "prev");
     },
-    [sortedCategories, selectedCategoryId],
+    [sortedCategories, selectedCategoryId, selectCategory],
   );
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -182,7 +209,7 @@ export const MenuPage: React.FC = () => {
           return (
             <button
               key={cat.categoryId}
-              onClick={() => setSelectedCategoryId(cat.categoryId)}
+              onClick={() => selectCategory(cat.categoryId)}
               className={`py-2 px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                 isSelected
                   ? "bg-black text-white border-black"
@@ -198,78 +225,83 @@ export const MenuPage: React.FC = () => {
       {/* 메뉴 카드 목록 영역 — 좌우 스와이프로 카테고리 전환 */}
       <div
         ref={menuListRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 touch-pan-y"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        {sortedMenus.length === 0 ? (
-          <div className="py-24 text-center text-gray-400 font-bold text-xs">
-            이 카테고리에는 등록된 메뉴가 없습니다.
-          </div>
-        ) : (
-          sortedMenus.map((menu) => {
-            const isSoldOut = menu.saleStatus === "SOLDOUT";
-            return (
-              <div
-                key={menu.id}
-                onClick={() => !isSoldOut && handleMenuSelect(menu.id)}
-                className={`flex gap-4 p-4 rounded-2xl border transition-all relative ${
-                  isSoldOut
-                    ? "bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed"
-                    : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
-                }`}
-              >
-                {/* 메뉴 사진 */}
-                <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
-                  <MenuThumb src={menu.imageUrl} alt={menu.name} />
-                  {isSoldOut && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <span className="text-xs font-extrabold text-white">품절</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 메뉴 정보 */}
-                <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
-                  <div>
-                    <MarqueeText
-                      text={menu.name}
-                      textClassName="text-sm font-bold text-gray-900"
-                    />
-                    {menu.description && (
-                      <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                        {menu.description}
-                      </p>
+        <div
+          key={selectedCategoryId ?? "none"}
+          className={`space-y-3.5 ${categorySlideClass}`}
+        >
+          {sortedMenus.length === 0 ? (
+            <div className="py-24 text-center text-gray-400 font-bold text-xs">
+              이 카테고리에는 등록된 메뉴가 없습니다.
+            </div>
+          ) : (
+            sortedMenus.map((menu) => {
+              const isSoldOut = menu.saleStatus === "SOLDOUT";
+              return (
+                <div
+                  key={menu.id}
+                  onClick={() => !isSoldOut && handleMenuSelect(menu.id)}
+                  className={`flex gap-4 p-4 rounded-2xl border transition-all relative ${
+                    isSoldOut
+                      ? "bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed"
+                      : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
+                  }`}
+                >
+                  {/* 메뉴 사진 */}
+                  <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
+                    <MenuThumb src={menu.imageUrl} alt={menu.name} />
+                    {isSoldOut && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <span className="text-xs font-bold text-white">품절</span>
+                      </div>
                     )}
                   </div>
-                  <p className="text-xs font-black text-gray-900 mt-2">
-                    {menu.basePrice.toLocaleString()}원
-                  </p>
-                </div>
 
-                {/* 담기 버튼 */}
-                <div className="flex items-end">
-                  <button
-                    disabled={isSoldOut}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMenuSelect(menu.id);
-                    }}
-                    className={`py-1.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isSoldOut
-                        ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                        : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                  >
-                    담기
-                  </button>
+                  {/* 메뉴 정보 */}
+                  <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
+                    <div>
+                      <MarqueeText
+                        text={menu.name}
+                        textClassName="text-sm font-bold text-gray-900 leading-snug"
+                      />
+                      {menu.description && (
+                        <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-normal">
+                          {menu.description}
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-gray-900 mt-2 leading-snug">
+                      {menu.basePrice.toLocaleString()}원
+                    </p>
+                  </div>
+
+                  {/* 담기 버튼 */}
+                  <div className="flex items-end">
+                    <button
+                      disabled={isSoldOut}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuSelect(menu.id);
+                      }}
+                      className={`py-1.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isSoldOut
+                          ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                          : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                    >
+                      담기
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* 하단 퀵 장바구니 바 (장바구니 0개여도 항상 노출, shrink-0 하단 영역) */}
@@ -283,13 +315,13 @@ export const MenuPage: React.FC = () => {
               <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span className="absolute -top-1.5 -right-1.5 bg-[#000000] text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white">
+              <span className="absolute -top-1.5 -right-1.5 bg-[#000000] text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white">
                 {totalCartItems}
               </span>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold">{totalCartItems}개 담김</p>
-              <p className="text-sm font-black text-gray-900">총 {cartTotal.toLocaleString()}원</p>
+              <p className="text-[11px] text-gray-400 font-medium leading-snug">{totalCartItems}개 담김</p>
+              <p className="text-sm font-bold text-gray-900 leading-snug">총 {cartTotal.toLocaleString()}원</p>
             </div>
           </div>
 

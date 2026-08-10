@@ -79,7 +79,7 @@ export default function MenuManagementPage() {
           <h1 className="text-[22px] font-bold text-black short:text-[18px]">메뉴 관리</h1>
           <button
             onClick={openCreatePanel}
-            className="h-[48px] rounded-[10px] border border-black/50 bg-black px-[20px] text-[15px] font-medium tracking-[1px] text-white"
+            className="h-[48px] rounded-[10px] border border-black/50 bg-black px-[20px] text-[15px] font-medium text-white"
           >
             + 새 메뉴 등록
           </button>
@@ -95,7 +95,7 @@ export default function MenuManagementPage() {
                 // 다른 카테고리로 이동하면 열려 있던 수정 패널은 닫는다
                 if (panel.mode === "edit") closePanel();
               }}
-              className={`h-[48px] rounded-[10px] border border-black/50 px-[24px] text-[15px] font-medium tracking-[1px] ${
+              className={`h-[48px] rounded-[10px] border border-black/50 px-[24px] text-[15px] font-medium ${
                 activeTab === c ? "bg-black text-white" : "bg-canvas text-black"
               }`}
             >
@@ -105,7 +105,7 @@ export default function MenuManagementPage() {
           <button
             type="button"
             onClick={() => setCategoryModalOpen(true)}
-            className="h-[48px] rounded-[10px] border border-dashed border-black/50 bg-canvas px-[24px] text-[15px] font-medium tracking-[1px] text-black/70 hover:border-black hover:text-black"
+            className="h-[48px] rounded-[10px] border border-dashed border-black/50 bg-canvas px-[24px] text-[15px] font-medium text-black/70 hover:border-black hover:text-black"
           >
             카테고리 관리
           </button>
@@ -144,15 +144,15 @@ export default function MenuManagementPage() {
                   ) : (
                     <>
                       <PhotoIcon />
-                      <span className="text-[18px] font-medium tracking-[1px]">사진</span>
+                      <span className="text-[18px] font-medium">사진</span>
                     </>
                   )}
                 </div>
 
-                <p className="mt-[20px] text-[28px] font-medium tracking-[1.5px] text-black">
+                <p className="mt-[20px] text-[28px] font-medium text-black">
                   {menu.name}
                 </p>
-                <p className="mt-[6px] text-[18px] font-medium tracking-[1px] text-black">
+                <p className="mt-[6px] text-[18px] font-medium text-black">
                   {menu.price.toLocaleString()}원
                 </p>
 
@@ -161,7 +161,7 @@ export default function MenuManagementPage() {
                   className="mt-[16px] flex items-center justify-between"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="text-[18px] font-medium tracking-[1px] text-black">
+                  <span className="text-[18px] font-medium text-black">
                     {menu.status === "판매중" ? "판매 중" : "품절"}
                   </span>
                   <Toggle
@@ -339,7 +339,7 @@ function CategoryManageModal({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[420px] rounded-[25px] bg-canvas p-[24px]"
       >
-        <h2 className="text-[22px] font-medium tracking-[1.5px] text-black">
+        <h2 className="text-[22px] font-medium text-black">
           카테고리 관리
         </h2>
 
@@ -363,7 +363,7 @@ function CategoryManageModal({
                       }
                     }}
                     maxLength={12}
-                    className="h-[40px] min-w-0 flex-1 rounded-[10px] border border-black bg-canvas px-[14px] text-[15px] tracking-[1px] outline-none"
+                    className="h-[40px] min-w-0 flex-1 rounded-[10px] border border-black bg-canvas px-[14px] text-[15px] outline-none"
                   />
                   <button
                     type="button"
@@ -386,7 +386,7 @@ function CategoryManageModal({
                 </>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1 truncate text-[16px] font-medium tracking-[1px] text-black">
+                  <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-black">
                     {c.name}
                   </span>
                   <button
@@ -428,12 +428,12 @@ function CategoryManageModal({
             }}
             placeholder="새 카테고리 (예: 사이드)"
             maxLength={12}
-            className="h-[48px] min-w-0 flex-1 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+            className="h-[48px] min-w-0 flex-1 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] outline-none placeholder:text-black/50 focus:border-black"
           />
           <button
             type="submit"
             disabled={busy}
-            className="h-[48px] shrink-0 rounded-[10px] bg-black px-[20px] text-[15px] font-medium tracking-[1px] text-canvas disabled:opacity-60"
+            className="h-[48px] shrink-0 rounded-[10px] bg-black px-[20px] text-[15px] font-medium text-canvas disabled:opacity-60"
           >
             추가
           </button>
@@ -445,7 +445,7 @@ function CategoryManageModal({
         <button
           type="button"
           onClick={onClose}
-          className="mt-[20px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium tracking-[1px] text-black"
+          className="mt-[20px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
         >
           닫기
         </button>
@@ -548,7 +548,7 @@ function MenuForm({
         onSubmit={handleSubmit}
         className="flex w-full shrink-0 flex-col rounded-[25px] border border-black/50 bg-canvas p-[24px] lg:w-[340px] lg:overflow-auto"
       >
-        <h2 className="text-[26px] font-medium tracking-[2px] text-black">
+        <h2 className="text-[26px] font-medium tracking-wide text-black">
           {mode === "edit" ? "메뉴 수정" : "새 메뉴 등록"}
         </h2>
 
@@ -582,10 +582,10 @@ function MenuForm({
           ) : (
             <div className="pointer-events-none relative z-10 flex flex-col items-center gap-[8px]">
               <PhotoIcon />
-              <span className="text-[18px] font-medium tracking-[1.5px]">
+              <span className="text-[18px] font-medium">
                 {uploading ? "업로드 중…" : "사진 첨부"}
               </span>
-              <span className="text-[14px] tracking-[1px]">JPG, PNG (최대 5MB)</span>
+              <span className="text-[14px]">JPG, PNG (최대 5MB)</span>
             </div>
           )}
         </label>
@@ -655,7 +655,7 @@ function MenuForm({
           <button
             type="button"
             onClick={onDelete}
-            className="mt-[28px] h-[48px] w-full rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
+            className="mt-[28px] h-[48px] w-full rounded-[10px] border border-danger bg-canvas text-[15px] font-medium text-danger"
           >
             메뉴 삭제
           </button>
@@ -665,14 +665,14 @@ function MenuForm({
           <button
             type="button"
             onClick={onClose}
-            className="h-[48px] flex-1 rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium tracking-[1px] text-black"
+            className="h-[48px] flex-1 rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={uploading}
-            className="h-[48px] flex-[1.2] rounded-[10px] bg-black text-[15px] font-medium tracking-[1px] text-canvas disabled:opacity-50"
+            className="h-[48px] flex-[1.2] rounded-[10px] bg-black text-[15px] font-medium text-canvas disabled:opacity-50"
           >
             저장
           </button>
@@ -697,7 +697,7 @@ function MenuForm({
 
 function FormLabel({ children }: { children: string }) {
   return (
-    <label className="mt-[24px] mb-[10px] block text-[20px] font-medium tracking-[1.5px] text-black">
+    <label className="mt-[24px] mb-[10px] block text-[20px] font-medium text-black">
       {children}
     </label>
   );
@@ -705,7 +705,7 @@ function FormLabel({ children }: { children: string }) {
 
 /** 메뉴명·가격·카테고리·토핑 입력칸 공통 높이/패딩 (가격 기준 48px) */
 const fieldControlClass =
-  "box-border h-[48px] min-h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] leading-none tracking-[1px] outline-none placeholder:text-black/50 focus:border-black";
+  "box-border h-[48px] min-h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[24px] text-[15px] leading-none outline-none placeholder:text-black/50 focus:border-black";
 
 /** number input 스피너(up/down) 숨김 */
 const noSpinnerClass =

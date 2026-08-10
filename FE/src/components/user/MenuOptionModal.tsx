@@ -7,22 +7,18 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
-/** 토핑명을 1줄로 유지하기 위해 길이에 따라 글자 크기를 줄입니다. */
+/** 토핑명을 1줄로 유지하되, 최소 10px 이상으로 가독성을 확보합니다. */
 function toppingNameFontClass(name: string, withQtyControls: boolean): string {
-  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음
+  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음 — 넘치면 truncate에 맡김
   const len = name.length;
   if (withQtyControls) {
-    if (len <= 3) return "text-[10px]";
-    if (len <= 4) return "text-[9px]";
-    if (len <= 5) return "text-[8px]";
-    if (len <= 7) return "text-[7px]";
-    return "text-[6px]";
+    if (len <= 4) return "text-[12px]";
+    if (len <= 6) return "text-[11px]";
+    return "text-[10px]";
   }
-  if (len <= 4) return "text-[10px]";
-  if (len <= 5) return "text-[9px]";
-  if (len <= 7) return "text-[8px]";
-  if (len <= 9) return "text-[7px]";
-  return "text-[6px]";
+  if (len <= 5) return "text-[12px]";
+  if (len <= 8) return "text-[11px]";
+  return "text-[10px]";
 }
 
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
@@ -32,8 +28,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // SIZE 그룹 중 기본 선택값 찾기
   const sizeOptions = menuDetail.options.filter((o) => o.groupType === "SIZE");
@@ -58,8 +56,22 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       if (warningTimeoutRef.current) {
         clearTimeout(warningTimeoutRef.current);
       }
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
     };
   }, []);
+
+  const requestClose = (afterClose?: () => void) => {
+    if (isClosing) return;
+    setIsClosing(true);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    // sheet-out(0.28s) 종료 후 언마운트 — 애니메이션이 잘리지 않도록 여유 포함
+    closeTimerRef.current = setTimeout(() => {
+      afterClose?.();
+      onClose();
+    }, 300);
+  };
 
   const handleMenuQtyChange = (val: number) => {
     setQuantity((prev) => Math.max(1, prev + val));
@@ -156,6 +168,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const totalPrice = singlePrice * quantity;
 
   const handleSubmit = () => {
+    if (isClosing) return;
     const finalOptions: MenuOption[] = [];
 
     if (selectedSizeId !== undefined) {
@@ -172,7 +185,12 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       }
     });
 
-    onAddToCart(finalOptions, quantity);
+    // 닫힘 애니메이션 후 담기 — 부모 onAddToCart가 모달을 언마운트함
+    setIsClosing(true);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      onAddToCart(finalOptions, quantity);
+    }, 300);
   };
 
   const toppingAddOptions = otherOptions.filter((o) => o.groupType === "TOPPING_ADD");
@@ -180,21 +198,32 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
   return (
-    <div className="absolute inset-0 bg-black/40 z-[60] flex flex-col justify-end">
-      <div className="flex-1" onClick={onClose}></div>
+    <div className="absolute inset-0 z-[60] flex flex-col justify-end">
+      {/* 오버레이 — 시트와 분리해 닫힐 때 페이드 (시트 슬라이드가 가려지지 않도록) */}
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-[280ms] ${
+          isClosing ? "opacity-0" : "animate-fade-in"
+        }`}
+        onClick={() => requestClose()}
+        aria-hidden
+      />
 
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
-      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
+      <div
+        className={`relative z-[1] bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
+          isClosing ? "animate-sheet-out" : "animate-sheet-in"
+        }`}
+      >
         {/* 헤더 */}
         <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
             <h2 className="text-lg font-bold text-gray-900">{menuDetail.name}</h2>
-            <p className="text-sm font-semibold text-gray-800 mt-0.5">
+            <p className="text-sm font-medium text-gray-800 mt-0.5 leading-snug">
               {menuDetail.basePrice.toLocaleString()}원
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => requestClose()}
             className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
             aria-label="닫기"
           >
@@ -235,16 +264,16 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
-                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1]">
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug">
                           {sizeLabel}
                         </div>
                         {hasSurcharge && (
-                          <div className="text-[8px] leading-none text-gray-400">
+                          <div className="text-[10px] leading-snug text-gray-400">
                             +{opt.additionalPrice.toLocaleString()}원
                           </div>
                         )}
                         {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
                             ✓
                           </div>
                         )}
@@ -289,7 +318,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                                 -
                               </span>
                               <div
-                                className={`min-w-0 flex-1 truncate text-center font-bold leading-none ${nameClass}`}
+                                className={`min-w-0 flex-1 truncate text-center font-semibold leading-snug ${nameClass}`}
                               >
                                 {toppingName}
                               </div>
@@ -297,7 +326,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                                 +
                               </span>
                             </div>
-                            <div className="pointer-events-none mt-0.5 text-[8px] leading-none text-gray-400">
+                            <div className="pointer-events-none mt-0.5 text-[10px] leading-snug text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
 
@@ -319,18 +348,18 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                         ) : (
                           <div className="flex h-full w-full flex-col items-center justify-center">
                             <div
-                              className={`w-full truncate text-center font-bold leading-none ${nameClass}`}
+                              className={`w-full truncate text-center font-semibold leading-snug ${nameClass}`}
                             >
                               {toppingName}
                             </div>
-                            <div className="mt-0.5 text-[8px] leading-none text-gray-400">
+                            <div className="mt-0.5 text-[10px] leading-snug text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
                           </div>
                         )}
 
                         {isSelected && (
-                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[9px] font-bold text-white">
+                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[10px] font-bold text-white">
                             {qty}
                           </div>
                         )}
@@ -362,11 +391,11 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
-                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1] line-clamp-2">
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug line-clamp-2">
                           {removeLabel}
                         </div>
                         {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
                             ✓
                           </div>
                         )}
@@ -397,7 +426,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                       {opt.name}
                       {opt.additionalPrice > 0 && ` (+${opt.additionalPrice.toLocaleString()}원)`}
                       {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[9px] font-bold">
+                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[10px] font-bold">
                           ✓
                         </div>
                       )}

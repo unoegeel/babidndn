@@ -16,7 +16,7 @@ export default function SettingsPage() {
 
         <div className="mt-[32px] max-w-[520px] space-y-[16px]">
           <div className="rounded-[25px] border border-black/50 bg-canvas p-[24px]">
-            <h2 className="text-[18px] font-medium tracking-[1px] text-black">
+            <h2 className="text-[18px] font-medium text-black">
               계정
             </h2>
             <p className="mt-[8px] text-[14px] leading-relaxed text-black/60">
@@ -28,7 +28,7 @@ export default function SettingsPage() {
                 signOutAdmin();
                 navigate("/login", { replace: true });
               }}
-              className="mt-[16px] h-[48px] rounded-[10px] border border-danger bg-canvas px-[20px] text-[15px] font-medium tracking-[1px] text-danger"
+              className="mt-[16px] h-[48px] rounded-[10px] border border-danger bg-canvas px-[20px] text-[15px] font-medium text-danger"
             >
               로그아웃
             </button>

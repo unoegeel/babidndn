@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useRef,
 import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, NotificationItem, NotificationType } from "../types/user";
 import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../services/user/orderService";
 import { seoulDateKey } from "../utils/serverDate";
+import { claimReadyCall, clearReadyBannerDismiss } from "../utils/readyCall";
 
 const ORDERS_STORAGE_KEY = "babi_user_orders";
 const NOTIFS_STORAGE_KEY = "babi_user_notifications";
@@ -79,6 +80,13 @@ interface UserDataContextType {
   latestOrderId: string | null;
   activeOrders: Order[];
   notifications: NotificationItem[];
+  /** 최근 READY 호출/재호출 시그널 (동일 updatedAt 중복 없음) */
+  readyCallSignal: { orderId: string; updatedAt: string; isRecall: boolean } | null;
+  /** Shell 레벨 confetti (페이지 전환·리마운트에도 유지) */
+  confettiPlay: { playKey: string } | null;
+  startConfetti: (playKey: string, onDone?: () => void) => void;
+  stopConfetti: () => void;
+  finishConfetti: () => void;
   addToCart: (menu: MenuDetail, selectedOptions: MenuOption[], quantity: number) => void;
   updateCartQuantity: (cartItemId: string, newQuantity: number) => void;
   removeFromCart: (cartItemId: string) => void;
@@ -134,9 +142,35 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return stored.length > 0 ? stored[stored.length - 1].orderId : null;
   });
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => readStoredNotifications());
+  const [readyCallSignal, setReadyCallSignal] = useState<{
+    orderId: string;
+    updatedAt: string;
+    isRecall: boolean;
+  } | null>(null);
+  const [confettiPlay, setConfettiPlay] = useState<{ playKey: string } | null>(null);
+  const confettiOnDoneRef = useRef<(() => void) | null>(null);
+
+  const startConfetti = useCallback((playKey: string, onDone?: () => void) => {
+    confettiOnDoneRef.current = onDone ?? null;
+    setConfettiPlay({ playKey });
+  }, []);
+
+  const stopConfetti = useCallback(() => {
+    confettiOnDoneRef.current = null;
+    setConfettiPlay(null);
+  }, []);
+
+  const finishConfetti = useCallback(() => {
+    const onDone = confettiOnDoneRef.current;
+    confettiOnDoneRef.current = null;
+    setConfettiPlay(null);
+    onDone?.();
+  }, []);
 
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
   const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
+  /** 주문별 마지막으로 관측한 updatedAt — READY 재호출 구분 */
+  const lastUpdatedAtRef = useRef<Record<string, string>>({});
 
   // 서울 00시 기준 알림 전체 삭제 (자정 타이머 + 1분 폴링 + 탭 복귀)
   useEffect(() => {
@@ -402,6 +436,8 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               notifiedRef.current[id] = { preparing: false, ready: false, canceled: false };
             }
             const flags = notifiedRef.current[id];
+            const nextUpdatedAt = updated.updatedAt ?? "";
+            const prevUpdatedAt = lastUpdatedAtRef.current[id] ?? "";
 
             if (updated.status === "PREPARING" && !flags.preparing) {
               addNotification(
@@ -413,14 +449,34 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               flags.preparing = true;
             }
 
-            if ((updated.status === "READY" || updated.status === "COMPLETED") && !flags.ready) {
-              addNotification(
-                "READY",
-                "준비 완료",
-                `${updated.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
-                updated.orderId,
-              );
-              flags.ready = true;
+            if (updated.status === "READY" || updated.status === "COMPLETED") {
+              if (!flags.ready) {
+                addNotification(
+                  "READY",
+                  "준비 완료",
+                  `${updated.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
+                  updated.orderId,
+                );
+                flags.ready = true;
+                // 최초 READY updatedAt 기록(claim) — 이후 같은 시각 중복·재호출 오인 방지
+                if (updated.status === "READY" && nextUpdatedAt) {
+                  claimReadyCall(id, nextUpdatedAt);
+                }
+              } else if (
+                updated.status === "READY" &&
+                nextUpdatedAt &&
+                prevUpdatedAt &&
+                prevUpdatedAt !== nextUpdatedAt &&
+                claimReadyCall(id, nextUpdatedAt)
+              ) {
+                // 이미 READY인데 updatedAt이 바뀜 → 관리자 재호출
+                clearReadyBannerDismiss(id);
+                setReadyCallSignal({ orderId: id, updatedAt: nextUpdatedAt, isRecall: true });
+              }
+            }
+
+            if (nextUpdatedAt) {
+              lastUpdatedAtRef.current[id] = nextUpdatedAt;
             }
 
             if (updated.status === "CANCELED" && !flags.canceled) {
@@ -459,6 +515,11 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         latestOrderId,
         activeOrders,
         notifications,
+        readyCallSignal,
+        confettiPlay,
+        startConfetti,
+        stopConfetti,
+        finishConfetti,
         addToCart,
         updateCartQuantity,
         removeFromCart,

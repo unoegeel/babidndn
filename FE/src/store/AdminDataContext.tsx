@@ -113,7 +113,7 @@ function isActiveOrder(summary: OrderSummaryResponse): boolean {
   );
 }
 
-/** 화면 전용 상태 (서버에 없는 조리 체크·호출 여부) */
+/** 화면 전용 상태 (조리 체크는 서버에 없음. called는 READY로 복원) */
 interface OrderUiState {
   cookedItemIds: Set<string>;
   called: boolean;
@@ -396,13 +396,19 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             ? "cooking"
             : "waiting";
 
+        // 호출 여부는 /call API가 서버에 남긴 READY로 복원 (새로고침·재진입 시 유지)
+        // 같은 세션의 낙관적 UI 상태(uiState.called)도 함께 반영
+        if (serverReady) {
+          uiState.called = true;
+        }
+
         return {
           id: orderId,
           number: summary.pickupNumber,
           time: formatTime(summary.createdAt),
           items,
           status,
-          called: uiState.called,
+          called: uiState.called || serverReady,
         };
       });
   }, []);

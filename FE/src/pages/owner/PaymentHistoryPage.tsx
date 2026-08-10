@@ -112,7 +112,7 @@ export default function PaymentHistoryPage() {
           <button
             type="button"
             onClick={() => setExportOpen(true)}
-            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium tracking-[1px] text-black short:h-[36px] short:text-[13px]"
+            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
           >
             내려받기
           </button>
@@ -126,7 +126,7 @@ export default function PaymentHistoryPage() {
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="주문번호 검색"
               inputMode="numeric"
-              className="h-[48px] w-[217px] rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[44px] text-[15px] tracking-[1px] outline-none placeholder:text-black/50 focus:border-black"
+              className="h-[48px] w-[217px] rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[44px] text-[15px] outline-none placeholder:text-black/50 focus:border-black"
             />
             <svg
               className="absolute right-[14px] top-1/2 -translate-y-1/2 text-black"
@@ -140,7 +140,7 @@ export default function PaymentHistoryPage() {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
-              className="h-[48px] w-[160px] appearance-none rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[40px] text-[15px] tracking-[1px] outline-none focus:border-black"
+              className="h-[48px] w-[160px] appearance-none rounded-[10px] border border-black/50 bg-canvas pl-[16px] pr-[40px] text-[15px] outline-none focus:border-black"
             >
               <option value="all">전체 기간</option>
               <option value="today">오늘</option>
@@ -166,14 +166,14 @@ export default function PaymentHistoryPage() {
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] tracking-[1px] outline-none focus:border-black"
+                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] outline-none focus:border-black"
               />
               <span className="text-[14px] text-black/50">~</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] tracking-[1px] outline-none focus:border-black"
+                className="h-[48px] rounded-[10px] border border-black/50 bg-canvas px-[12px] text-[15px] outline-none focus:border-black"
               />
             </div>
           )}
@@ -183,7 +183,7 @@ export default function PaymentHistoryPage() {
         <div className="min-h-0 flex-1 overflow-auto rounded-[25px] border border-black/50 bg-canvas">
           <table className="w-full min-w-[720px] border-collapse text-[15px]">
             <thead>
-              <tr className="bg-panel text-[16px] font-medium tracking-[1px] text-black">
+              <tr className="bg-panel text-[16px] font-medium text-black">
                 <Th>결제 시간</Th>
                 <Th>주문번호</Th>
                 <Th>결제 수단</Th>
@@ -266,7 +266,7 @@ function ExportPopup({
         className="w-full max-w-[460px] rounded-[25px] border border-black/50 bg-canvas p-[24px] shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-[22px] font-medium tracking-[1.5px] text-black">
+        <h2 className="text-[22px] font-medium text-black">
           결제 내역 내려받기
         </h2>
         <p className="mt-[8px] text-[14px] text-black/55">
@@ -369,7 +369,7 @@ function PaymentRow({
         <Td>{payment.amount.toLocaleString()}원</Td>
         <Td>
           <span
-            className="font-medium tracking-[1px]"
+            className="font-medium"
             style={{
               color:
                 payment.status === "결제완료"
@@ -407,7 +407,7 @@ function PaymentRow({
                 stop(e);
                 onCancel();
               }}
-              className="h-[40px] w-[110px] rounded-[10px] border border-danger bg-canvas text-[15px] font-medium tracking-[1px] text-danger"
+              className="h-[40px] w-[110px] rounded-[10px] border border-danger bg-canvas text-[15px] font-medium text-danger"
             >
               결제 취소
             </button>
@@ -526,24 +526,24 @@ function CancelPopup({
         className="w-full max-w-[460px] rounded-[25px] border border-black/50 bg-canvas p-[24px] shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-[26px] font-medium tracking-[2px] text-black">
+        <h2 className="text-[26px] font-medium tracking-wide text-black">
           정말 취소하시겠습니까?
         </h2>
 
-        <p className="mt-[24px] text-[15px] font-medium tracking-[1px] text-black">
+        <p className="mt-[24px] text-[15px] font-medium text-black">
           취소할 주문
         </p>
-        <p className="mt-[8px] text-[22px] font-medium tracking-[1.5px] text-black">
+        <p className="mt-[8px] text-[22px] font-medium text-black">
           주문번호 {payment.orderNumber} ({payment.amount.toLocaleString()}원)
         </p>
 
-        <p className="mt-[24px] text-[15px] font-medium tracking-[1px] text-black">
+        <p className="mt-[24px] text-[15px] font-medium text-black">
           취소 사유 선택 <span style={{ color: "#ef4444" }}>(필수)</span>
         </p>
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          className="mt-[10px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] tracking-[1px] outline-none focus:border-black"
+          className="mt-[10px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] outline-none focus:border-black"
         >
           <option value="">취소 사유를 선택하세요.</option>
           {CANCEL_REASONS.map((r) => (
@@ -561,7 +561,7 @@ function CancelPopup({
           }}
         >
           <span style={{ color: "#ef4444" }}>⚠</span>
-          <span className="text-[15px] tracking-[1px]" style={{ color: "#ef4444" }}>
+          <span className="text-[15px]" style={{ color: "#ef4444" }}>
             취소 완료 후 복구할 수 없습니다.
           </span>
         </div>
@@ -569,7 +569,7 @@ function CancelPopup({
         <div className="mt-[20px] flex gap-[16px]">
           <button
             onClick={onClose}
-            className="h-[48px] w-[130px] rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium tracking-[1px] text-black"
+            className="h-[48px] w-[130px] rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
           >
             닫기
           </button>
@@ -581,7 +581,7 @@ function CancelPopup({
               setSubmitting(false);
             }}
             disabled={!reason || submitting}
-            className="h-[48px] flex-1 rounded-[10px] text-[15px] font-medium tracking-[1px] text-canvas disabled:opacity-40"
+            className="h-[48px] flex-1 rounded-[10px] text-[15px] font-medium text-canvas disabled:opacity-40"
             style={{ backgroundColor: "#ef4444" }}
           >
             {submitting ? "취소 처리 중..." : "취소 처리"}

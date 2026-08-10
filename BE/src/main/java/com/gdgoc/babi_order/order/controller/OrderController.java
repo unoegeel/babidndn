@@ -4,7 +4,6 @@ import com.gdgoc.babi_order.order.dto.request.OrderCreateRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderStatusUpdateRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
-import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.service.OrderEventService;
 import com.gdgoc.babi_order.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -74,9 +73,9 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/call")
-    @Operation(summary = "고객 호출", description = "주문을 READY(준비 완료)로 변경해 고객 화면에 반영합니다.")
+    @Operation(summary = "고객 호출", description = "주문을 READY(준비 완료)로 변경하거나, 이미 READY면 재호출(updatedAt 갱신)합니다.")
     public ResponseEntity<OrderDetailResponse> callOrder(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(orderService.updateStatus(id, OrderStatus.READY));
+        return ResponseEntity.ok(orderService.callCustomer(id));
     }
 
     @PostMapping("/{id}/complete")

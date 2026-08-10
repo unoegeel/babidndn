@@ -109,13 +109,13 @@ export const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps>
       {/* 배경 액션 힌트 */}
       <div className="absolute inset-0 flex">
         <div
-          className="flex flex-1 items-center justify-start bg-blue-500 pl-4 text-[10px] font-bold text-white transition-opacity"
+          className="flex flex-1 items-center justify-start bg-blue-500 pl-4 text-[11px] font-bold text-white transition-opacity"
           style={{ opacity: revealRead > 8 ? Math.min(1, revealRead / SWIPE_THRESHOLD) : 0 }}
         >
           읽음
         </div>
         <div
-          className="flex flex-1 items-center justify-end bg-red-500 pr-4 text-[10px] font-bold text-white transition-opacity"
+          className="flex flex-1 items-center justify-end bg-red-500 pr-4 text-[11px] font-bold text-white transition-opacity"
           style={{ opacity: revealDelete > 8 ? Math.min(1, revealDelete / SWIPE_THRESHOLD) : 0 }}
         >
           삭제
@@ -158,10 +158,10 @@ export const SwipeableNotificationItem: React.FC<SwipeableNotificationItemProps>
 
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-center">
-            <h4 className="text-[10px] font-bold text-gray-800 truncate">{notif.title}</h4>
-            <span className="text-[8px] text-gray-400 font-medium">{notif.createdAt}</span>
+            <h4 className="text-xs font-semibold text-gray-800 truncate">{notif.title}</h4>
+            <span className="text-[10px] text-gray-400 font-medium">{notif.createdAt}</span>
           </div>
-          <p className="text-[9px] text-gray-500 mt-1 leading-normal">{notif.message}</p>
+          <p className="text-[11px] text-gray-500 mt-1 leading-normal">{notif.message}</p>
         </div>
       </div>
     </div>

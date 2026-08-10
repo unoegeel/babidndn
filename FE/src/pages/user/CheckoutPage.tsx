@@ -190,7 +190,7 @@ export const CheckoutPage: React.FC = () => {
                     <MenuThumb
                       src={item.imageUrl}
                       alt={item.menuName}
-                      placeholderClassName="text-gray-400 font-bold text-[10px]"
+                      placeholderClassName="text-gray-400 font-medium text-[11px]"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -199,11 +199,11 @@ export const CheckoutPage: React.FC = () => {
                       <MarqueeText
                         text={optionNames}
                         className="mt-0.5"
-                        textClassName="text-[10px] text-gray-400"
+                        textClassName="text-[11px] text-gray-400"
                       />
                     )}
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-[10px] text-gray-400">{item.quantity}개</span>
+                      <span className="text-[11px] text-gray-400">{item.quantity}개</span>
                       <span className="text-xs font-bold text-gray-800">
                         {item.totalPrice.toLocaleString()}원
                       </span>
@@ -230,8 +230,8 @@ export const CheckoutPage: React.FC = () => {
                     : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-[9px] font-extrabold mb-0.5">N Pay</span>
-                <span className="text-[10px]">네이버페이</span>
+                <span className="text-[10px] font-bold mb-0.5 leading-snug">N Pay</span>
+                <span className="text-[11px] leading-snug">네이버페이</span>
               </button>
 
               <button
@@ -242,8 +242,8 @@ export const CheckoutPage: React.FC = () => {
                     : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-[9px] font-extrabold mb-0.5">toss pay</span>
-                <span className="text-[10px]">토스페이</span>
+                <span className="text-[10px] font-bold mb-0.5 leading-snug">toss pay</span>
+                <span className="text-[11px] leading-snug">토스페이</span>
               </button>
             </div>
 
@@ -257,8 +257,8 @@ export const CheckoutPage: React.FC = () => {
                     : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-[9px] font-extrabold mb-0.5">PAYCO</span>
-                <span className="text-[10px]">페이코</span>
+                <span className="text-[10px] font-bold mb-0.5 leading-snug">PAYCO</span>
+                <span className="text-[11px] leading-snug">페이코</span>
               </button>
 
               <button
@@ -269,8 +269,8 @@ export const CheckoutPage: React.FC = () => {
                     : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-[9px] font-extrabold mb-0.5">kakao pay</span>
-                <span className="text-[10px]">카카오페이</span>
+                <span className="text-[10px] font-bold mb-0.5 leading-snug">kakao pay</span>
+                <span className="text-[11px] leading-snug">카카오페이</span>
               </button>
             </div>
 
@@ -283,8 +283,8 @@ export const CheckoutPage: React.FC = () => {
                   : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50"
               }`}
             >
-              <span className="text-[9px] font-bold mb-0.5">CARD</span>
-              <span className="text-[10px] whitespace-nowrap">신용/체크카드</span>
+              <span className="text-[10px] font-bold mb-0.5 leading-snug">CARD</span>
+              <span className="text-[11px] whitespace-nowrap leading-snug">신용/체크카드</span>
             </button>
           </div>
         </div>

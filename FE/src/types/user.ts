@@ -62,6 +62,8 @@ export interface Order {
   totalPrice: number;
   status: OrderStatus;
   createdAt: string;
+  /** 서버 updatedAt — 호출/재호출 감지용 */
+  updatedAt?: string;
   pickupNumber: string;
   waitingCount: number;
   waitingTime: number;

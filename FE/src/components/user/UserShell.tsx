@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import {
@@ -8,15 +8,37 @@ import {
 import ReadyOrderBanner from "./ReadyOrderBanner";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
 import UserPopupAd from "./UserPopupAd";
+import ReadyConfetti from "./ReadyConfetti";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
+const DRAWER_CLOSE_MS = 240;
+
+/** 메뉴 ↔ 장바구니 ↔ 결제 스택 깊이 (뒤로가기 슬라이드 방향용) */
+function checkoutStackDepth(pathname: string): number {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  if (p === "/user/checkout") return 2;
+  if (p === "/user/cart") return 1;
+  if (p === "/user") return 0;
+  return -1;
+}
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, activeOrders, markAsRead, removeNotification } = useUserData();
+  const {
+    cart,
+    notifications,
+    activeOrders,
+    markAsRead,
+    removeNotification,
+    confettiPlay,
+    finishConfetti,
+    stopConfetti,
+  } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerClosing, setIsDrawerClosing] = useState(false);
+  const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
@@ -38,6 +60,61 @@ export const UserShell: React.FC = () => {
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
+  /** OrderStatusPage(`/user/orders/:id`) + OrderCompletePage(`/user/orders/:id/complete`) */
+  const isOrderReadyFlow = isStatusPage || isCompletePage;
+
+  const prevPathRef = useRef<string | null>(null);
+  const [pageSlideClass, setPageSlideClass] = useState("");
+
+  // Confetti는 UserShell에 있어 현황→완료 전환 시에도 유지됨.
+  // 주문 완료 플로우를 벗어나면 남은 duration을 기다리지 않고 즉시 종료.
+  useEffect(() => {
+    if (!confettiPlay) return;
+    if (isOrderReadyFlow) return;
+    stopConfetti();
+  }, [confettiPlay, isOrderReadyFlow, stopConfetti]);
+
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = pathname;
+
+    const from = prev == null ? -1 : checkoutStackDepth(prev);
+    const to = checkoutStackDepth(pathname);
+
+    // 메뉴↔장바구니↔결제 스택 안에서만 전/후진 슬라이드
+    if (from >= 0 && to >= 0 && from !== to) {
+      setPageSlideClass(to > from ? "animate-page-from-right" : "animate-page-from-left");
+      return;
+    }
+
+    // 그 외에서 장바구니/결제로 진입: 기존처럼 오른쪽에서
+    if (to === 1 || to === 2) {
+      setPageSlideClass("animate-page-from-right");
+      return;
+    }
+
+    setPageSlideClass("");
+  }, [pathname]);
+
+  const openDrawer = () => {
+    if (drawerCloseTimerRef.current) {
+      clearTimeout(drawerCloseTimerRef.current);
+      drawerCloseTimerRef.current = null;
+    }
+    setIsDrawerClosing(false);
+    setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    if (!isDrawerOpen || isDrawerClosing) return;
+    setIsDrawerClosing(true);
+    if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+    drawerCloseTimerRef.current = setTimeout(() => {
+      setIsDrawerOpen(false);
+      setIsDrawerClosing(false);
+      drawerCloseTimerRef.current = null;
+    }, DRAWER_CLOSE_MS);
+  };
 
   // 헤더 렌더링 여부
   const showHeader = true;
@@ -55,14 +132,29 @@ export const UserShell: React.FC = () => {
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsDrawerOpen(false);
-        setIsNotifOpen(false);
-        setShowNotifPrompt(false);
-      }
+      if (e.key !== "Escape") return;
+      setIsNotifOpen(false);
+      setShowNotifPrompt(false);
+      setIsDrawerOpen((open) => {
+        if (!open) return open;
+        setIsDrawerClosing(true);
+        if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+        drawerCloseTimerRef.current = setTimeout(() => {
+          setIsDrawerOpen(false);
+          setIsDrawerClosing(false);
+          drawerCloseTimerRef.current = null;
+        }, DRAWER_CLOSE_MS);
+        return open;
+      });
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+    };
   }, []);
 
   // 1) 알림 권한 안내 → 2) 팝업 광고 → 3) 첫 화면
@@ -148,8 +240,11 @@ export const UserShell: React.FC = () => {
       className="flex items-center justify-center overflow-hidden bg-gray-50 py-0 sm:py-6"
       style={{ height: "var(--app-height)", maxHeight: "var(--app-height)" }}
     >
-      {/* 430px 너비 제한 모바일 뷰 컨테이너 */}
-      <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg">
+      {/* 430px 너비 제한 모바일 뷰 컨테이너 — confetti 발사 기준 프레임 */}
+      <div
+        id="user-app-frame"
+        className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg"
+      >
         {showHeader && (
           <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
             {/* 왼쪽 영역 */}
@@ -159,7 +254,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsNotifOpen(false);
-                    setIsDrawerOpen(true);
+                    openDrawer();
                   }}
                   className="text-gray-700 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴"
@@ -214,7 +309,7 @@ export const UserShell: React.FC = () => {
                   </svg>
                   {/* 빨간 알림 뱃지 */}
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
                       {unreadCount}
                     </span>
                   )}
@@ -245,9 +340,19 @@ export const UserShell: React.FC = () => {
           </header>
         )}
 
-        {/* 메인 콘텐츠 영역 */}
+        {/* 메인 콘텐츠 영역 — confetti는 pathname key 밖에 두어 페이지 전환 시에도 유지 */}
         <main className="flex-1 min-h-0 overflow-hidden bg-gray-50/30 flex flex-col relative">
-          <Outlet />
+          <ReadyConfetti
+            active={!!confettiPlay}
+            playKey={confettiPlay?.playKey}
+            onDone={finishConfetti}
+          />
+          <div
+            key={pathname}
+            className={`flex min-h-0 flex-1 flex-col overflow-hidden ${pageSlideClass}`}
+          >
+            <Outlet />
+          </div>
         </main>
 
         {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
@@ -261,16 +366,22 @@ export const UserShell: React.FC = () => {
           <div className="absolute inset-0 z-50 flex">
             {/* 오버레이 클릭 시 닫기 */}
             <div
-              className="absolute inset-0 bg-black/40 transition-opacity"
-              onClick={() => setIsDrawerOpen(false)}
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-[240ms] ${
+                isDrawerClosing ? "opacity-0" : "animate-fade-in"
+              }`}
+              onClick={closeDrawer}
             ></div>
 
             {/* 단순한 흰색 패널 */}
-            <aside className="absolute inset-y-0 left-0 bg-white w-64 shadow-2xl flex flex-col p-5 z-50 animate-slide-right border-r border-gray-100">
+            <aside
+              className={`absolute inset-y-0 left-0 bg-white w-64 shadow-2xl flex flex-col p-5 z-50 border-r border-gray-100 ${
+                isDrawerClosing ? "animate-slide-left-out" : "animate-slide-right"
+              }`}
+            >
               <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-                <span className="text-base font-extrabold text-gray-900 tracking-wide">바비든든</span>
+                <span className="text-base font-bold text-gray-900">바비든든</span>
                 <button
-                  onClick={() => setIsDrawerOpen(false)}
+                  onClick={closeDrawer}
                   className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴 닫기"
                 >
@@ -284,7 +395,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -293,19 +404,19 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/cart");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   장바구니
                   {totalCartItems > 0 && (
-                    <span className="ml-2 text-[10px] font-bold text-[#C59B62]">{totalCartItems}</span>
+                    <span className="ml-2 text-[11px] font-semibold text-[#C59B62]">{totalCartItems}</span>
                   )}
                 </button>
                 <button
                   onClick={() => {
                     navigate("/user/orders");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -314,7 +425,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/notices");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -323,7 +434,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/reviews");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -332,7 +443,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     handleRequestNotification();
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer border-t border-gray-100 mt-4 pt-4"
                 >
@@ -342,22 +453,22 @@ export const UserShell: React.FC = () => {
 
               <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
                 <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
-                <p className="mt-1 px-2 text-[10px] leading-relaxed text-gray-400">
+                <p className="mt-1 px-2 text-[11px] leading-normal text-gray-400">
                   이용 중 불편한 점이 있나요?
                 </p>
                 <button
                   type="button"
                   onClick={() => {
                     navigate("/user/contact");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   문의하기 →
                 </button>
                 <div className="mt-4 px-2">
-                  <p className="text-[11px] font-extrabold tracking-wide text-gray-900">바비오더</p>
-                  <p className="mt-0.5 text-[9px] text-gray-400">(C) 2026 BabiOrder</p>
+                  <p className="text-[11px] font-bold text-gray-900">바비오더</p>
+                  <p className="mt-0.5 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
                 </div>
               </div>
             </aside>
@@ -374,19 +485,19 @@ export const UserShell: React.FC = () => {
                 <span className="text-xs font-bold text-gray-800">알림</span>
                 <button
                   onClick={() => setIsNotifOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none text-[10px] font-bold"
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none text-[11px] font-semibold"
                 >
                   닫기
                 </button>
               </div>
 
               {notifications.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 text-[10px] font-semibold">
+                <div className="py-12 text-center text-gray-400 text-[11px] font-medium">
                   새로운 알림이 없습니다.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[9px] font-medium text-gray-400 px-0.5">
+                  <p className="text-[10px] font-medium text-gray-400 px-0.5">
                     ← 삭제 · 읽음 →
                   </p>
                   {notifications.map((notif) => (

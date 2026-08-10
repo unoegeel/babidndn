@@ -34,8 +34,9 @@ export default function ReviewPage() {
       <div className="mb-4">
         <h2 className="text-base font-bold text-gray-900">사장님께 의견 전하기</h2>
         <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">
-          주문·메뉴·매장에 대한 의견을 자유롭게 남겨 주세요. 작성하신 내용은 사장님만
-          확인할 수 있습니다.
+          주문·메뉴·매장에 대한 의견을 자유롭게 남겨 주세요.
+          <br />
+          작성하신 내용은 사장님만 확인할 수 있습니다.
         </p>
       </div>
 
@@ -67,7 +68,7 @@ export default function ReviewPage() {
             onChange={(e) => setContent(e.target.value.slice(0, MAX_LENGTH))}
             rows={8}
             placeholder="예) 음식이 맛있었어요. 포장도 깔끔합니다!"
-            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-3 text-[13px] leading-relaxed text-gray-800 placeholder:text-gray-400 focus:border-gray-300 focus:outline-none focus:ring-0"
+            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-3 text-base leading-relaxed text-gray-800 placeholder:text-gray-400 focus:border-gray-300 focus:outline-none focus:ring-0"
             disabled={submitting}
           />
           <div className="mt-2 flex items-center justify-between">

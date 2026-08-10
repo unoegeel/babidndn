@@ -43,6 +43,22 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
   const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
   const [entering, setEntering] = useState(false);
 
+  useEffect(() => {
+    const onUndismiss = (e: Event) => {
+      const orderId = (e as CustomEvent<{ orderId: string }>).detail?.orderId;
+      if (!orderId) return;
+      setDismissed((prev) => {
+        if (!prev.has(orderId)) return prev;
+        const next = new Set(prev);
+        next.delete(orderId);
+        persistDismissed(next);
+        return next;
+      });
+    };
+    window.addEventListener("babi-ready-banner-undismiss", onUndismiss);
+    return () => window.removeEventListener("babi-ready-banner-undismiss", onUndismiss);
+  }, []);
+
   const visibleOrders = readyOrders.filter((o) => !dismissed.has(o.orderId));
 
   useEffect(() => {
@@ -94,23 +110,23 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-extrabold text-gray-900">준비 완료</p>
-              <p className="mt-0.5 text-[11px] font-semibold leading-snug text-gray-600">
-                <span className="font-extrabold text-green-700">{order.pickupNumber}번</span> 주문이
+              <p className="text-xs font-bold text-gray-900">준비 완료</p>
+              <p className="mt-0.5 text-[11px] font-medium leading-snug text-gray-600">
+                <span className="font-bold text-green-700">{order.pickupNumber}번</span> 주문이
                 준비되었습니다. 카운터에서 픽업해 주세요.
               </p>
               <div className="mt-2.5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => confirmOrder(order.orderId)}
-                  className="rounded-xl bg-green-600 px-3 py-2 text-[10px] font-bold text-white cursor-pointer hover:bg-green-700"
+                  className="rounded-xl bg-green-600 px-3 py-2 text-xs font-bold text-white cursor-pointer hover:bg-green-700 leading-snug"
                 >
                   주문 확인
                 </button>
                 <button
                   type="button"
                   onClick={() => dismiss(order.orderId)}
-                  className="rounded-xl border border-gray-200 px-3 py-2 text-[10px] font-bold text-gray-500 cursor-pointer hover:bg-gray-50"
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-50 leading-snug"
                 >
                   닫기
                 </button>
