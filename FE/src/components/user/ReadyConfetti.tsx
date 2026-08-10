@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const COLORS = [
@@ -23,7 +23,8 @@ const RISE_MS = 0.5;
 
 const APP_FRAME_ID = "user-app-frame";
 
-interface FrameRect {
+/** 앱 프레임(user-app-frame)의 viewport 기준 경계 — confetti clip·발사점 */
+interface ClipBounds {
   left: number;
   top: number;
   width: number;
@@ -54,37 +55,50 @@ interface Piece {
 
 interface ReadyConfettiProps {
   active: boolean;
-  /**
-   * 동일 active=true 유지 중에도 값이 바뀌면 1회 재발사 (관리자 재호출 등).
-   * claimReadyConfetti에 쓰는 updatedAt을 넘기면 SSE/폴링 중복과 구분됨.
-   */
   playKey?: string;
-  /** 애니메이션 종료 후 호출 (한 번) */
   onDone?: () => void;
 }
 
-/** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
 let lastModulePlayKey: string | null = null;
 
-function readAppFrameRect(): FrameRect | null {
+/**
+ * user-app-frame의 getBoundingClientRect()로 clip 영역 계산.
+ * fixed 포탈은 viewport 좌표를 쓰므로 rect.left/top/width/height 그대로 사용.
+ */
+function readClipBounds(): ClipBounds {
   const frame = document.getElementById(APP_FRAME_ID);
-  if (!frame) return null;
-  const rect = frame.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return null;
+  if (frame) {
+    const rect = frame.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+  }
+
+  const vv = window.visualViewport;
+  const height = vv?.height ?? window.innerHeight;
+  const width = vv?.width ?? window.innerWidth;
+  const offsetTop = vv?.offsetTop ?? 0;
+  const offsetLeft = vv?.offsetLeft ?? 0;
+
   return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height,
+    left: offsetLeft,
+    top: offsetTop,
+    width,
+    height,
   };
 }
 
-/** 다색 confetti — 앱 프레임(또는 viewport) 하단 중앙 동시 폭죽 → 상단 확산 → 천천히 낙하 */
+/** 다색 confetti — 앱 프레임 하단 중앙 고정 앵커 → transform은 자식만 */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const [frameRect, setFrameRect] = useState<FrameRect | null>(null);
+  const [clipBounds, setClipBounds] = useState<ClipBounds>(() => readClipBounds());
   const onDoneRef = useRef(onDone);
 
   useEffect(() => {
@@ -95,18 +109,25 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     setPortalRoot(document.body);
   }, []);
 
-  const syncFrameRect = () => {
-    setFrameRect(readAppFrameRect());
+  const syncClipBounds = () => {
+    setClipBounds(readClipBounds());
   };
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+    syncClipBounds();
+  }, [visible, burstKey]);
 
   useEffect(() => {
     if (!visible) return;
-    syncFrameRect();
-    window.addEventListener("resize", syncFrameRect);
-    window.addEventListener("scroll", syncFrameRect, true);
+    const onViewportChange = () => syncClipBounds();
+    window.addEventListener("resize", onViewportChange);
+    window.visualViewport?.addEventListener("resize", onViewportChange);
+    window.visualViewport?.addEventListener("scroll", onViewportChange);
     return () => {
-      window.removeEventListener("resize", syncFrameRect);
-      window.removeEventListener("scroll", syncFrameRect, true);
+      window.removeEventListener("resize", onViewportChange);
+      window.visualViewport?.removeEventListener("resize", onViewportChange);
+      window.visualViewport?.removeEventListener("scroll", onViewportChange);
     };
   }, [visible, burstKey]);
 
@@ -164,9 +185,9 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     if (!isSamePlay) {
       lastModulePlayKey = key;
       setBurstKey((k) => k + 1);
-      syncFrameRect();
     }
 
+    syncClipBounds();
     setVisible(true);
 
     const timer = window.setTimeout(() => {
@@ -184,63 +205,64 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
   if (!visible || !portalRoot) return null;
 
-  const overlayStyle: React.CSSProperties = frameRect
-    ? {
-        position: "fixed",
-        left: frameRect.left,
-        top: frameRect.top,
-        width: frameRect.width,
-        height: frameRect.height,
-        margin: 0,
-        padding: 0,
-      }
-    : {
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100vh",
-        margin: 0,
-        padding: 0,
-      };
+  const clipStyle: React.CSSProperties = {
+    position: "fixed",
+    left: clipBounds.left,
+    top: clipBounds.top,
+    width: clipBounds.width,
+    height: clipBounds.height,
+    margin: 0,
+    padding: 0,
+    overflow: "hidden",
+    pointerEvents: "none",
+    zIndex: 9999,
+  };
 
   return createPortal(
-    <div
-      className="pointer-events-none z-[9999] overflow-hidden"
-      aria-hidden
-      style={overlayStyle}
-    >
+    <div aria-hidden style={clipStyle}>
       {pieces.map((p) => (
-        <span
+        /* 앵커: 프레임 하단 중앙 고정 — transform 애니메이션을 적용하지 않음 */
+        <div
           key={`${burstKey}-${p.id}`}
-          className="absolute left-1/2 block will-change-transform"
-          style={
-            {
-              bottom: 0,
-              width: p.width,
-              height: p.height,
-              marginLeft: -p.width / 2,
-              backgroundColor: p.color,
-              borderRadius: p.radius,
-              ["--launch-x" as string]: p.launchX,
-              ["--launch-y" as string]: p.launchY,
-              ["--open-x" as string]: p.openX,
-              ["--open-y" as string]: p.openY,
-              ["--cx" as string]: p.cx,
-              ["--sway1" as string]: p.sway1,
-              ["--sway2" as string]: p.sway2,
-              ["--sway3" as string]: p.sway3,
-              ["--cx2" as string]: p.cx2,
-              ["--peak-y" as string]: p.peakY,
-              ["--fall-y" as string]: p.fallY,
-              ["--spin-mid" as string]: p.spinMid,
-              ["--spin-end" as string]: p.spinEnd,
-              animation: [
-                `confetti-rise ${RISE_MS}s cubic-bezier(0.08, 0.82, 0.12, 1) 0s forwards`,
-                `confetti-fall ${p.fallDuration} linear ${RISE_MS}s forwards`,
-              ].join(", "),
-            } as React.CSSProperties
-          }
-        />
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: 0,
+            width: p.width,
+            height: p.height,
+            marginLeft: -p.width / 2,
+          }}
+        >
+          {/* motion: transform만 담당 — rise + fall (낙하 키프레임 유지) */}
+          <div
+            className="will-change-transform"
+            style={
+              {
+                width: "100%",
+                height: "100%",
+                backgroundColor: p.color,
+                borderRadius: p.radius,
+                ["--launch-x" as string]: p.launchX,
+                ["--launch-y" as string]: p.launchY,
+                ["--open-x" as string]: p.openX,
+                ["--open-y" as string]: p.openY,
+                ["--cx" as string]: p.cx,
+                ["--sway1" as string]: p.sway1,
+                ["--sway2" as string]: p.sway2,
+                ["--sway3" as string]: p.sway3,
+                ["--cx2" as string]: p.cx2,
+                ["--peak-y" as string]: p.peakY,
+                ["--fall-y" as string]: p.fallY,
+                ["--spin-mid" as string]: p.spinMid,
+                ["--spin-end" as string]: p.spinEnd,
+                animation: [
+                  `confetti-rise ${RISE_MS}s cubic-bezier(0.08, 0.82, 0.12, 1) 0s forwards`,
+                  `confetti-fall ${p.fallDuration} linear ${RISE_MS}s forwards`,
+                ].join(", "),
+              } as React.CSSProperties
+            }
+          />
+        </div>
       ))}
     </div>,
     portalRoot,
