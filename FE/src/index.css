@@ -135,14 +135,21 @@ label {
   }
 }
 
-@keyframes confetti-fall {
+/* 하단에서 폭죽처럼 솟아오른 뒤 중력으로 낙하 */
+@keyframes confetti-burst {
   0% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
+  28% {
+    opacity: 1;
+    transform: translate3d(var(--cx, 0px), var(--peak-y, -45vh), 0)
+      rotate(var(--spin-mid, 180deg));
+  }
   100% {
     opacity: 0;
-    transform: translate3d(var(--cx, 0px), var(--cy, 110vh), 0) rotate(720deg);
+    transform: translate3d(var(--cx2, 0px), var(--fall-y, 20vh), 0)
+      rotate(var(--spin-end, 540deg));
   }
 }
 
@@ -159,7 +166,7 @@ label {
 }
 
 @utility animate-sheet-out {
-  animation: sheet-out-down 0.26s ease-in both;
+  animation: sheet-out-down 0.28s ease-in both;
 }
 
 @utility animate-page-from-right {

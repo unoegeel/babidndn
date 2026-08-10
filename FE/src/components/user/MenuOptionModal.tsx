@@ -66,10 +66,11 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     if (isClosing) return;
     setIsClosing(true);
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    // sheet-out(0.28s) 종료 후 언마운트 — 애니메이션이 잘리지 않도록 여유 포함
     closeTimerRef.current = setTimeout(() => {
       afterClose?.();
       onClose();
-    }, 260);
+    }, 300);
   };
 
   const handleMenuQtyChange = (val: number) => {
@@ -189,7 +190,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
       onAddToCart(finalOptions, quantity);
-    }, 260);
+    }, 300);
   };
 
   const toppingAddOptions = otherOptions.filter((o) => o.groupType === "TOPPING_ADD");
@@ -197,16 +198,19 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
   return (
-    <div
-      className={`absolute inset-0 z-[60] flex flex-col justify-end bg-black/40 transition-opacity duration-[260ms] ${
-        isClosing ? "opacity-0" : "animate-fade-in"
-      }`}
-    >
-      <div className="flex-1" onClick={() => requestClose()}></div>
+    <div className="absolute inset-0 z-[60] flex flex-col justify-end">
+      {/* 오버레이 — 시트와 분리해 닫힐 때 페이드 (시트 슬라이드가 가려지지 않도록) */}
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-[280ms] ${
+          isClosing ? "opacity-0" : "animate-fade-in"
+        }`}
+        onClick={() => requestClose()}
+        aria-hidden
+      />
 
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
       <div
-        className={`bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
+        className={`relative z-[1] bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
           isClosing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
