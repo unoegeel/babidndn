@@ -2,14 +2,13 @@ import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import type { Order, OrderStatus } from "../../types/user";
+import { serverInstantMs } from "../../utils/serverDate";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-function parseOrderDate(createdAt: string): Date | null {
-  // "2026-08-06 11:20" 또는 ISO
-  const normalized = createdAt.includes("T") ? createdAt : createdAt.replace(" ", "T");
-  const d = new Date(normalized.includes("+") || normalized.endsWith("Z") ? normalized : `${normalized}+09:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
+function orderCreatedMs(createdAt: string): number | null {
+  const ms = serverInstantMs(createdAt);
+  return Number.isFinite(ms) ? ms : null;
 }
 
 function statusLabel(status: OrderStatus): string {
@@ -57,13 +56,13 @@ export const OrderHistoryPage: React.FC = () => {
     const cutoff = Date.now() - SEVEN_DAYS_MS;
     return [...orders]
       .filter((o) => {
-        const d = parseOrderDate(o.createdAt);
-        if (!d) return true; // 파싱 실패 시 포함
-        return d.getTime() >= cutoff;
+        const ms = orderCreatedMs(o.createdAt);
+        if (ms == null) return true; // 파싱 실패 시 포함
+        return ms >= cutoff;
       })
       .sort((a, b) => {
-        const timeA = parseOrderDate(a.createdAt)?.getTime() ?? 0;
-        const timeB = parseOrderDate(b.createdAt)?.getTime() ?? 0;
+        const timeA = orderCreatedMs(a.createdAt) ?? 0;
+        const timeB = orderCreatedMs(b.createdAt) ?? 0;
         if (timeB !== timeA) {
           return timeB - timeA; // 결제시간 내림차순
         }

@@ -1,6 +1,7 @@
 import type { Payment } from "../types/admin";
 import type { OrderDetailResponse } from "../types/api";
 import { formatOrderItemOptionLabels } from "./orderItemOptions";
+import { seoulDateKey, seoulDayBoundsMs } from "./serverDate";
 
 export type PaymentExportFormat = "csv" | "txt";
 
@@ -81,7 +82,7 @@ export function downloadPaymentExport(
   URL.revokeObjectURL(url);
 }
 
-/** date(YYYY-MM-DD) 또는 datetime-local → 포함 시작/종료(ms) */
+/** date(YYYY-MM-DD) 또는 datetime-local → 서울 달력일 포함 시작/종료(ms) */
 export function rangeFromDateInputs(
   startLocal: string,
   endLocal: string,
@@ -90,15 +91,11 @@ export function rangeFromDateInputs(
 
   const startDay = startLocal.slice(0, 10);
   const endDay = endLocal.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDay) || !/^\d{4}-\d{2}-\d{2}$/.test(endDay)) {
-    return null;
-  }
-
-  const startMs = new Date(`${startDay}T00:00:00`).getTime();
-  const endMs = new Date(`${endDay}T23:59:59.999`).getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
-  if (endMs < startMs) return null;
-  return { startMs, endMs };
+  const startBounds = seoulDayBoundsMs(startDay);
+  const endBounds = seoulDayBoundsMs(endDay);
+  if (!startBounds || !endBounds) return null;
+  if (endBounds.endMs < startBounds.startMs) return null;
+  return { startMs: startBounds.startMs, endMs: endBounds.endMs };
 }
 
 /** @deprecated rangeFromDateInputs 사용 */
@@ -109,13 +106,11 @@ export function rangeFromDatetimeLocal(
   return rangeFromDateInputs(startLocal, endLocal);
 }
 
+/** 내보내기 기본 기간: 서울 기준 최근 7일(오늘 포함) */
 export function defaultExportRangeLocal(): { start: string; end: string } {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 6);
-  const toDate = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-  return { start: toDate(start), end: toDate(end) };
+  const end = seoulDateKey();
+  const endBounds = seoulDayBoundsMs(end);
+  const startMs =
+    (endBounds?.startMs ?? Date.now()) - 6 * 24 * 60 * 60 * 1000;
+  return { start: seoulDateKey(startMs), end };
 }

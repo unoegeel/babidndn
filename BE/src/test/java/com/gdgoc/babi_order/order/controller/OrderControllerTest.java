@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.order.controller;
 
+import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
 import com.gdgoc.babi_order.menu.exception.MenuNotFoundException;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
-@Import({SecurityConfig.class, CorsProperties.class, OrderExceptionHandler.class})
+@Import({SecurityConfig.class, CorsProperties.class, OrderExceptionHandler.class, ApiExceptionHandler.class})
 @WithMockUser(roles = "ADMIN")
 class OrderControllerTest {
 
