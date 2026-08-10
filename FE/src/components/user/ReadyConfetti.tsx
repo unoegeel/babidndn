@@ -21,6 +21,15 @@ const CONFETTI_TOTAL_MS = 9000;
 /** 모든 조각이 동시에 끝나는 상승 구간 (초) — delay 없음 */
 const RISE_MS = 0.5;
 
+const APP_FRAME_ID = "user-app-frame";
+
+interface FrameRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 interface Piece {
   id: number;
   fallDuration: string;
@@ -57,11 +66,25 @@ interface ReadyConfettiProps {
 /** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
 let lastModulePlayKey: string | null = null;
 
-/** 다색 confetti — viewport 하단 중앙 동시 폭죽 → 상단 확산 → 천천히 낙하 (body Portal) */
+function readAppFrameRect(): FrameRect | null {
+  const frame = document.getElementById(APP_FRAME_ID);
+  if (!frame) return null;
+  const rect = frame.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+/** 다색 confetti — 앱 프레임(또는 viewport) 하단 중앙 동시 폭죽 → 상단 확산 → 천천히 낙하 */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [frameRect, setFrameRect] = useState<FrameRect | null>(null);
   const onDoneRef = useRef(onDone);
 
   useEffect(() => {
@@ -72,12 +95,26 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     setPortalRoot(document.body);
   }, []);
 
+  const syncFrameRect = () => {
+    setFrameRect(readAppFrameRect());
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    syncFrameRect();
+    window.addEventListener("resize", syncFrameRect);
+    window.addEventListener("scroll", syncFrameRect, true);
+    return () => {
+      window.removeEventListener("resize", syncFrameRect);
+      window.removeEventListener("scroll", syncFrameRect, true);
+    };
+  }, [visible, burstKey]);
+
   const pieces = useMemo<Piece[]>(() => {
     return Array.from({ length: 48 }, (_, i) => {
       const angleBias = (i / 47) * 2 - 1;
       const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
       const burstXVw = Math.max(-48, Math.min(48, spread));
-      // 화면 상단 끝까지 도달 (-80vh ~ -100vh)
       const peak = -(80 + Math.random() * 20);
       const launchY = peak * (0.42 + Math.random() * 0.06);
       const launchX = burstXVw * (0.05 + Math.random() * 0.05);
@@ -127,6 +164,7 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     if (!isSamePlay) {
       lastModulePlayKey = key;
       setBurstKey((k) => k + 1);
+      syncFrameRect();
     }
 
     setVisible(true);
@@ -146,11 +184,30 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
   if (!visible || !portalRoot) return null;
 
+  const overlayStyle: React.CSSProperties = frameRect
+    ? {
+        position: "fixed",
+        left: frameRect.left,
+        top: frameRect.top,
+        width: frameRect.width,
+        height: frameRect.height,
+        margin: 0,
+        padding: 0,
+      }
+    : {
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        margin: 0,
+        padding: 0,
+      };
+
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden"
+      className="pointer-events-none z-[9999] overflow-hidden"
       aria-hidden
-      style={{ margin: 0, padding: 0 }}
+      style={overlayStyle}
     >
       {pieces.map((p) => (
         <span

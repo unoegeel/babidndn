@@ -222,8 +222,11 @@ export const UserShell: React.FC = () => {
       className="flex items-center justify-center overflow-hidden bg-gray-50 py-0 sm:py-6"
       style={{ height: "var(--app-height)", maxHeight: "var(--app-height)" }}
     >
-      {/* 430px 너비 제한 모바일 뷰 컨테이너 */}
-      <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg">
+      {/* 430px 너비 제한 모바일 뷰 컨테이너 — confetti 발사 기준 프레임 */}
+      <div
+        id="user-app-frame"
+        className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg"
+      >
         {showHeader && (
           <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
             {/* 왼쪽 영역 */}

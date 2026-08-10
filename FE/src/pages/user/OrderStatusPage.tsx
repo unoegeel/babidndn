@@ -249,110 +249,109 @@ export const OrderStatusPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      {/* 대기번호 + 진행 스텝 — 단일 흰 블록, 고정 패딩(재호출·READY 전환과 무관) */}
-      <div className="bg-white border-b border-gray-100 shrink-0">
-        <div className="px-6 pt-6 text-center">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
-          <h2
-            className={`mt-0 text-6xl font-extrabold leading-[1.05] tracking-tight ${
-              isCanceled ? "text-gray-300 line-through" : "text-gray-900"
-            }`}
-          >
-            {order.pickupNumber}
-          </h2>
-          <p
-            className={`min-h-[2.5rem] text-xs font-semibold mt-2 leading-snug ${
-              isCanceled ? "text-red-500" : "text-gray-700"
-            }`}
-          >
-            {statusMessage}
-          </p>
-        </div>
-
-        {isCanceled ? (
-          <div className="px-6 pb-6">
-            <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-bold text-red-600">결제가 취소되었습니다</h3>
-              <p className="text-[11px] font-semibold leading-relaxed text-red-500/80">
-                매장에서 주문을 취소했습니다.
-                <br />
-                문의사항은 카운터에 말씀해 주세요.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/user", { replace: true })}
-                className="mt-2 cursor-pointer rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white"
-              >
-                메뉴판으로 돌아가기
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="px-6 pb-6 pt-5 flex justify-around items-center relative border-t border-gray-100 min-h-[4.5rem]">
-            <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
-            <div
-              className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-[width] duration-700"
-              style={{ width: stepIndex === 0 ? "0%" : stepIndex === 1 ? "34%" : "68%" }}
-            ></div>
-
-            <div className="flex flex-col items-center z-10 shrink-0">
-              <div
-                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                  stepIndex >= 0
-                    ? "bg-[#009E39] border-[#009E39] text-white"
-                    : "bg-white border-gray-300 text-gray-400"
-                }`}
-              >
-                ✓
-              </div>
-              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
-                주문 완료
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center z-10 shrink-0">
-              <div
-                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                  stepIndex >= 1
-                    ? "bg-[#009E39] border-[#009E39] text-white"
-                    : "bg-white border-gray-300 text-gray-400"
-                }`}
-              >
-                {stepIndex === 1 ? (
-                  <span className="block h-1.5 w-1.5 rounded-full bg-white animate-ping"></span>
-                ) : stepIndex > 1 ? (
-                  "✓"
-                ) : (
-                  "2"
-                )}
-              </div>
-              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
-                조리 중
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center z-10 shrink-0">
-              <div
-                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                  stepIndex >= 2
-                    ? "bg-[#009E39] border-[#009E39] text-white"
-                    : "bg-white border-gray-300 text-gray-400"
-                }`}
-              >
-                {stepIndex >= 2 ? "✓" : "\u00A0"}
-              </div>
-              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
-                준비 완료
-              </span>
-            </div>
-          </div>
-        )}
+      {/* 대기번호 / 안내 문구 — 기존 1블록 (p-6) */}
+      <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
+        <h2
+          className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
+            isCanceled ? "text-gray-300 line-through" : "text-gray-900"
+          }`}
+        >
+          {order.pickupNumber}
+        </h2>
+        <p
+          className={`min-h-[2.5rem] text-xs font-semibold mt-2 leading-snug ${
+            isCanceled ? "text-red-500" : "text-gray-700"
+          }`}
+        >
+          {statusMessage}
+        </p>
       </div>
+
+      {isCanceled ? (
+        <div className="bg-white border-b border-gray-100 p-4 shrink-0">
+          <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+              <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-bold text-red-600">결제가 취소되었습니다</h3>
+            <p className="text-[11px] font-semibold leading-relaxed text-red-500/80">
+              매장에서 주문을 취소했습니다.
+              <br />
+              문의사항은 카운터에 말씀해 주세요.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/user", { replace: true })}
+              className="mt-2 cursor-pointer rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white"
+            >
+              메뉴판으로 돌아가기
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* 주문 상태바 — 기존 2블록 (p-6), 위 블록과 합치지 않음 */
+        <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
+          <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
+          <div
+            className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-[width] duration-700"
+            style={{ width: stepIndex === 0 ? "0%" : stepIndex === 1 ? "34%" : "68%" }}
+          ></div>
+
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div
+              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
+                stepIndex >= 0
+                  ? "bg-[#009E39] border-[#009E39] text-white"
+                  : "bg-white border-gray-300 text-gray-400"
+              }`}
+            >
+              ✓
+            </div>
+            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
+              주문 완료
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div
+              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
+                stepIndex >= 1
+                  ? "bg-[#009E39] border-[#009E39] text-white"
+                  : "bg-white border-gray-300 text-gray-400"
+              }`}
+            >
+              {stepIndex === 1 ? (
+                <span className="block h-1.5 w-1.5 rounded-full bg-white animate-ping"></span>
+              ) : stepIndex > 1 ? (
+                "✓"
+              ) : (
+                "2"
+              )}
+            </div>
+            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
+              조리 중
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div
+              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
+                stepIndex >= 2
+                  ? "bg-[#009E39] border-[#009E39] text-white"
+                  : "bg-white border-gray-300 text-gray-400"
+              }`}
+            >
+              {stepIndex >= 2 ? "✓" : "\u00A0"}
+            </div>
+            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
+              준비 완료
+            </span>
+          </div>
+        </div>
+      )}
 
       {!isCanceled && (
         <div className="p-4">
