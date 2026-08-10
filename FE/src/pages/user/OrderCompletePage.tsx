@@ -9,7 +9,8 @@ import type { Order } from "../../types/user";
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti } = useUserData();
+  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti } =
+    useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
@@ -169,7 +170,12 @@ export const OrderCompletePage: React.FC = () => {
         style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
       >
         <button
-          onClick={() => navigate("/user")}
+          type="button"
+          onClick={() => {
+            // route effect보다 먼저 종료해 이동 프레임에 Confetti가 남지 않게 함
+            stopConfetti();
+            navigate("/user");
+          }}
           className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm transition-colors hover:bg-gray-800 cursor-pointer text-center shadow-md"
         >
           처음 화면으로 이동
