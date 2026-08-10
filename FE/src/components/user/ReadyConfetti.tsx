@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const COLORS = [
   "#22c55e",
@@ -27,70 +27,105 @@ interface Piece {
   height: number;
   color: string;
   cx: string;
+  sway1: string;
+  sway2: string;
+  sway3: string;
   cx2: string;
   peakY: string;
   fallY: string;
   spinMid: string;
   spinEnd: string;
   radius: string;
-  easing: string;
 }
 
 interface ReadyConfettiProps {
   active: boolean;
+  /**
+   * 동일 active=true 유지 중에도 값이 바뀌면 1회 재발사 (관리자 재호출 등).
+   * claimReadyConfetti에 쓰는 updatedAt을 넘기면 SSE/폴링 중복과 구분됨.
+   */
+  playKey?: string;
   /** 애니메이션 종료 후 호출 (한 번) */
   onDone?: () => void;
 }
 
-/** 다색 confetti — 하단에서 솟아오른 뒤 낙하 (CSS only) */
-export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, onDone }) => {
-  const [visible, setVisible] = useState(active);
+/** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
+let lastModulePlayKey: string | null = null;
+
+/** 다색 confetti — 하단 폭죽 발사 후 천천히 살랑거리며 낙하 (CSS only) */
+export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
+  const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
+  const onDoneRef = useRef(onDone);
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
 
   const pieces = useMemo<Piece[]>(() => {
-    return Array.from({ length: 48 }, (_, i) => {
+    return Array.from({ length: 44 }, (_, i) => {
       const origin = ORIGINS[i % ORIGINS.length];
-      const drift = (Math.random() - 0.5) * (140 + Math.random() * 100);
-      const drift2 = drift + (Math.random() - 0.5) * 80;
+      const drift = (Math.random() - 0.5) * (130 + Math.random() * 90);
+      const swayAmp = 18 + Math.random() * 42;
+      const dir = Math.random() > 0.5 ? 1 : -1;
       const width = 5 + Math.floor(Math.random() * 7);
-      const peak = -(32 + Math.random() * 42); // vh — 위로
-      const fall = 8 + Math.random() * 28; // vh — 시작점 대비 아래로
-      const spin = 200 + Math.random() * 400;
+      const peak = -(34 + Math.random() * 38);
+      // 시작점(bottom)보다 아래로 충분히 내려가며 천천히 사라짐
+      const fall = 35 + Math.random() * 45;
+      const spin = 160 + Math.random() * 380;
       return {
         id: i,
         left: `${origin + (Math.random() - 0.5) * 10}%`,
         delay: `${Math.random() * 0.22}s`,
-        duration: `${1.9 + Math.random() * 1.3}s`,
+        // 낙하 구간이 길도록 전체 시간을 충분히 확보
+        duration: `${5.2 + Math.random() * 2.6}s`,
         width,
         height: width * (0.5 + Math.random() * 0.9),
         color: COLORS[i % COLORS.length],
         cx: `${drift}px`,
-        cx2: `${drift2}px`,
+        sway1: `${drift + dir * swayAmp}px`,
+        sway2: `${drift - dir * swayAmp * (0.6 + Math.random() * 0.5)}px`,
+        sway3: `${drift + dir * swayAmp * (0.35 + Math.random() * 0.4)}px`,
+        cx2: `${drift + (Math.random() - 0.5) * 50}px`,
         peakY: `${peak}vh`,
         fallY: `${fall}vh`,
-        spinMid: `${spin * 0.4}deg`,
+        spinMid: `${spin * 0.35}deg`,
         spinEnd: `${spin}deg`,
         radius: Math.random() > 0.4 ? "1px" : "50%",
-        easing:
-          Math.random() > 0.5
-            ? "cubic-bezier(0.15, 0.85, 0.35, 1)"
-            : "cubic-bezier(0.2, 0.7, 0.3, 1)",
       };
     });
-    // burstKey로 재호출 시 조각 배치를 새로 뽑음
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [burstKey]);
 
   useEffect(() => {
-    if (!active) return;
-    setBurstKey((k) => k + 1);
+    if (!active) {
+      lastModulePlayKey = null;
+      setVisible(false);
+      return;
+    }
+
+    const key = playKey && playKey.length > 0 ? playKey : "__active__";
+    const isSamePlay = lastModulePlayKey === key;
+
+    if (!isSamePlay) {
+      lastModulePlayKey = key;
+      setBurstKey((k) => k + 1);
+    }
+
     setVisible(true);
+
+    // 조각 duration 최대(~7.8s) + delay 여유
     const timer = window.setTimeout(() => {
       setVisible(false);
-      onDone?.();
-    }, 3600);
-    return () => window.clearTimeout(timer);
-  }, [active, onDone]);
+      if (lastModulePlayKey === key) {
+        lastModulePlayKey = null;
+      }
+      onDoneRef.current?.();
+    }, 8200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [active, playKey]);
 
   if (!visible) return null;
 
@@ -111,12 +146,16 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, onDone }) 
               backgroundColor: p.color,
               borderRadius: p.radius,
               ["--cx" as string]: p.cx,
+              ["--sway1" as string]: p.sway1,
+              ["--sway2" as string]: p.sway2,
+              ["--sway3" as string]: p.sway3,
               ["--cx2" as string]: p.cx2,
               ["--peak-y" as string]: p.peakY,
               ["--fall-y" as string]: p.fallY,
               ["--spin-mid" as string]: p.spinMid,
               ["--spin-end" as string]: p.spinEnd,
-              animation: `confetti-burst ${p.duration} ${p.easing} ${p.delay} both`,
+              // linear: 키프레임 %로 상승(짧게)·낙하(길게) 타이밍 제어
+              animation: `confetti-burst ${p.duration} linear ${p.delay} both`,
             } as React.CSSProperties
           }
         />

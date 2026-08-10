@@ -20,6 +20,7 @@ export const OrderStatusPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(!order);
   const [error, setError] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiPlayKey, setConfettiPlayKey] = useState("");
 
   // 최신 콜백 및 네비게이트 함수를 Ref로 유지하여 useEffect 재실행 차단
   const saveOrderToStateRef = useRef(saveOrderToState);
@@ -43,6 +44,7 @@ export const OrderStatusPage: React.FC = () => {
     if (readyCallSignal.orderId !== orderId) return;
     if (!claimReadyConfetti(orderId, readyCallSignal.updatedAt)) return;
     lastRecallConfettiAtRef.current = readyCallSignal.updatedAt;
+    setConfettiPlayKey(readyCallSignal.updatedAt);
     setShowConfetti(true);
   }, [readyCallSignal, orderId]);
 
@@ -66,6 +68,7 @@ export const OrderStatusPage: React.FC = () => {
     prevStatusRef.current = null;
     readyConfettiFiredRef.current = false;
     setShowConfetti(false);
+    setConfettiPlayKey("");
     if (navigateTimerRef.current) {
       clearTimeout(navigateTimerRef.current);
       navigateTimerRef.current = null;
@@ -113,11 +116,15 @@ export const OrderStatusPage: React.FC = () => {
         const updatedOrder = mapOrderDetailToOrder(res);
         const shouldCelebrate = noteReadyTransition(updatedOrder.status);
         if (shouldCelebrate) {
+          let canShow = true;
           if (updatedOrder.updatedAt) {
             claimReadyCall(orderId, updatedOrder.updatedAt);
-            claimReadyConfetti(orderId, updatedOrder.updatedAt);
+            canShow = claimReadyConfetti(orderId, updatedOrder.updatedAt);
           }
-          setShowConfetti(true);
+          if (canShow) {
+            setConfettiPlayKey(updatedOrder.updatedAt || `${orderId}-ready`);
+            setShowConfetti(true);
+          }
         }
         setOrder(updatedOrder);
         saveOrderToStateRef.current(updatedOrder);
@@ -239,7 +246,13 @@ export const OrderStatusPage: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      <ReadyConfetti active={showConfetti} onDone={() => setShowConfetti(false)} />
+      <ReadyConfetti
+        active={showConfetti}
+        playKey={confettiPlayKey}
+        onDone={() => {
+          setShowConfetti(false);
+        }}
+      />
 
       <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2">
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>

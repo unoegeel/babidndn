@@ -135,20 +135,67 @@ label {
   }
 }
 
-/* 하단에서 폭죽처럼 솟아오른 뒤 중력으로 낙하 */
+/* 하단 폭죽 발사(짧게) → 최고점 이후 천천히 좌우 흔들리며 낙하 */
 @keyframes confetti-burst {
   0% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  28% {
+  /* 빠른 상승 (전체의 ~11%) */
+  11% {
     opacity: 1;
     transform: translate3d(var(--cx, 0px), var(--peak-y, -45vh), 0)
       rotate(var(--spin-mid, 180deg));
   }
+  /* 최고점 잠시 머문 뒤 천천히 낙하 + 좌우 살랑거림 */
+  22% {
+    opacity: 1;
+    transform: translate3d(
+        var(--sway1, 12px),
+        calc(var(--peak-y, -45vh) * 0.88),
+        0
+      )
+      rotate(calc(var(--spin-mid, 180deg) + 40deg));
+  }
+  38% {
+    opacity: 1;
+    transform: translate3d(
+        var(--sway2, -14px),
+        calc(var(--peak-y, -45vh) * 0.58),
+        0
+      )
+      rotate(calc(var(--spin-mid, 180deg) + 100deg));
+  }
+  54% {
+    opacity: 1;
+    transform: translate3d(
+        var(--sway3, 10px),
+        calc(var(--peak-y, -45vh) * 0.28),
+        0
+      )
+      rotate(calc(var(--spin-end, 540deg) * 0.45));
+  }
+  70% {
+    opacity: 0.95;
+    transform: translate3d(
+        var(--sway1, 12px),
+        calc(var(--fall-y, 40vh) * 0.08),
+        0
+      )
+      rotate(calc(var(--spin-end, 540deg) * 0.62));
+  }
+  85% {
+    opacity: 0.75;
+    transform: translate3d(
+        var(--sway2, -14px),
+        calc(var(--fall-y, 40vh) * 0.55),
+        0
+      )
+      rotate(calc(var(--spin-end, 540deg) * 0.82));
+  }
   100% {
     opacity: 0;
-    transform: translate3d(var(--cx2, 0px), var(--fall-y, 20vh), 0)
+    transform: translate3d(var(--cx2, 0px), var(--fall-y, 40vh), 0)
       rotate(var(--spin-end, 540deg));
   }
 }
