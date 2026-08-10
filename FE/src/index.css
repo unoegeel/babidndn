@@ -144,23 +144,27 @@ label {
   }
 }
 
-/* viewport 하단 중앙 한 점 → 강한 상승 → 상단 방사형 확산 (전 조각 delay 0)
-   최고점은 100%에만 두어 rise 끝과 fall 시작이 바로 이어지게 함 */
+/* viewport 하단 중앙 한 점 → 강한 상승 → 상단 방사형 확산
+   구간마다 cubic-bezier가 재시작되지 않도록 keyframe에 linear 지정.
+   waypoint 시각은 launch≈45%·open≈81% Y에 맞춘 ease-out 샘플링(연속 감속). */
 @keyframes confetti-rise {
   0%,
   6% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
+    animation-timing-function: linear;
   }
-  22% {
+  28% {
     opacity: 1;
     transform: translate3d(var(--launch-x, 0), var(--launch-y, -38vh), 0)
       rotate(calc(var(--spin-mid, 180deg) * 0.15));
+    animation-timing-function: linear;
   }
-  48% {
+  58% {
     opacity: 1;
     transform: translate3d(var(--open-x, 0), var(--open-y, -72vh), 0)
       rotate(calc(var(--spin-mid, 180deg) * 0.55));
+    animation-timing-function: linear;
   }
   100% {
     opacity: 1;
