@@ -25,8 +25,16 @@ function checkoutStackDepth(pathname: string): number {
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, activeOrders, markAsRead, removeNotification, confettiPlay, finishConfetti } =
-    useUserData();
+  const {
+    cart,
+    notifications,
+    activeOrders,
+    markAsRead,
+    removeNotification,
+    confettiPlay,
+    finishConfetti,
+    stopConfetti,
+  } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDrawerClosing, setIsDrawerClosing] = useState(false);
@@ -52,9 +60,19 @@ export const UserShell: React.FC = () => {
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
+  /** OrderStatusPage(`/user/orders/:id`) + OrderCompletePage(`/user/orders/:id/complete`) */
+  const isOrderReadyFlow = isStatusPage || isCompletePage;
 
   const prevPathRef = useRef<string | null>(null);
   const [pageSlideClass, setPageSlideClass] = useState("");
+
+  // Confetti는 UserShell에 있어 현황→완료 전환 시에도 유지됨.
+  // 주문 완료 플로우를 벗어나면 남은 duration을 기다리지 않고 즉시 종료.
+  useEffect(() => {
+    if (!confettiPlay) return;
+    if (isOrderReadyFlow) return;
+    stopConfetti();
+  }, [confettiPlay, isOrderReadyFlow, stopConfetti]);
 
   useLayoutEffect(() => {
     const prev = prevPathRef.current;
