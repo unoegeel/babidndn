@@ -249,9 +249,9 @@ export const OrderStatusPage: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      {/* 대기번호 + 진행 스텝 — 하나의 흰 블록으로 붙여 여백 없음 */}
+      {/* 대기번호 + 진행 스텝 — 하나의 흰 블록, 내부 패딩은 기존 2단 구조와 동일 */}
       <div className="bg-white border-b border-gray-100">
-        <div className="p-6 pb-4 text-center space-y-2">
+        <div className="p-6 text-center space-y-2">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
           <h2
             className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
@@ -266,7 +266,7 @@ export const OrderStatusPage: React.FC = () => {
         </div>
 
         {isCanceled ? (
-          <div className="px-4 pb-6">
+          <div className="px-6 pb-6">
             <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                 <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -289,16 +289,16 @@ export const OrderStatusPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="px-6 pb-6 pt-1 flex justify-around items-center relative border-t border-gray-100">
+          <div className="p-6 flex justify-around items-center relative border-t border-gray-100">
             <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
             <div
               className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-all duration-700"
               style={{ width: stepIndex === 0 ? "0%" : stepIndex === 1 ? "34%" : "68%" }}
             ></div>
 
-            <div className="flex flex-col items-center z-10">
+            <div className="flex flex-col items-center z-10 shrink-0">
               <div
-                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${
+                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
                   stepIndex >= 0
                     ? "bg-[#009E39] border-[#009E39] text-white"
                     : "bg-white border-gray-300 text-gray-400"
@@ -306,43 +306,43 @@ export const OrderStatusPage: React.FC = () => {
               >
                 ✓
               </div>
-              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
                 주문 완료
               </span>
             </div>
 
-            <div className="flex flex-col items-center z-10">
+            <div className="flex flex-col items-center z-10 shrink-0">
               <div
-                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${
+                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
                   stepIndex >= 1
                     ? "bg-[#009E39] border-[#009E39] text-white"
                     : "bg-white border-gray-300 text-gray-400"
                 }`}
               >
                 {stepIndex === 1 ? (
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+                  <span className="block h-1.5 w-1.5 rounded-full bg-white animate-ping"></span>
                 ) : stepIndex > 1 ? (
                   "✓"
                 ) : (
                   "2"
                 )}
               </div>
-              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
                 조리 중
               </span>
             </div>
 
-            <div className="flex flex-col items-center z-10">
+            <div className="flex flex-col items-center z-10 shrink-0">
               <div
-                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${
+                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
                   stepIndex >= 2
                     ? "bg-[#009E39] border-[#009E39] text-white"
                     : "bg-white border-gray-300 text-gray-400"
                 }`}
               >
-                {stepIndex >= 2 ? "✓" : null}
+                {stepIndex >= 2 ? "✓" : "\u00A0"}
               </div>
-              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
                 준비 완료
               </span>
             </div>

@@ -143,15 +143,16 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-[80] overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-[80] overflow-hidden"
       aria-hidden
     >
       {pieces.map((p) => (
         <span
           key={`${burstKey}-${p.id}`}
-          className="absolute bottom-[3%] left-1/2 block will-change-transform"
+          className="absolute left-1/2 block will-change-transform"
           style={
             {
+              bottom: "max(12px, env(safe-area-inset-bottom, 0px))",
               width: p.width,
               height: p.height,
               marginLeft: -p.width / 2,
