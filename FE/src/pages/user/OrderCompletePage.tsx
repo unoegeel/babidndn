@@ -70,48 +70,47 @@ export const OrderCompletePage: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
-      {/* 1. 스크롤 가능한 상단 주문 현황 콘텐츠 영역 */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-6">
-        {/* 대기번호 */}
-        <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2">
+      {/* 주문 현황과 동일: 대기번호·상태바는 밀착, space-y로 사이 여백을 만들지 않음 */}
+      <div className="flex-1 overflow-y-auto pb-6">
+        {/* 대기번호 — OrderStatusPage 1블록과 동일 구조 */}
+        <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
-          <h2 className="text-6xl font-extrabold leading-[1.05] text-[#009E39] tracking-tight">{order.pickupNumber}</h2>
-          <p className="text-xs font-semibold text-gray-700 mt-2 leading-snug">
+          <h2 className="text-6xl font-extrabold leading-[1.05] text-[#009E39] tracking-tight">
+            {order.pickupNumber}
+          </h2>
+          <p className="min-h-[2.5rem] text-xs font-semibold text-gray-700 leading-snug">
             음식이 준비되었습니다. 카운터에서 픽업해주세요!
           </p>
         </div>
 
-        {/* 조리 진행도 스텝 바 */}
-        <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative">
+        {/* 조리 진행도 스텝 바 — OrderStatusPage 2블록과 동일하게 바로 아래 배치 */}
+        <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
           <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-[#009E39] z-0"></div>
 
-          {/* 1단계 */}
-          <div className="flex flex-col items-center z-10">
-            <div className="w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div className="w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
               ✓
             </div>
-            <span className="text-[11px] font-semibold mt-2 text-[#009E39]">주문 완료</span>
+            <span className="text-[11px] font-semibold mt-2 whitespace-nowrap text-[#009E39]">주문 완료</span>
           </div>
 
-          {/* 2단계 */}
-          <div className="flex flex-col items-center z-10">
-            <div className="w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div className="w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
               ✓
             </div>
-            <span className="text-[11px] font-semibold mt-2 text-[#009E39]">조리 중</span>
+            <span className="text-[11px] font-semibold mt-2 whitespace-nowrap text-[#009E39]">조리 중</span>
           </div>
 
-          {/* 3단계 */}
-          <div className="flex flex-col items-center z-10">
-            <div className="w-6.5 h-6.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
+          <div className="flex flex-col items-center z-10 shrink-0">
+            <div className="w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 bg-[#009E39] border-[#009E39] text-white">
               ✓
             </div>
-            <span className="text-[11px] font-semibold mt-2 text-[#009E39]">준비 완료</span>
+            <span className="text-[11px] font-semibold mt-2 whitespace-nowrap text-[#009E39]">준비 완료</span>
           </div>
         </div>
 
         {/* 대기 현황 정보 박스 */}
-        <div className="px-4">
+        <div className="p-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
               <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">내 앞 대기</span>
@@ -135,7 +134,6 @@ export const OrderCompletePage: React.FC = () => {
             </div>
           </div>
 
-          {/* 주문 내역 목록 (뷸렛 형태) */}
           <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3.5 shadow-sm">
             <h3 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-2">주문 내역</h3>
             <div className="space-y-3.5 pl-1.5">

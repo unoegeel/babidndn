@@ -260,7 +260,7 @@ export const OrderStatusPage: React.FC = () => {
           {order.pickupNumber}
         </h2>
         <p
-          className={`min-h-[2.5rem] text-xs font-semibold mt-2 leading-snug ${
+          className={`min-h-[2.5rem] text-xs font-semibold leading-snug ${
             isCanceled ? "text-red-500" : "text-gray-700"
           }`}
         >

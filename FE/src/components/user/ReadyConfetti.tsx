@@ -18,8 +18,13 @@ const COLORS = [
 
 /** 상승(0.5s) + 낙하 최대(7.4s) + 여유 */
 const CONFETTI_TOTAL_MS = 9000;
-/** 모든 조각이 동시에 끝나는 상승 구간 (초) — delay 없음 */
+/** 모든 조각이 동시에 끝나는 상승 구간 (초) */
 const RISE_MS = 0.5;
+/**
+ * 상승 시작 전 원점(프레임 하단)을 실제로 1프레임 이상 보이게 하는 지연.
+ * 키프레임/이징은 그대로 두고, backwards fill로 그 동안 translate(0,0) 유지.
+ */
+const ORIGIN_HOLD_MS = 0.12;
 
 const APP_FRAME_ID = "user-app-frame";
 
@@ -62,8 +67,8 @@ interface ReadyConfettiProps {
 let lastModulePlayKey: string | null = null;
 
 /**
- * user-app-frame의 getBoundingClientRect()로 clip 영역 계산.
- * fixed 포탈은 viewport 좌표를 쓰므로 rect.left/top/width/height 그대로 사용.
+ * user-app-frame의 getBoundingClientRect()로 clip·발사 기준 계산.
+ * fixed 포탈은 viewport 좌표를 쓰므로 rect 값을 그대로 사용.
  */
 function readClipBounds(): ClipBounds {
   const frame = document.getElementById(APP_FRAME_ID);
@@ -93,7 +98,12 @@ function readClipBounds(): ClipBounds {
   };
 }
 
-/** 다색 confetti — 앱 프레임 하단 중앙 고정 앵커 → transform은 자식만 */
+/**
+ * 다색 confetti
+ * - clip: #user-app-frame 과 동일한 viewport 좌표의 fixed overlay
+ * - 발사 앵커: clip 하단 중앙 (transform 없음)
+ * - 모션: 기존 confetti-rise / confetti-fall 키프레임 유지
+ */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
@@ -120,14 +130,24 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
   useEffect(() => {
     if (!visible) return;
+
+    const frame = document.getElementById(APP_FRAME_ID);
     const onViewportChange = () => syncClipBounds();
     window.addEventListener("resize", onViewportChange);
     window.visualViewport?.addEventListener("resize", onViewportChange);
     window.visualViewport?.addEventListener("scroll", onViewportChange);
+
+    let ro: ResizeObserver | null = null;
+    if (frame && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => syncClipBounds());
+      ro.observe(frame);
+    }
+
     return () => {
       window.removeEventListener("resize", onViewportChange);
       window.visualViewport?.removeEventListener("resize", onViewportChange);
       window.visualViewport?.removeEventListener("scroll", onViewportChange);
+      ro?.disconnect();
     };
   }, [visible, burstKey]);
 
@@ -218,22 +238,24 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     zIndex: 9999,
   };
 
+  const fallDelay = ORIGIN_HOLD_MS + RISE_MS;
+
   return createPortal(
     <div aria-hidden style={clipStyle}>
       {pieces.map((p) => (
-        /* 앵커: 프레임 하단 중앙 고정 — transform 애니메이션을 적용하지 않음 */
+        /* 앵커: 프레임 최하단 중앙 — transform 없음 (모션과 분리) */
         <div
           key={`${burstKey}-${p.id}`}
           style={{
             position: "absolute",
             left: "50%",
-            bottom: 0,
+            top: "100%",
             width: p.width,
             height: p.height,
             marginLeft: -p.width / 2,
+            marginTop: -p.height,
           }}
         >
-          {/* motion: transform만 담당 — rise + fall (낙하 키프레임 유지) */}
           <div
             className="will-change-transform"
             style={
@@ -256,8 +278,9 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
                 ["--spin-mid" as string]: p.spinMid,
                 ["--spin-end" as string]: p.spinEnd,
                 animation: [
-                  `confetti-rise ${RISE_MS}s cubic-bezier(0.08, 0.82, 0.12, 1) 0s forwards`,
-                  `confetti-fall ${p.fallDuration} linear ${RISE_MS}s forwards`,
+                  /* both: delay 동안 0% 원점 유지 → 하단에서 실제로 보인 뒤 상승 */
+                  `confetti-rise ${RISE_MS}s cubic-bezier(0.08, 0.82, 0.12, 1) ${ORIGIN_HOLD_MS}s both`,
+                  `confetti-fall ${p.fallDuration} linear ${fallDelay}s forwards`,
                 ].join(", "),
               } as React.CSSProperties
             }
