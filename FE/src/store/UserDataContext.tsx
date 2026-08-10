@@ -1,22 +1,13 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, NotificationItem, NotificationType } from "../types/user";
 import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../services/user/orderService";
+import { seoulDateKey } from "../utils/serverDate";
 
 const ORDERS_STORAGE_KEY = "babi_user_orders";
 const NOTIFS_STORAGE_KEY = "babi_user_notifications";
 /** 마지막으로 알림을 유지한 서울 달력일 (YYYY-MM-DD). 날짜가 바뀌면 전체 삭제 */
 const NOTIFS_DAY_KEY = "babi_user_notifications_day";
 const SEOUL = "Asia/Seoul";
-
-/** Asia/Seoul 기준 YYYY-MM-DD */
-function seoulDateKey(ms: number = Date.now()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: SEOUL,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(ms));
-}
 
 /** 다음 서울 자정까지 남은 ms */
 function msUntilNextSeoulMidnight(nowMs: number = Date.now()): number {

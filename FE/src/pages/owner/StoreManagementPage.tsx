@@ -9,6 +9,7 @@ import {
   uploadPopupAdImageFile,
   validatePopupAdImageFile,
 } from "../../utils/popupAdImageUpload";
+import { serverInstantMs } from "../../utils/serverDate";
 
 /** datetime-local 값 ↔ API LocalDateTime 문자열 */
 function toDatetimeLocalValue(iso: string): string {
@@ -35,8 +36,8 @@ function nowDatetimeLocal(): string {
 function isCurrentlyActive(ad: PopupAd): boolean {
   if (!ad.enabled) return false;
   const now = Date.now();
-  const start = new Date(ad.startAt).getTime();
-  const end = new Date(ad.endAt).getTime();
+  const start = serverInstantMs(ad.startAt);
+  const end = serverInstantMs(ad.endAt);
   return Number.isFinite(start) && Number.isFinite(end) && start <= now && now <= end;
 }
 
@@ -117,7 +118,10 @@ export default function StoreManagementPage() {
       alert("게시 기간을 설정해 주세요.");
       return;
     }
-    if (new Date(endAt) <= new Date(startAt)) {
+    if (
+      serverInstantMs(fromDatetimeLocalValue(endAt)) <=
+      serverInstantMs(fromDatetimeLocalValue(startAt))
+    ) {
       alert("종료 시각은 시작 시각보다 이후여야 합니다.");
       return;
     }
