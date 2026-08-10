@@ -1,8 +1,8 @@
 package com.gdgoc.babi_order.menu.controller;
 
+import com.gdgoc.babi_order.common.exception.ErrorResponse;
 import com.gdgoc.babi_order.menu.dto.response.CategoryMenuResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
-import com.gdgoc.babi_order.menu.exception.MenuErrorResponse;
 import com.gdgoc.babi_order.menu.service.MenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -38,7 +38,7 @@ public class MenuController {
     @ApiResponse(
             responseCode = "404",
             description = "메뉴를 찾을 수 없음",
-            content = @Content(schema = @Schema(implementation = MenuErrorResponse.class))
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))
     )
     public ResponseEntity<MenuDetailResponse> getMenu(@PathVariable("id") Long id) {
         return ResponseEntity.ok(menuService.getMenu(id));

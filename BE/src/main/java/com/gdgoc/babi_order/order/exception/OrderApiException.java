@@ -1,17 +1,11 @@
 package com.gdgoc.babi_order.order.exception;
 
-import lombok.Getter;
+import com.gdgoc.babi_order.common.exception.ApiException;
 import org.springframework.http.HttpStatus;
 
-@Getter
-public class OrderApiException extends RuntimeException {
-
-    private final HttpStatus status;
-    private final String code;
+public class OrderApiException extends ApiException {
 
     public OrderApiException(HttpStatus status, String code, String message) {
-        super(message);
-        this.status = status;
-        this.code = code;
+        super(status, code, message);
     }
 }

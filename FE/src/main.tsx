@@ -1,4 +1,4 @@
-import { StrictMode, type ReactNode } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider, Outlet } from "react-router-dom";
 import "./index.css";
@@ -34,11 +34,17 @@ import PaymentFailPage from "./pages/user/PaymentFailPage";
 // 태블릿/모바일 브라우저 상·하단 UI를 반영한 가시 높이 동기화
 startAppHeightSync();
 
-// 관리자 화면 공통 래퍼: 로그인 확인 + 서버 데이터 스토어
-function adminPage(page: ReactNode) {
+/**
+ * 관리자 영역 공통 레이아웃.
+ * RequireAdminAuth + AdminDataProvider를 라우트 트리에서 1회만 마운트해
+ * /admin/* 이동 시 Context 상태·초기 API 호출이 리셋되지 않도록 합니다.
+ */
+function AdminLayout() {
   return (
     <RequireAdminAuth>
-      <AdminDataProvider>{page}</AdminDataProvider>
+      <AdminDataProvider>
+        <Outlet />
+      </AdminDataProvider>
     </RequireAdminAuth>
   );
 }
@@ -59,13 +65,19 @@ const router = createBrowserRouter([
       { path: "/", element: <HomeRedirect /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/signup", element: <SignupPage /> },
-      { path: "/admin", element: <Navigate to="/admin/orders" replace /> },
-      { path: "/admin/orders", element: adminPage(<OrdersDashboardPage />) },
-      { path: "/admin/menus", element: adminPage(<MenuManagementPage />) },
-      { path: "/admin/payments", element: adminPage(<PaymentHistoryPage />) },
-      { path: "/admin/store", element: adminPage(<StoreManagementPage />) },
-      { path: "/admin/store/reviews", element: adminPage(<StoreReviewsPage />) },
-      { path: "/admin/settings", element: adminPage(<SettingsPage />) },
+      {
+        path: "/admin",
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <Navigate to="orders" replace /> },
+          { path: "orders", element: <OrdersDashboardPage /> },
+          { path: "menus", element: <MenuManagementPage /> },
+          { path: "payments", element: <PaymentHistoryPage /> },
+          { path: "store", element: <StoreManagementPage /> },
+          { path: "store/reviews", element: <StoreReviewsPage /> },
+          { path: "settings", element: <SettingsPage /> },
+        ],
+      },
       {
         path: "/user",
         element: (

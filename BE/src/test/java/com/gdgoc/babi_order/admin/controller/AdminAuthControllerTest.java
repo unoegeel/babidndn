@@ -4,6 +4,7 @@ import com.gdgoc.babi_order.admin.dto.response.AdminLoginResponse;
 import com.gdgoc.babi_order.admin.exception.AdminAuthException;
 import com.gdgoc.babi_order.admin.exception.AdminAuthExceptionHandler;
 import com.gdgoc.babi_order.admin.service.AdminAuthService;
+import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminAuthController.class)
-@Import({SecurityConfig.class, CorsProperties.class, AdminAuthExceptionHandler.class})
+@Import({SecurityConfig.class, CorsProperties.class, AdminAuthExceptionHandler.class, ApiExceptionHandler.class})
 class AdminAuthControllerTest {
 
     @Autowired

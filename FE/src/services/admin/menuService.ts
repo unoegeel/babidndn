@@ -1,4 +1,4 @@
-import { api } from "../../api/client";
+import { adminApi } from "../../api/client";
 import type { MenuCategory, MenuDetail, MenuOption, SaleStatus } from "../../types/user";
 import type {
   CategoryResponse,
@@ -21,7 +21,7 @@ export const adminMenuService = {
    * GET /api/admin/categories
    */
   getCategories(): Promise<CategoryResponse[]> {
-    return api.get<CategoryResponse[]>("/api/admin/categories");
+    return adminApi.get<CategoryResponse[]>("/api/admin/categories");
   },
 
   /**
@@ -29,7 +29,7 @@ export const adminMenuService = {
    * POST /api/admin/categories
    */
   createCategory(body: CategoryUpsertRequest): Promise<CategoryResponse> {
-    return api.post<CategoryResponse>("/api/admin/categories", body);
+    return adminApi.post<CategoryResponse>("/api/admin/categories", body);
   },
 
   /**
@@ -40,7 +40,7 @@ export const adminMenuService = {
     categoryId: number | string,
     body: CategoryUpsertRequest,
   ): Promise<CategoryResponse> {
-    return api.put<CategoryResponse>(`/api/admin/categories/${categoryId}`, body);
+    return adminApi.put<CategoryResponse>(`/api/admin/categories/${categoryId}`, body);
   },
 
   /**
@@ -48,7 +48,7 @@ export const adminMenuService = {
    * DELETE /api/admin/categories/{categoryId}
    */
   deleteCategory(categoryId: number | string): Promise<void> {
-    return api.delete<void>(`/api/admin/categories/${categoryId}`);
+    return adminApi.delete<void>(`/api/admin/categories/${categoryId}`);
   },
 
   /**
@@ -56,7 +56,7 @@ export const adminMenuService = {
    * GET /api/admin/menus
    */
   getMenus(): Promise<MenuCategory[]> {
-    return api.get<MenuCategory[]>("/api/admin/menus");
+    return adminApi.get<MenuCategory[]>("/api/admin/menus");
   },
 
   /**
@@ -64,7 +64,7 @@ export const adminMenuService = {
    * GET /api/admin/menus/{menuId}
    */
   getMenu(menuId: number | string): Promise<MenuDetail & { toppingEnabled: boolean }> {
-    return api.get(`/api/admin/menus/${menuId}`);
+    return adminApi.get(`/api/admin/menus/${menuId}`);
   },
 
   /**
@@ -72,7 +72,7 @@ export const adminMenuService = {
    * POST /api/admin/menus
    */
   createMenu(body: MenuUpsertRequest): Promise<MenuDetail> {
-    return api.post<MenuDetail>("/api/admin/menus", body);
+    return adminApi.post<MenuDetail>("/api/admin/menus", body);
   },
 
   /**
@@ -80,7 +80,7 @@ export const adminMenuService = {
    * PUT /api/admin/menus/{menuId}
    */
   updateMenu(menuId: number | string, body: MenuUpsertRequest): Promise<MenuDetail> {
-    return api.put<MenuDetail>(`/api/admin/menus/${menuId}`, body);
+    return adminApi.put<MenuDetail>(`/api/admin/menus/${menuId}`, body);
   },
 
   /**
@@ -88,7 +88,7 @@ export const adminMenuService = {
    * DELETE /api/admin/menus/{menuId}
    */
   deleteMenu(menuId: number | string): Promise<void> {
-    return api.delete<void>(`/api/admin/menus/${menuId}`);
+    return adminApi.delete<void>(`/api/admin/menus/${menuId}`);
   },
 
   /**
@@ -96,7 +96,7 @@ export const adminMenuService = {
    * PATCH /api/admin/menus/{menuId}/sale-status
    */
   updateSaleStatus(menuId: number | string, saleStatus: SaleStatus): Promise<MenuDetail> {
-    return api.patch<MenuDetail>(`/api/admin/menus/${menuId}/sale-status`, { saleStatus });
+    return adminApi.patch<MenuDetail>(`/api/admin/menus/${menuId}/sale-status`, { saleStatus });
   },
 
   /**
@@ -104,7 +104,7 @@ export const adminMenuService = {
    * POST /api/admin/menus/image-upload-url
    */
   createImageUploadUrl(contentType: string): Promise<MenuImageUploadUrlResponse> {
-    return api.post<MenuImageUploadUrlResponse>("/api/admin/menus/image-upload-url", {
+    return adminApi.post<MenuImageUploadUrlResponse>("/api/admin/menus/image-upload-url", {
       contentType,
     });
   },
@@ -117,7 +117,7 @@ export const adminMenuService = {
     menuId: number | string,
     body: MenuOptionUpsertRequest,
   ): Promise<MenuOption> {
-    return api.post<MenuOption>(`/api/admin/menus/${menuId}/options`, body);
+    return adminApi.post<MenuOption>(`/api/admin/menus/${menuId}/options`, body);
   },
 
   /**
@@ -129,7 +129,7 @@ export const adminMenuService = {
     optionId: number | string,
     body: MenuOptionUpsertRequest,
   ): Promise<MenuOption> {
-    return api.put<MenuOption>(`/api/admin/menus/${menuId}/options/${optionId}`, body);
+    return adminApi.put<MenuOption>(`/api/admin/menus/${menuId}/options/${optionId}`, body);
   },
 
   /**
@@ -137,6 +137,6 @@ export const adminMenuService = {
    * DELETE /api/admin/menus/{menuId}/options/{optionId}
    */
   deleteOption(menuId: number | string, optionId: number | string): Promise<void> {
-    return api.delete<void>(`/api/admin/menus/${menuId}/options/${optionId}`);
+    return adminApi.delete<void>(`/api/admin/menus/${menuId}/options/${optionId}`);
   },
 };

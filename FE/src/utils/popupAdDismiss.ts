@@ -1,12 +1,4 @@
-/** 서울 기준 YYYY-MM-DD */
-export function seoulDateKey(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
+import { seoulDateKey } from "./serverDate";
 
 const TODAY_KEY = "babi_popup_dismissed_today"; // { [id: string]: "YYYY-MM-DD" }
 const SESSION_CLOSED_KEY = "babi_popup_session_closed";

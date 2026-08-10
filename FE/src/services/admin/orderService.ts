@@ -1,4 +1,4 @@
-import { api, resolveApiBaseUrl } from "../../api/client";
+import { adminApi, api, resolveApiBaseUrl } from "../../api/client";
 import { getAdminToken } from "../../constants/adminAccount";
 import type {
   ApiOrderStatus,
@@ -15,12 +15,12 @@ export const adminOrderService = {
    * GET /api/orders
    */
   getOrders(): Promise<OrderSummaryResponse[]> {
-    return api.get<OrderSummaryResponse[]>("/api/orders");
+    return adminApi.get<OrderSummaryResponse[]>("/api/orders");
   },
 
   /**
    * 주문 상세 조회
-   * GET /api/orders/{id}
+   * GET /api/orders/{id} — BE 기준 공개(permitAll), 사용자·관리자 공통
    */
   getOrder(orderId: number | string): Promise<OrderDetailResponse> {
     return api.get<OrderDetailResponse>(`/api/orders/${orderId}`);
@@ -32,7 +32,7 @@ export const adminOrderService = {
    */
   updateStatus(orderId: number | string, status: ApiOrderStatus): Promise<OrderDetailResponse> {
     // 일부 프록시 환경에서 PATCH 가 누락되는 경우가 있어 PUT 사용
-    return api.put<OrderDetailResponse>(`/api/orders/${orderId}/status`, { status });
+    return adminApi.put<OrderDetailResponse>(`/api/orders/${orderId}/status`, { status });
   },
 
   /**
@@ -40,7 +40,7 @@ export const adminOrderService = {
    * POST /api/orders/{id}/call
    */
   call(orderId: number | string): Promise<OrderDetailResponse> {
-    return api.post<OrderDetailResponse>(`/api/orders/${orderId}/call`, {});
+    return adminApi.post<OrderDetailResponse>(`/api/orders/${orderId}/call`, {});
   },
 
   /**
@@ -48,7 +48,7 @@ export const adminOrderService = {
    * POST /api/orders/{id}/complete
    */
   complete(orderId: number | string): Promise<OrderDetailResponse> {
-    return api.post<OrderDetailResponse>(`/api/orders/${orderId}/complete`, {});
+    return adminApi.post<OrderDetailResponse>(`/api/orders/${orderId}/complete`, {});
   },
 };
 

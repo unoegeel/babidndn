@@ -19,7 +19,11 @@ import { adminMenuService } from "../services/admin/menuService";
 import { adminOrderService } from "../services/admin/orderService";
 import { paymentService } from "../services/admin/paymentService";
 import { ApiError } from "../api/client";
-import { formatServerDateTime, formatServerTime } from "../utils/serverDate";
+import {
+  formatServerDateTime,
+  formatServerTime,
+  serverInstantMs,
+} from "../utils/serverDate";
 import { formatOrderItemOptionLabels } from "../utils/orderItemOptions";
 import { syncKitchenTicketAutoPrint } from "../utils/kitchenTicketAutoPrint";
 
@@ -565,11 +569,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         const detail = orderDetailCacheRef.current.get(summary.id);
 
         if (!payment) {
-          const createdMs = Date.parse(summary.createdAt) || 0;
+          const createdMs = serverInstantMs(summary.createdAt);
           return {
             id: `order-${summary.id}`,
             paidAt: formatDateTime(summary.createdAt),
-            paidAtMs: createdMs,
+            paidAtMs: Number.isFinite(createdMs) ? createdMs : 0,
             orderNumber: summary.pickupNumber,
             method: "-",
             amount: summary.totalAmount,
@@ -582,10 +586,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         const canceled =
           payment.status === "CANCELED" || payment.status === "PARTIAL_CANCELED";
         const approvedRaw = payment.approvedAt ?? payment.createdAt;
+        const approvedMs = serverInstantMs(approvedRaw);
         return {
           id: String(payment.id),
           paidAt: formatDateTime(approvedRaw),
-          paidAtMs: Date.parse(approvedRaw) || 0,
+          paidAtMs: Number.isFinite(approvedMs) ? approvedMs : 0,
           orderNumber: summary.pickupNumber,
           method: payment.methodLabel?.trim() || "토스페이먼츠",
           amount: payment.amount,

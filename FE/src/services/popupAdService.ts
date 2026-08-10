@@ -1,4 +1,4 @@
-import { api } from "../api/client";
+import { adminApi, api } from "../api/client";
 
 export interface PopupAd {
   id: number;
@@ -25,23 +25,23 @@ export interface PopupAdImageUploadUrlResponse {
 /** 관리자 팝업 광고 API */
 export const adminPopupAdService = {
   getAll(): Promise<PopupAd[]> {
-    return api.get<PopupAd[]>("/api/admin/popup-ads");
+    return adminApi.get<PopupAd[]>("/api/admin/popup-ads");
   },
 
   create(body: PopupAdUpsertRequest): Promise<PopupAd> {
-    return api.post<PopupAd>("/api/admin/popup-ads", body);
+    return adminApi.post<PopupAd>("/api/admin/popup-ads", body);
   },
 
   update(id: number, body: PopupAdUpsertRequest): Promise<PopupAd> {
-    return api.put<PopupAd>(`/api/admin/popup-ads/${id}`, body);
+    return adminApi.put<PopupAd>(`/api/admin/popup-ads/${id}`, body);
   },
 
   delete(id: number): Promise<void> {
-    return api.delete<void>(`/api/admin/popup-ads/${id}`);
+    return adminApi.delete<void>(`/api/admin/popup-ads/${id}`);
   },
 
   createImageUploadUrl(contentType: string): Promise<PopupAdImageUploadUrlResponse> {
-    return api.post<PopupAdImageUploadUrlResponse>("/api/admin/popup-ads/image-upload-url", {
+    return adminApi.post<PopupAdImageUploadUrlResponse>("/api/admin/popup-ads/image-upload-url", {
       contentType,
     });
   },

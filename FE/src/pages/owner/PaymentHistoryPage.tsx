@@ -12,38 +12,18 @@ import {
   rangeFromDateInputs,
   type PaymentExportFormat,
 } from "../../utils/paymentExport";
+import { seoulDateKey, seoulDayBoundsMs } from "../../utils/serverDate";
 
 const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
 type PeriodFilter = "all" | "today" | "last3" | "custom";
 
-function startOfSeoulDay(d = new Date()): number {
-  // 화면 표시와 동일하게 로컬(기기) 자정 기준
-  const start = new Date(d);
-  start.setHours(0, 0, 0, 0);
-  return start.getTime();
-}
-
-function endOfLocalDay(dateStr: string): number {
-  return new Date(`${dateStr}T23:59:59.999`).getTime();
-}
-
-function startOfLocalDay(dateStr: string): number {
-  return new Date(`${dateStr}T00:00:00`).getTime();
-}
-
-function todayDateInputValue(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export default function PaymentHistoryPage() {
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
   const [period, setPeriod] = useState<PeriodFilter>("all");
-  const [customStart, setCustomStart] = useState(todayDateInputValue);
-  const [customEnd, setCustomEnd] = useState(todayDateInputValue);
+  const [customStart, setCustomStart] = useState(() => seoulDateKey());
+  const [customEnd, setCustomEnd] = useState(() => seoulDateKey());
   const [target, setTarget] = useState<Payment | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,14 +42,12 @@ export default function PaymentHistoryPage() {
 
   const filtered = useMemo(() => {
     const k = keyword.trim();
-    const todayStart = startOfSeoulDay();
+    const todayBounds = seoulDayBoundsMs(seoulDateKey());
+    const todayStart = todayBounds?.startMs ?? 0;
     const threeDaysAgo = todayStart - 2 * 24 * 60 * 60 * 1000; // 오늘 포함 최근 3일
     const customRange =
       period === "custom" && customStart && customEnd
-        ? {
-            startMs: startOfLocalDay(customStart),
-            endMs: endOfLocalDay(customEnd),
-          }
+        ? rangeFromDateInputs(customStart, customEnd)
         : null;
 
     return payments.filter((p) => {
