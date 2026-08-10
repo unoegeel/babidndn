@@ -50,9 +50,6 @@ export function resolveApiBaseUrl(): string {
   return "https://babidndn.shop";
 }
 
-/** @deprecated resolveApiBaseUrl() 사용 권장 — 런타임마다 재계산됩니다 */
-export const BASE_URL = resolveApiBaseUrl();
-
 export function rememberOrderApiBaseUrl(baseUrl: string = resolveApiBaseUrl()): void {
   try {
     sessionStorage.setItem(ORDER_API_BASE_SESSION_KEY, baseUrl);
