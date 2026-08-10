@@ -121,9 +121,14 @@ export const OrderCompletePage: React.FC = () => {
                 const optionString = formatSelectedOptions(item.selectedOptions);
                 return (
                   <div key={item.cartItemId} className="text-xs space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-gray-800 font-bold">
-                      <span>•</span>
-                      <span>{item.menuName}</span>
+                    <div className="flex items-center justify-between gap-2 text-gray-800 font-bold">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span>•</span>
+                        <span className="truncate">{item.menuName}</span>
+                      </div>
+                      <span className="shrink-0 tabular-nums">
+                        {item.totalPrice.toLocaleString()}원
+                      </span>
                     </div>
                     {optionString && (
                       <p className="text-[10px] text-gray-400 pl-3 leading-relaxed font-semibold">
