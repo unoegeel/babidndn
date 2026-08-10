@@ -248,19 +248,23 @@ export const OrderStatusPage: React.FC = () => {
   }
 
   return (
-    <div className="relative flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      {/* 대기번호 + 진행 스텝 — 하나의 흰 블록, 내부 패딩은 기존 2단 구조와 동일 */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="p-6 text-center space-y-2">
+    <div className="flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
+      {/* 대기번호 + 진행 스텝 — 단일 흰 블록, 고정 패딩(재호출·READY 전환과 무관) */}
+      <div className="bg-white border-b border-gray-100 shrink-0">
+        <div className="px-6 pt-6 text-center">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
           <h2
-            className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
+            className={`mt-0 text-6xl font-extrabold leading-[1.05] tracking-tight ${
               isCanceled ? "text-gray-300 line-through" : "text-gray-900"
             }`}
           >
             {order.pickupNumber}
           </h2>
-          <p className={`text-xs font-semibold mt-2 leading-snug ${isCanceled ? "text-red-500" : "text-gray-700"}`}>
+          <p
+            className={`min-h-[2.5rem] text-xs font-semibold mt-2 leading-snug ${
+              isCanceled ? "text-red-500" : "text-gray-700"
+            }`}
+          >
             {statusMessage}
           </p>
         </div>
@@ -289,10 +293,10 @@ export const OrderStatusPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="p-6 flex justify-around items-center relative border-t border-gray-100">
+          <div className="px-6 pb-6 pt-5 flex justify-around items-center relative border-t border-gray-100 min-h-[4.5rem]">
             <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
             <div
-              className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-all duration-700"
+              className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-[width] duration-700"
               style={{ width: stepIndex === 0 ? "0%" : stepIndex === 1 ? "34%" : "68%" }}
             ></div>
 

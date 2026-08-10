@@ -144,25 +144,30 @@ label {
   }
 }
 
-/* 하단 중앙에서 전원 동시·강하게 발사 → 상단 확산 */
+/* viewport 하단 중앙 한 점 → 강한 상승 → 상단 방사형 확산 (전 조각 delay 0) */
 @keyframes confetti-rise {
   0% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  45% {
+  10% {
     opacity: 1;
-    transform: translate3d(var(--launch-x, 0), var(--launch-y, -45vh), 0)
-      rotate(calc(var(--spin-mid, 180deg) * 0.2));
+    transform: translate3d(var(--launch-x, 0), var(--launch-y, -38vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.15));
   }
-  75% {
+  20% {
     opacity: 1;
-    transform: translate3d(var(--open-x, 0), var(--open-y, -75vh), 0)
-      rotate(calc(var(--spin-mid, 180deg) * 0.65));
+    transform: translate3d(var(--open-x, 0), var(--open-y, -72vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.55));
+  }
+  32% {
+    opacity: 1;
+    transform: translate3d(var(--cx, 0), var(--peak-y, -90vh), 0)
+      rotate(var(--spin-mid, 180deg));
   }
   100% {
     opacity: 1;
-    transform: translate3d(var(--cx, 0), var(--peak-y, -85vh), 0)
+    transform: translate3d(var(--cx, 0), var(--peak-y, -90vh), 0)
       rotate(var(--spin-mid, 180deg));
   }
 }

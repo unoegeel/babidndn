@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const COLORS = [
   "#22c55e",
@@ -15,10 +16,10 @@ const COLORS = [
   "#fbbf24",
 ];
 
-/** 상승(0.42s) + 낙하 최대(7.4s) + 여유 */
-const CONFETTI_TOTAL_MS = 8800;
-/** 모든 조각이 동시에 끝나는 상승 구간 (초) */
-const RISE_MS = 0.42;
+/** 상승(0.5s) + 낙하 최대(7.4s) + 여유 */
+const CONFETTI_TOTAL_MS = 9000;
+/** 모든 조각이 동시에 끝나는 상승 구간 (초) — delay 없음 */
+const RISE_MS = 0.5;
 
 interface Piece {
   id: number;
@@ -56,27 +57,32 @@ interface ReadyConfettiProps {
 /** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
 let lastModulePlayKey: string | null = null;
 
-/** 다색 confetti — 하단 중앙 동시 폭죽 발사 → 상단 확산 → 천천히 살랑거리며 낙하 */
+/** 다색 confetti — viewport 하단 중앙 동시 폭죽 → 상단 확산 → 천천히 낙하 (body Portal) */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const onDoneRef = useRef(onDone);
 
   useEffect(() => {
     onDoneRef.current = onDone;
   }, [onDone]);
 
+  useEffect(() => {
+    setPortalRoot(document.body);
+  }, []);
+
   const pieces = useMemo<Piece[]>(() => {
     return Array.from({ length: 48 }, (_, i) => {
       const angleBias = (i / 47) * 2 - 1;
       const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
       const burstXVw = Math.max(-48, Math.min(48, spread));
-      const peak = -(62 + Math.random() * 34);
-      // 상승 중에는 좁게, 정점에서 넓게
-      const launchY = peak * (0.48 + Math.random() * 0.08);
-      const launchX = burstXVw * (0.06 + Math.random() * 0.06);
-      const openX = burstXVw * (0.38 + Math.random() * 0.1);
-      const openY = peak * (0.82 + Math.random() * 0.06);
+      // 화면 상단 끝까지 도달 (-80vh ~ -100vh)
+      const peak = -(80 + Math.random() * 20);
+      const launchY = peak * (0.42 + Math.random() * 0.06);
+      const launchX = burstXVw * (0.05 + Math.random() * 0.05);
+      const openX = burstXVw * (0.42 + Math.random() * 0.12);
+      const openY = peak * (0.78 + Math.random() * 0.06);
 
       const swayAmp = 2.2 + Math.random() * 4.5;
       const dir = Math.random() > 0.5 ? 1 : -1;
@@ -86,7 +92,6 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
       return {
         id: i,
-        // 낙하만 조각마다 다르게 (상승은 공통 RISE_MS)
         fallDuration: `${5.0 + Math.random() * 2.4}s`,
         width,
         height: width * (0.5 + Math.random() * 0.9),
@@ -139,12 +144,13 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     };
   }, [active, playKey]);
 
-  if (!visible) return null;
+  if (!visible || !portalRoot) return null;
 
-  return (
+  return createPortal(
     <div
-      className="pointer-events-none fixed inset-0 z-[80] overflow-hidden"
+      className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden"
       aria-hidden
+      style={{ margin: 0, padding: 0 }}
     >
       {pieces.map((p) => (
         <span
@@ -152,7 +158,7 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
           className="absolute left-1/2 block will-change-transform"
           style={
             {
-              bottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+              bottom: 0,
               width: p.width,
               height: p.height,
               marginLeft: -p.width / 2,
@@ -171,17 +177,16 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
               ["--fall-y" as string]: p.fallY,
               ["--spin-mid" as string]: p.spinMid,
               ["--spin-end" as string]: p.spinEnd,
-              // 상승: 전원 동일 타이밍·딜레이 0 / 낙하: 조각별 duration
-              // fall에 both(backwards)를 쓰면 delay 동안 최고점이 덮어써 상승이 사라지므로 forwards만 사용
               animation: [
-                `confetti-rise ${RISE_MS}s cubic-bezier(0.12, 0.7, 0.2, 1) 0s forwards`,
+                `confetti-rise ${RISE_MS}s cubic-bezier(0.08, 0.82, 0.12, 1) 0s forwards`,
                 `confetti-fall ${p.fallDuration} linear ${RISE_MS}s forwards`,
               ].join(", "),
             } as React.CSSProperties
           }
         />
       ))}
-    </div>
+    </div>,
+    portalRoot,
   );
 };
 
