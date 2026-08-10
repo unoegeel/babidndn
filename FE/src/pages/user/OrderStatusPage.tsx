@@ -4,58 +4,56 @@ import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
-import ReadyConfetti from "../../components/user/ReadyConfetti";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
 import type { Order, OrderStatus } from "../../types/user";
 
-/** READY 전환 confetti를 주문 현황 화면에서 볼 수 있도록, 완료 페이지 이동만 짧게 보류 */
-const READY_CONFETTI_HOLD_MS = 2800;
+/** confetti onDone 누락 시 완료 페이지 이동 안전망 */
+const READY_CONFETTI_NAVIGATE_FALLBACK_MS = 10000;
 
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, addNotification, readyCallSignal } = useUserData();
+  const { getOrderById, saveOrderToState, addNotification, readyCallSignal, startConfetti } =
+    useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
   const [error, setError] = useState<string | null>(null);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [confettiPlayKey, setConfettiPlayKey] = useState("");
 
-  // 최신 콜백 및 네비게이트 함수를 Ref로 유지하여 useEffect 재실행 차단
   const saveOrderToStateRef = useRef(saveOrderToState);
   const addNotificationRef = useRef(addNotification);
   const navigateRef = useRef(navigate);
+  const startConfettiRef = useRef(startConfetti);
   /** null = 아직 서버/폴링 상태를 한 번도 받지 않음 (이미 READY인 진입은 confetti 금지) */
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const readyConfettiFiredRef = useRef(false);
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRecallConfettiAtRef = useRef<string | null>(null);
+  /** confetti 종료 후 완료 페이지로 이동 예약 여부 */
+  const navigateAfterConfettiRef = useRef(false);
+  /** Strict Mode 리마운트 시 폴링/상태 초기화 중복 방지 */
+  const pollSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     saveOrderToStateRef.current = saveOrderToState;
     addNotificationRef.current = addNotification;
     navigateRef.current = navigate;
+    startConfettiRef.current = startConfetti;
   });
 
-  // 재호출 시그널 (컨텍스트 폴링) — 현황 화면에 남아 있는 동안 Confetti 재실행
+  // 재호출 시그널 — 현황 화면에 남아 있는 동안 Confetti 재실행
   useEffect(() => {
     if (!orderId || !readyCallSignal?.isRecall) return;
     if (readyCallSignal.orderId !== orderId) return;
     if (!claimReadyConfetti(orderId, readyCallSignal.updatedAt)) return;
-    lastRecallConfettiAtRef.current = readyCallSignal.updatedAt;
-    setConfettiPlayKey(readyCallSignal.updatedAt);
-    setShowConfetti(true);
+    startConfettiRef.current(readyCallSignal.updatedAt);
   }, [readyCallSignal, orderId]);
 
-  // 알림 중복 발송 방지용 Ref
   const alertSentRef = useRef<{ preparing: boolean; ready: boolean; canceled: boolean }>({
     preparing: false,
     ready: false,
     canceled: false,
   });
 
-  // 주문 상세 Polling (2초 간격)
   useEffect(() => {
     if (!orderId) {
       alert("주문 정보를 찾을 수 없습니다.");
@@ -63,25 +61,25 @@ export const OrderStatusPage: React.FC = () => {
       return;
     }
 
-    // 주문마다 알림 플래그 초기화 (이전 주문 상태가 새 주문을 막지 않도록)
-    alertSentRef.current = { preparing: false, ready: false, canceled: false };
-    prevStatusRef.current = null;
-    readyConfettiFiredRef.current = false;
-    setShowConfetti(false);
-    setConfettiPlayKey("");
-    if (navigateTimerRef.current) {
-      clearTimeout(navigateTimerRef.current);
-      navigateTimerRef.current = null;
+    const isNewPollSession = pollSessionRef.current !== orderId;
+    if (isNewPollSession) {
+      pollSessionRef.current = orderId;
+      alertSentRef.current = { preparing: false, ready: false, canceled: false };
+      prevStatusRef.current = null;
+      readyConfettiFiredRef.current = false;
+      navigateAfterConfettiRef.current = false;
+      if (navigateTimerRef.current) {
+        clearTimeout(navigateTimerRef.current);
+        navigateTimerRef.current = null;
+      }
     }
 
-    // 준비완료 Web Push 대상 주문으로 현재 구독 연결 (다중 주문 누적)
     void linkPushSubscriptionToOrder(orderId);
 
     let isMounted = true;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const isFetchingRef = { current: false };
 
-    /** READY(또는 COMPLETED)로 막 전환된 최초 순간에만 true */
     const noteReadyTransition = (nextStatus: OrderStatus): boolean => {
       const prev = prevStatusRef.current;
       const isReadyLike = nextStatus === "READY" || nextStatus === "COMPLETED";
@@ -93,7 +91,6 @@ export const OrderStatusPage: React.FC = () => {
           shouldCelebrate = true;
         }
       } else if (prev !== null && !isReadyLike && (prev === "READY" || prev === "COMPLETED")) {
-        // READY를 벗어난 뒤 다시 READY가 되면 재실행 가능
         readyConfettiFiredRef.current = false;
       }
 
@@ -103,6 +100,17 @@ export const OrderStatusPage: React.FC = () => {
 
     const goToComplete = () => {
       navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
+    };
+
+    const scheduleNavigateFallback = () => {
+      if (navigateTimerRef.current) return;
+      navigateTimerRef.current = setTimeout(() => {
+        navigateTimerRef.current = null;
+        if (navigateAfterConfettiRef.current) {
+          navigateAfterConfettiRef.current = false;
+          goToComplete();
+        }
+      }, READY_CONFETTI_NAVIGATE_FALLBACK_MS);
     };
 
     const fetchOrderDetails = async () => {
@@ -122,8 +130,17 @@ export const OrderStatusPage: React.FC = () => {
             canShow = claimReadyConfetti(orderId, updatedOrder.updatedAt);
           }
           if (canShow) {
-            setConfettiPlayKey(updatedOrder.updatedAt || `${orderId}-ready`);
-            setShowConfetti(true);
+            const playKey = updatedOrder.updatedAt || `${orderId}-ready`;
+            navigateAfterConfettiRef.current = true;
+            startConfettiRef.current(playKey, () => {
+              navigateAfterConfettiRef.current = false;
+              if (navigateTimerRef.current) {
+                clearTimeout(navigateTimerRef.current);
+                navigateTimerRef.current = null;
+              }
+              goToComplete();
+            });
+            scheduleNavigateFallback();
           }
         }
         setOrder(updatedOrder);
@@ -149,21 +166,11 @@ export const OrderStatusPage: React.FC = () => {
               updatedOrder.orderId
             );
             alertSentRef.current.ready = true;
-
-            // Web Push는 서버(호출→READY)에서 발송. 포그라운드 폴링 중복 시스템 알림은 생략합니다.
           }
 
           if (intervalId) clearInterval(intervalId);
 
-          // confetti를 주문 현황에서 보여 준 뒤에만 완료 페이지로 이동 (기존 진입·새로고침은 즉시 이동)
-          if (shouldCelebrate) {
-            if (!navigateTimerRef.current) {
-              navigateTimerRef.current = setTimeout(() => {
-                navigateTimerRef.current = null;
-                goToComplete();
-              }, READY_CONFETTI_HOLD_MS);
-            }
-          } else if (!navigateTimerRef.current) {
+          if (!navigateAfterConfettiRef.current && !navigateTimerRef.current) {
             goToComplete();
           }
           return;
@@ -200,10 +207,6 @@ export const OrderStatusPage: React.FC = () => {
     return () => {
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
-      if (navigateTimerRef.current) {
-        clearTimeout(navigateTimerRef.current);
-        navigateTimerRef.current = null;
-      }
     };
   }, [orderId]);
 
@@ -246,54 +249,47 @@ export const OrderStatusPage: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      <ReadyConfetti
-        active={showConfetti}
-        playKey={confettiPlayKey}
-        onDone={() => {
-          setShowConfetti(false);
-        }}
-      />
-
-      <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
-        <h2
-          className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
-            isCanceled ? "text-gray-300 line-through" : "text-gray-900"
-          }`}
-        >
-          {order.pickupNumber}
-        </h2>
-        <p className={`text-xs font-semibold mt-2 leading-snug ${isCanceled ? "text-red-500" : "text-gray-700"}`}>
-          {statusMessage}
-        </p>
-      </div>
-
-      {isCanceled ? (
-        <div className="p-4">
-          <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h3 className="text-sm font-bold text-red-600">결제가 취소되었습니다</h3>
-            <p className="text-[11px] font-semibold leading-relaxed text-red-500/80">
-              매장에서 주문을 취소했습니다.
-              <br />
-              문의사항은 카운터에 말씀해 주세요.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/user", { replace: true })}
-              className="mt-2 cursor-pointer rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white"
-            >
-              메뉴판으로 돌아가기
-            </button>
-          </div>
+      {/* 대기번호 + 진행 스텝 — 하나의 흰 블록으로 붙여 여백 없음 */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="p-6 pb-4 text-center space-y-2">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
+          <h2
+            className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
+              isCanceled ? "text-gray-300 line-through" : "text-gray-900"
+            }`}
+          >
+            {order.pickupNumber}
+          </h2>
+          <p className={`text-xs font-semibold mt-2 leading-snug ${isCanceled ? "text-red-500" : "text-gray-700"}`}>
+            {statusMessage}
+          </p>
         </div>
-      ) : (
-        <>
-          <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative">
+
+        {isCanceled ? (
+          <div className="px-4 pb-6">
+            <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-bold text-red-600">결제가 취소되었습니다</h3>
+              <p className="text-[11px] font-semibold leading-relaxed text-red-500/80">
+                매장에서 주문을 취소했습니다.
+                <br />
+                문의사항은 카운터에 말씀해 주세요.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/user", { replace: true })}
+                className="mt-2 cursor-pointer rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white"
+              >
+                메뉴판으로 돌아가기
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 pb-6 pt-1 flex justify-around items-center relative border-t border-gray-100">
             <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
             <div
               className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-all duration-700"
@@ -351,26 +347,28 @@ export const OrderStatusPage: React.FC = () => {
               </span>
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">내 앞 대기</span>
-                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
-                  {order.waitingCount > 0 ? `${order.waitingCount}명` : "없음"}
-                </span>
-              </div>
-              <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">예상 대기 시간</span>
-                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
-                  {order.status === "READY" || order.status === "COMPLETED"
-                    ? "조리 완료"
-                    : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
-                </span>
-              </div>
+      {!isCanceled && (
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+              <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">내 앞 대기</span>
+              <span className="text-xl font-bold text-gray-800 leading-[1.1]">
+                {order.waitingCount > 0 ? `${order.waitingCount}명` : "없음"}
+              </span>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+              <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">예상 대기 시간</span>
+              <span className="text-xl font-bold text-gray-800 leading-[1.1]">
+                {order.status === "READY" || order.status === "COMPLETED"
+                  ? "조리 완료"
+                  : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
+              </span>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <div className="px-4 space-y-3">

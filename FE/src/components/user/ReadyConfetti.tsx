@@ -15,20 +15,21 @@ const COLORS = [
   "#fbbf24",
 ];
 
+/** 상승(0.42s) + 낙하 최대(7.4s) + 여유 */
+const CONFETTI_TOTAL_MS = 8800;
+/** 모든 조각이 동시에 끝나는 상승 구간 (초) */
+const RISE_MS = 0.42;
+
 interface Piece {
   id: number;
-  delay: string;
-  duration: string;
+  fallDuration: string;
   width: number;
   height: number;
   color: string;
-  /** 발사 직후 살짝만 벌어짐 (기둥처럼 상승) */
   launchX: string;
   launchY: string;
-  /** 상승 중 벌어지기 시작 */
   openX: string;
   openY: string;
-  /** 상단 폭발 지점 X (넓게 확산) */
   cx: string;
   sway1: string;
   sway2: string;
@@ -55,7 +56,7 @@ interface ReadyConfettiProps {
 /** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
 let lastModulePlayKey: string | null = null;
 
-/** 다색 confetti — 하단 중앙 폭죽 발사 → 상단 확산 → 천천히 살랑거리며 낙하 */
+/** 다색 confetti — 하단 중앙 동시 폭죽 발사 → 상단 확산 → 천천히 살랑거리며 낙하 */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
@@ -67,18 +68,17 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
   const pieces = useMemo<Piece[]>(() => {
     return Array.from({ length: 48 }, (_, i) => {
-      // 상단 전체를 쓰도록 좌우로 넓게 퍼지되, 높이·각도는 조각마다 다르게
-      const angleBias = (i / 47) * 2 - 1; // -1 … 1 균등 분배 후 랜덤 섞음
+      const angleBias = (i / 47) * 2 - 1;
       const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
       const burstXVw = Math.max(-48, Math.min(48, spread));
-      // 일부는 상단 가까이, 일부는 조금 낮은 폭발점
-      const peak = -(62 + Math.random() * 34); // -62vh … -96vh
-      const launchY = peak * (0.42 + Math.random() * 0.12); // 상승 중반 (아직 좁게)
-      const launchX = burstXVw * (0.08 + Math.random() * 0.1);
-      const openX = burstXVw * (0.4 + Math.random() * 0.12);
-      const openY = peak * (0.78 + Math.random() * 0.08);
+      const peak = -(62 + Math.random() * 34);
+      // 상승 중에는 좁게, 정점에서 넓게
+      const launchY = peak * (0.48 + Math.random() * 0.08);
+      const launchX = burstXVw * (0.06 + Math.random() * 0.06);
+      const openX = burstXVw * (0.38 + Math.random() * 0.1);
+      const openY = peak * (0.82 + Math.random() * 0.06);
 
-      const swayAmp = 2.2 + Math.random() * 4.5; // vw
+      const swayAmp = 2.2 + Math.random() * 4.5;
       const dir = Math.random() > 0.5 ? 1 : -1;
       const width = 5 + Math.floor(Math.random() * 7);
       const fall = 28 + Math.random() * 48;
@@ -86,9 +86,8 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
       return {
         id: i,
-        // 한 폭죽처럼 거의 동시에 발사
-        delay: `${Math.random() * 0.06}s`,
-        duration: `${5.2 + Math.random() * 2.6}s`,
+        // 낙하만 조각마다 다르게 (상승은 공통 RISE_MS)
+        fallDuration: `${5.0 + Math.random() * 2.4}s`,
         width,
         height: width * (0.5 + Math.random() * 0.9),
         color: COLORS[i % COLORS.length],
@@ -133,7 +132,7 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
         lastModulePlayKey = null;
       }
       onDoneRef.current?.();
-    }, 8200);
+    }, CONFETTI_TOTAL_MS);
 
     return () => {
       window.clearTimeout(timer);
@@ -171,7 +170,12 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
               ["--fall-y" as string]: p.fallY,
               ["--spin-mid" as string]: p.spinMid,
               ["--spin-end" as string]: p.spinEnd,
-              animation: `confetti-burst ${p.duration} linear ${p.delay} both`,
+              // 상승: 전원 동일 타이밍·딜레이 0 / 낙하: 조각별 duration
+              // fall에 both(backwards)를 쓰면 delay 동안 최고점이 덮어써 상승이 사라지므로 forwards만 사용
+              animation: [
+                `confetti-rise ${RISE_MS}s cubic-bezier(0.12, 0.7, 0.2, 1) 0s forwards`,
+                `confetti-fall ${p.fallDuration} linear ${RISE_MS}s forwards`,
+              ].join(", "),
             } as React.CSSProperties
           }
         />

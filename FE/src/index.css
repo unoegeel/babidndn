@@ -104,6 +104,15 @@ label {
   }
 }
 
+@keyframes page-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes cat-slide-next {
   from {
     opacity: 0.35;
@@ -135,32 +144,37 @@ label {
   }
 }
 
-/* 하단 중앙 발사 → 상단 폭발 확산 → 천천히 좌우 흔들리며 낙하 */
-@keyframes confetti-burst {
+/* 하단 중앙에서 전원 동시·강하게 발사 → 상단 확산 */
+@keyframes confetti-rise {
   0% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  /* 기둥처럼 중앙에서 강하게 상승 (아직 좁게) */
-  5% {
+  45% {
     opacity: 1;
-    transform: translate3d(var(--launch-x, 0), var(--launch-y, -40vh), 0)
-      rotate(calc(var(--spin-mid, 180deg) * 0.25));
+    transform: translate3d(var(--launch-x, 0), var(--launch-y, -45vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.2));
   }
-  /* 올라가며 좌우로 벌어지기 시작 */
-  9% {
+  75% {
     opacity: 1;
-    transform: translate3d(var(--open-x, 0), var(--open-y, -70vh), 0)
-      rotate(calc(var(--spin-mid, 180deg) * 0.7));
+    transform: translate3d(var(--open-x, 0), var(--open-y, -75vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.65));
   }
-  /* 화면 상단 근처에서 사방 폭발 */
-  13% {
+  100% {
     opacity: 1;
     transform: translate3d(var(--cx, 0), var(--peak-y, -85vh), 0)
       rotate(var(--spin-mid, 180deg));
   }
-  /* 최고점 이후 천천히 낙하 + 좌우 살랑거림 */
-  24% {
+}
+
+/* 최고점 이후 천천히 낙하 + 좌우 살랑거림 */
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(var(--cx, 0), var(--peak-y, -85vh), 0)
+      rotate(var(--spin-mid, 180deg));
+  }
+  14% {
     opacity: 1;
     transform: translate3d(
         var(--sway1, 2vw),
@@ -169,7 +183,7 @@ label {
       )
       rotate(calc(var(--spin-mid, 180deg) + 40deg));
   }
-  40% {
+  32% {
     opacity: 1;
     transform: translate3d(
         var(--sway2, -2vw),
@@ -178,7 +192,7 @@ label {
       )
       rotate(calc(var(--spin-mid, 180deg) + 100deg));
   }
-  56% {
+  50% {
     opacity: 1;
     transform: translate3d(
         var(--sway3, 1vw),
@@ -187,7 +201,7 @@ label {
       )
       rotate(calc(var(--spin-end, 540deg) * 0.45));
   }
-  72% {
+  68% {
     opacity: 0.95;
     transform: translate3d(
         var(--sway1, 2vw),
@@ -196,7 +210,7 @@ label {
       )
       rotate(calc(var(--spin-end, 540deg) * 0.62));
   }
-  86% {
+  84% {
     opacity: 0.75;
     transform: translate3d(
         var(--sway2, -2vw),
@@ -230,6 +244,10 @@ label {
 
 @utility animate-page-from-right {
   animation: page-in-from-right 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-page-from-left {
+  animation: page-in-from-left 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @utility animate-cat-next {

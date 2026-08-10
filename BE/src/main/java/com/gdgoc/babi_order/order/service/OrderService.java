@@ -23,6 +23,7 @@ import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
 import com.gdgoc.babi_order.push.service.PushNotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -171,16 +173,66 @@ public class OrderService {
         return response;
     }
 
+    /**
+     * 고객 호출/재호출.
+     * - PREPARING → READY 전환(최초 호출)
+     * - READY → updatedAt만 갱신(재호출). 상태 전이가 없어도 반드시 flush 해 폴링이 감지하게 함
+     * SSE/Push 부수효과 예외가 HTTP 500으로 번지지 않도록 afterCommit에서 격리한다.
+     */
+    @Transactional(readOnly = false)
+    public OrderDetailResponse callCustomer(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        OrderStatus current = order.getStatus();
+        if (current == OrderStatus.COMPLETED || current == OrderStatus.CANCELED) {
+            throw new OrderApiException(
+                    HttpStatus.CONFLICT,
+                    "INVALID_ORDER_STATUS_TRANSITION",
+                    "호출할 수 없는 주문 상태입니다. 현재 상태=" + current
+            );
+        }
+        if (current == OrderStatus.PREPARING) {
+            order.changeStatus(OrderStatus.READY);
+        } else if (current != OrderStatus.READY) {
+            throw new OrderApiException(
+                    HttpStatus.CONFLICT,
+                    "INVALID_ORDER_STATUS_TRANSITION",
+                    "호출할 수 없는 주문 상태입니다. 현재 상태=" + current
+            );
+        }
+
+        order.touchUpdatedAt();
+        orderRepository.saveAndFlush(order);
+
+        PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
+                .map(Payment::getStatus)
+                .orElse(null);
+        OrderDetailResponse response = toDetailResponse(order, toPaymentStatusName(paymentStatus));
+        publishAfterCommit("ORDER_STATUS_CHANGED", response);
+        int pickupNumber = order.getPickupNumber() != null ? order.getPickupNumber() : 0;
+        publishPushAfterCommit(orderId, pickupNumber);
+        return response;
+    }
+
     private void publishPushAfterCommit(Long orderId, int pickupNumber) {
+        Runnable pushTask = () -> {
+            try {
+                pushNotificationService.notifyOrderReady(orderId, pickupNumber);
+            } catch (Exception e) {
+                // 푸시 실패가 호출 API 자체를 500으로 만들지 않도록 격리
+                log.warn("준비완료 Push 발송 실패(호출은 성공 처리). orderId={}: {}", orderId, e.getMessage());
+            }
+        };
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
-            pushNotificationService.notifyOrderReady(orderId, pickupNumber);
+            pushTask.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                pushNotificationService.notifyOrderReady(orderId, pickupNumber);
+                pushTask.run();
             }
         });
     }
@@ -250,15 +302,24 @@ public class OrderService {
     }
 
     private void publishAfterCommit(String eventName, OrderDetailResponse response) {
+        Runnable publishTask = () -> {
+            try {
+                orderEventService.publish(eventName, response);
+            } catch (Exception e) {
+                // SSE 전송 실패가 호출/상태변경 API를 500으로 만들지 않도록 격리
+                log.warn("주문 SSE 발행 실패(API는 성공 처리). event={}, orderId={}: {}",
+                        eventName, response != null ? response.getId() : null, e.getMessage());
+            }
+        };
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
-            orderEventService.publish(eventName, response);
+            publishTask.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                orderEventService.publish(eventName, response);
+                publishTask.run();
             }
         });
     }

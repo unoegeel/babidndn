@@ -3,20 +3,21 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
-import ReadyConfetti from "../../components/user/ReadyConfetti";
 import { claimReadyConfetti } from "../../utils/readyCall";
 import type { Order } from "../../types/user";
 
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders } = useUserData();
+  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti } = useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [confettiPlayKey, setConfettiPlayKey] = useState("");
-  const lastRecallConfettiAtRef = useRef<string | null>(null);
+  const startConfettiRef = useRef(startConfetti);
+
+  useEffect(() => {
+    startConfettiRef.current = startConfetti;
+  });
 
   // 컨텍스트 폴링으로 갱신된 주문 반영
   useEffect(() => {
@@ -31,9 +32,7 @@ export const OrderCompletePage: React.FC = () => {
     if (!readyCallSignal.isRecall) return;
     if (readyCallSignal.orderId !== orderId) return;
     if (!claimReadyConfetti(orderId, readyCallSignal.updatedAt)) return;
-    lastRecallConfettiAtRef.current = readyCallSignal.updatedAt;
-    setConfettiPlayKey(readyCallSignal.updatedAt);
-    setShowConfetti(true);
+    startConfettiRef.current(readyCallSignal.updatedAt);
   }, [readyCallSignal, orderId]);
 
   useEffect(() => {
@@ -71,14 +70,6 @@ export const OrderCompletePage: React.FC = () => {
 
   return (
     <div className="relative flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
-      <ReadyConfetti
-        active={showConfetti}
-        playKey={confettiPlayKey}
-        onDone={() => {
-          setShowConfetti(false);
-        }}
-      />
-
       {/* 1. 스크롤 가능한 상단 주문 현황 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-6">
         {/* 대기번호 */}

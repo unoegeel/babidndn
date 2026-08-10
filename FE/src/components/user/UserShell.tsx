@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import {
@@ -8,14 +8,25 @@ import {
 import ReadyOrderBanner from "./ReadyOrderBanner";
 import SwipeableNotificationItem from "./SwipeableNotificationItem";
 import UserPopupAd from "./UserPopupAd";
+import ReadyConfetti from "./ReadyConfetti";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 const DRAWER_CLOSE_MS = 240;
 
+/** 메뉴 ↔ 장바구니 ↔ 결제 스택 깊이 (뒤로가기 슬라이드 방향용) */
+function checkoutStackDepth(pathname: string): number {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  if (p === "/user/checkout") return 2;
+  if (p === "/user/cart") return 1;
+  if (p === "/user") return 0;
+  return -1;
+}
+
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { cart, notifications, activeOrders, markAsRead, removeNotification } = useUserData();
+  const { cart, notifications, activeOrders, markAsRead, removeNotification, confettiPlay, finishConfetti } =
+    useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDrawerClosing, setIsDrawerClosing] = useState(false);
@@ -42,8 +53,30 @@ export const UserShell: React.FC = () => {
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
-  const pageSlideClass =
-    isCartPage || isCheckoutPage ? "animate-page-from-right" : "";
+  const prevPathRef = useRef<string | null>(null);
+  const [pageSlideClass, setPageSlideClass] = useState("");
+
+  useLayoutEffect(() => {
+    const prev = prevPathRef.current;
+    prevPathRef.current = pathname;
+
+    const from = prev == null ? -1 : checkoutStackDepth(prev);
+    const to = checkoutStackDepth(pathname);
+
+    // 메뉴↔장바구니↔결제 스택 안에서만 전/후진 슬라이드
+    if (from >= 0 && to >= 0 && from !== to) {
+      setPageSlideClass(to > from ? "animate-page-from-right" : "animate-page-from-left");
+      return;
+    }
+
+    // 그 외에서 장바구니/결제로 진입: 기존처럼 오른쪽에서
+    if (to === 1 || to === 2) {
+      setPageSlideClass("animate-page-from-right");
+      return;
+    }
+
+    setPageSlideClass("");
+  }, [pathname]);
 
   const openDrawer = () => {
     if (drawerCloseTimerRef.current) {
@@ -286,8 +319,13 @@ export const UserShell: React.FC = () => {
           </header>
         )}
 
-        {/* 메인 콘텐츠 영역 */}
+        {/* 메인 콘텐츠 영역 — confetti는 pathname key 밖에 두어 페이지 전환 시에도 유지 */}
         <main className="flex-1 min-h-0 overflow-hidden bg-gray-50/30 flex flex-col relative">
+          <ReadyConfetti
+            active={!!confettiPlay}
+            playKey={confettiPlay?.playKey}
+            onDone={finishConfetti}
+          />
           <div
             key={pathname}
             className={`flex min-h-0 flex-1 flex-col overflow-hidden ${pageSlideClass}`}

@@ -308,6 +308,51 @@ class OrderServiceTest {
     }
 
     @Test
+    void callCustomerTransitionsPreparingToReady() {
+        Order order = order(1L, 1);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+        given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.empty());
+
+        OrderDetailResponse result = orderService.callCustomer(1L);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.READY);
+        assertThat(result.getStatus()).isEqualTo("READY");
+        verify(orderRepository).saveAndFlush(order);
+        verify(orderEventService).publish("ORDER_STATUS_CHANGED", result);
+        verify(pushNotificationService).notifyOrderReady(eq(1L), eq(1));
+    }
+
+    @Test
+    void callCustomerRecallsReadyOrderByTouchingUpdatedAt() {
+        Order order = order(1L, 7);
+        order.changeStatus(OrderStatus.READY);
+        LocalDateTime before = LocalDateTime.of(2026, 8, 10, 12, 0, 0);
+        ReflectionTestUtils.setField(order, "updatedAt", before);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+        given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.empty());
+
+        OrderDetailResponse result = orderService.callCustomer(1L);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.READY);
+        assertThat(order.getUpdatedAt()).isAfter(before);
+        assertThat(result.getStatus()).isEqualTo("READY");
+        verify(orderRepository).saveAndFlush(order);
+        verify(pushNotificationService).notifyOrderReady(eq(1L), eq(7));
+    }
+
+    @Test
+    void callCustomerRejectsCompletedOrder() {
+        Order order = order(1L, 1);
+        order.changeStatus(OrderStatus.COMPLETED);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.callCustomer(1L))
+                .isInstanceOf(OrderApiException.class)
+                .extracting("code")
+                .isEqualTo("INVALID_ORDER_STATUS_TRANSITION");
+    }
+
+    @Test
     void updateStatusRejectsSkippingReadyStatus() {
         Order order = order(1L, 1);
         given(orderRepository.findById(1L)).willReturn(Optional.of(order));

@@ -82,6 +82,11 @@ interface UserDataContextType {
   notifications: NotificationItem[];
   /** 최근 READY 호출/재호출 시그널 (동일 updatedAt 중복 없음) */
   readyCallSignal: { orderId: string; updatedAt: string; isRecall: boolean } | null;
+  /** Shell 레벨 confetti (페이지 전환·리마운트에도 유지) */
+  confettiPlay: { playKey: string } | null;
+  startConfetti: (playKey: string, onDone?: () => void) => void;
+  stopConfetti: () => void;
+  finishConfetti: () => void;
   addToCart: (menu: MenuDetail, selectedOptions: MenuOption[], quantity: number) => void;
   updateCartQuantity: (cartItemId: string, newQuantity: number) => void;
   removeFromCart: (cartItemId: string) => void;
@@ -142,6 +147,25 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updatedAt: string;
     isRecall: boolean;
   } | null>(null);
+  const [confettiPlay, setConfettiPlay] = useState<{ playKey: string } | null>(null);
+  const confettiOnDoneRef = useRef<(() => void) | null>(null);
+
+  const startConfetti = useCallback((playKey: string, onDone?: () => void) => {
+    confettiOnDoneRef.current = onDone ?? null;
+    setConfettiPlay({ playKey });
+  }, []);
+
+  const stopConfetti = useCallback(() => {
+    confettiOnDoneRef.current = null;
+    setConfettiPlay(null);
+  }, []);
+
+  const finishConfetti = useCallback(() => {
+    const onDone = confettiOnDoneRef.current;
+    confettiOnDoneRef.current = null;
+    setConfettiPlay(null);
+    onDone?.();
+  }, []);
 
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
   const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
@@ -492,6 +516,10 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         activeOrders,
         notifications,
         readyCallSignal,
+        confettiPlay,
+        startConfetti,
+        stopConfetti,
+        finishConfetti,
         addToCart,
         updateCartQuantity,
         removeFromCart,
