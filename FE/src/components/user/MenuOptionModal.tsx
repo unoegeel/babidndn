@@ -7,22 +7,18 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
-/** 토핑명을 1줄로 유지하기 위해 길이에 따라 글자 크기를 줄입니다. */
+/** 토핑명을 1줄로 유지하되, 최소 10px 이상으로 가독성을 확보합니다. */
 function toppingNameFontClass(name: string, withQtyControls: boolean): string {
-  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음
+  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음 — 넘치면 truncate에 맡김
   const len = name.length;
   if (withQtyControls) {
-    if (len <= 3) return "text-[10px]";
-    if (len <= 4) return "text-[9px]";
-    if (len <= 5) return "text-[8px]";
-    if (len <= 7) return "text-[7px]";
-    return "text-[6px]";
+    if (len <= 4) return "text-[12px]";
+    if (len <= 6) return "text-[11px]";
+    return "text-[10px]";
   }
-  if (len <= 4) return "text-[10px]";
-  if (len <= 5) return "text-[9px]";
-  if (len <= 7) return "text-[8px]";
-  if (len <= 9) return "text-[7px]";
-  return "text-[6px]";
+  if (len <= 5) return "text-[12px]";
+  if (len <= 8) return "text-[11px]";
+  return "text-[10px]";
 }
 
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
@@ -218,7 +214,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
             <h2 className="text-lg font-bold text-gray-900">{menuDetail.name}</h2>
-            <p className="text-sm font-semibold text-gray-800 mt-0.5">
+            <p className="text-sm font-medium text-gray-800 mt-0.5 leading-snug">
               {menuDetail.basePrice.toLocaleString()}원
             </p>
           </div>
@@ -264,16 +260,16 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
-                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1]">
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug">
                           {sizeLabel}
                         </div>
                         {hasSurcharge && (
-                          <div className="text-[8px] leading-none text-gray-400">
+                          <div className="text-[10px] leading-snug text-gray-400">
                             +{opt.additionalPrice.toLocaleString()}원
                           </div>
                         )}
                         {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
                             ✓
                           </div>
                         )}
@@ -318,7 +314,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                                 -
                               </span>
                               <div
-                                className={`min-w-0 flex-1 truncate text-center font-bold leading-none ${nameClass}`}
+                                className={`min-w-0 flex-1 truncate text-center font-semibold leading-snug ${nameClass}`}
                               >
                                 {toppingName}
                               </div>
@@ -326,7 +322,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                                 +
                               </span>
                             </div>
-                            <div className="pointer-events-none mt-0.5 text-[8px] leading-none text-gray-400">
+                            <div className="pointer-events-none mt-0.5 text-[10px] leading-snug text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
 
@@ -348,18 +344,18 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                         ) : (
                           <div className="flex h-full w-full flex-col items-center justify-center">
                             <div
-                              className={`w-full truncate text-center font-bold leading-none ${nameClass}`}
+                              className={`w-full truncate text-center font-semibold leading-snug ${nameClass}`}
                             >
                               {toppingName}
                             </div>
-                            <div className="mt-0.5 text-[8px] leading-none text-gray-400">
+                            <div className="mt-0.5 text-[10px] leading-snug text-gray-400">
                               +{opt.additionalPrice.toLocaleString()}원
                             </div>
                           </div>
                         )}
 
                         {isSelected && (
-                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[9px] font-bold text-white">
+                          <div className="pointer-events-none absolute -right-1.5 -top-1.5 z-20 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-[#000000] text-[10px] font-bold text-white">
                             {qty}
                           </div>
                         )}
@@ -391,11 +387,11 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
-                        <div className="w-full text-center text-[9.5px] font-bold leading-[1.1] line-clamp-2">
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug line-clamp-2">
                           {removeLabel}
                         </div>
                         {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[9px] font-bold text-white">
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
                             ✓
                           </div>
                         )}
@@ -426,7 +422,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                       {opt.name}
                       {opt.additionalPrice > 0 && ` (+${opt.additionalPrice.toLocaleString()}원)`}
                       {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[9px] font-bold">
+                        <div className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-[18px] h-[18px] flex items-center justify-center border border-white text-[10px] font-bold">
                           ✓
                         </div>
                       )}

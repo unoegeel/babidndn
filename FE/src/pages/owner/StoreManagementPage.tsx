@@ -167,7 +167,7 @@ export default function StoreManagementPage() {
         <h1 className="text-[24px] font-bold text-black">매장 관리</h1>
 
         <section className="mt-[28px] max-w-[720px]">
-          <h2 className="text-[18px] font-medium tracking-[1px] text-black">팝업 광고</h2>
+          <h2 className="text-[18px] font-medium text-black">팝업 광고</h2>
 
           <form
             onSubmit={(e) => void handleSubmit(e)}
@@ -314,7 +314,7 @@ export default function StoreManagementPage() {
         </section>
 
         <section className="mt-[40px] max-w-[720px]">
-          <h2 className="text-[18px] font-medium tracking-[1px] text-black">리뷰</h2>
+          <h2 className="text-[18px] font-medium text-black">리뷰</h2>
           <button
             type="button"
             onClick={() => navigate("/admin/store/reviews")}

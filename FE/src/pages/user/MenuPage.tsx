@@ -257,7 +257,7 @@ export const MenuPage: React.FC = () => {
                     <MenuThumb src={menu.imageUrl} alt={menu.name} />
                     {isSoldOut && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <span className="text-xs font-extrabold text-white">품절</span>
+                        <span className="text-xs font-bold text-white">품절</span>
                       </div>
                     )}
                   </div>
@@ -267,15 +267,15 @@ export const MenuPage: React.FC = () => {
                     <div>
                       <MarqueeText
                         text={menu.name}
-                        textClassName="text-sm font-bold text-gray-900"
+                        textClassName="text-sm font-bold text-gray-900 leading-snug"
                       />
                       {menu.description && (
-                        <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                        <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-normal">
                           {menu.description}
                         </p>
                       )}
                     </div>
-                    <p className="text-xs font-black text-gray-900 mt-2">
+                    <p className="text-xs font-bold text-gray-900 mt-2 leading-snug">
                       {menu.basePrice.toLocaleString()}원
                     </p>
                   </div>
@@ -315,13 +315,13 @@ export const MenuPage: React.FC = () => {
               <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span className="absolute -top-1.5 -right-1.5 bg-[#000000] text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white">
+              <span className="absolute -top-1.5 -right-1.5 bg-[#000000] text-white text-[10px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white">
                 {totalCartItems}
               </span>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 font-bold">{totalCartItems}개 담김</p>
-              <p className="text-sm font-black text-gray-900">총 {cartTotal.toLocaleString()}원</p>
+              <p className="text-[11px] text-gray-400 font-medium leading-snug">{totalCartItems}개 담김</p>
+              <p className="text-sm font-bold text-gray-900 leading-snug">총 {cartTotal.toLocaleString()}원</p>
             </div>
           </div>
 

@@ -227,15 +227,15 @@ export const OrderStatusPage: React.FC = () => {
       <ReadyConfetti active={showConfetti} onDone={() => setShowConfetti(false)} />
 
       <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">내 대기번호</p>
+        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
         <h2
-          className={`text-6xl font-black tracking-tight ${
+          className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
             isCanceled ? "text-gray-300 line-through" : "text-gray-900"
           }`}
         >
           {order.pickupNumber}
         </h2>
-        <p className={`text-xs font-bold mt-2 ${isCanceled ? "text-red-500" : "text-gray-700"}`}>
+        <p className={`text-xs font-semibold mt-2 leading-snug ${isCanceled ? "text-red-500" : "text-gray-700"}`}>
           {statusMessage}
         </p>
       </div>
@@ -282,7 +282,7 @@ export const OrderStatusPage: React.FC = () => {
               >
                 ✓
               </div>
-              <span className={`text-[9px] font-bold mt-2 ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
                 주문 완료
               </span>
             </div>
@@ -303,7 +303,7 @@ export const OrderStatusPage: React.FC = () => {
                   "2"
                 )}
               </div>
-              <span className={`text-[9px] font-bold mt-2 ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
                 조리 중
               </span>
             </div>
@@ -318,7 +318,7 @@ export const OrderStatusPage: React.FC = () => {
               >
                 {stepIndex >= 2 ? "✓" : null}
               </div>
-              <span className={`text-[9px] font-bold mt-2 ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
+              <span className={`text-[11px] font-semibold mt-2 ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
                 준비 완료
               </span>
             </div>
@@ -327,14 +327,14 @@ export const OrderStatusPage: React.FC = () => {
           <div className="p-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-                <span className="text-[10px] font-bold text-gray-400 block mb-1">내 앞 대기</span>
-                <span className="text-xl font-black text-gray-800">
+                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">내 앞 대기</span>
+                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
                   {order.waitingCount > 0 ? `${order.waitingCount}명` : "없음"}
                 </span>
               </div>
               <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-                <span className="text-[10px] font-bold text-gray-400 block mb-1">예상 대기 시간</span>
-                <span className="text-xl font-black text-gray-800">
+                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">예상 대기 시간</span>
+                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
                   {order.status === "READY" || order.status === "COMPLETED"
                     ? "조리 완료"
                     : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
@@ -349,7 +349,7 @@ export const OrderStatusPage: React.FC = () => {
         <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-sm text-[11px]">
           <div className="flex justify-between items-center text-gray-500 font-semibold">
             <span>주문 시간</span>
-            <span className="font-extrabold text-gray-800">{order.createdAt}</span>
+            <span className="font-semibold text-gray-800">{order.createdAt}</span>
           </div>
         </div>
 
@@ -370,7 +370,7 @@ export const OrderStatusPage: React.FC = () => {
                     </span>
                   </div>
                   {optionString && (
-                    <p className="text-[10px] text-gray-400 pl-3 leading-relaxed font-semibold">
+                    <p className="text-[11px] text-gray-400 pl-3 leading-normal font-medium">
                       {optionString}
                     </p>
                   )}
@@ -383,7 +383,7 @@ export const OrderStatusPage: React.FC = () => {
 
       {!isCanceled && (
         <div className="text-center py-5 text-gray-400">
-          <p className="text-[9px] font-bold">※ 실시간으로 업데이트됩니다.</p>
+          <p className="text-[11px] font-medium leading-snug">※ 실시간으로 업데이트됩니다.</p>
         </div>
       )}
     </div>

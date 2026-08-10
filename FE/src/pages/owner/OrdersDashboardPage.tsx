@@ -162,7 +162,7 @@ function OrderDetailPanel({
     <div className="flex h-full min-h-0 flex-col rounded-[10px] bg-canvas p-[16px] short:p-[12px]">
       <p className="text-[15px] font-medium text-black/75 short:text-[14px]">주문번호</p>
       <p
-        className="mt-[2px] text-[36px] font-bold leading-none short:text-[28px]"
+        className="mt-[2px] text-[36px] font-bold leading-[1.05] short:text-[28px]"
         style={{ color: numberColor }}
       >
         {order.number}
@@ -195,13 +195,13 @@ function OrderDetailPanel({
         <button
           onClick={onCook}
           disabled={allCooked}
-          className="h-[40px] rounded-full bg-panel text-[15px] font-medium tracking-[1px] text-black disabled:opacity-40 short:h-[34px] short:text-[14px]"
+          className="h-[40px] rounded-full bg-panel text-[15px] font-medium text-black disabled:opacity-40 short:h-[34px] short:text-[14px]"
         >
           조리완료
         </button>
         <button
           onClick={onCall}
-          className="h-[40px] rounded-full bg-panel text-[15px] font-medium tracking-[1px] text-black short:h-[34px] short:text-[14px]"
+          className="h-[40px] rounded-full bg-panel text-[15px] font-medium text-black short:h-[34px] short:text-[14px]"
         >
           {order.called ? "재호출" : "호출"}
         </button>
@@ -209,7 +209,7 @@ function OrderDetailPanel({
           onClick={onPickup}
           disabled={!order.called}
           title={order.called ? undefined : "호출 후에 픽업완료할 수 있습니다"}
-          className="col-span-2 h-[40px] rounded-full bg-panel text-[15px] font-medium tracking-[1px] text-black disabled:cursor-not-allowed disabled:opacity-40 short:h-[34px] short:text-[14px]"
+          className="col-span-2 h-[40px] rounded-full bg-panel text-[15px] font-medium text-black disabled:cursor-not-allowed disabled:opacity-40 short:h-[34px] short:text-[14px]"
         >
           픽업완료
         </button>
@@ -278,7 +278,7 @@ function BoardCard({
         </svg>
       </button>
       <p
-        className="text-center text-[34px] font-bold leading-none"
+        className="text-center text-[34px] font-bold leading-[1.05]"
         style={{ color: numberColor }}
       >
         {order.number}

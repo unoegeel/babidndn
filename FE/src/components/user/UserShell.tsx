@@ -255,7 +255,7 @@ export const UserShell: React.FC = () => {
                   </svg>
                   {/* 빨간 알림 뱃지 */}
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
                       {unreadCount}
                     </span>
                   )}
@@ -320,7 +320,7 @@ export const UserShell: React.FC = () => {
               }`}
             >
               <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-                <span className="text-base font-extrabold text-gray-900 tracking-wide">바비든든</span>
+                <span className="text-base font-bold text-gray-900">바비든든</span>
                 <button
                   onClick={closeDrawer}
                   className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
@@ -351,7 +351,7 @@ export const UserShell: React.FC = () => {
                 >
                   장바구니
                   {totalCartItems > 0 && (
-                    <span className="ml-2 text-[10px] font-bold text-[#C59B62]">{totalCartItems}</span>
+                    <span className="ml-2 text-[11px] font-semibold text-[#C59B62]">{totalCartItems}</span>
                   )}
                 </button>
                 <button
@@ -394,7 +394,7 @@ export const UserShell: React.FC = () => {
 
               <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
                 <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
-                <p className="mt-1 px-2 text-[10px] leading-relaxed text-gray-400">
+                <p className="mt-1 px-2 text-[11px] leading-normal text-gray-400">
                   이용 중 불편한 점이 있나요?
                 </p>
                 <button
@@ -408,8 +408,8 @@ export const UserShell: React.FC = () => {
                   문의하기 →
                 </button>
                 <div className="mt-4 px-2">
-                  <p className="text-[11px] font-extrabold tracking-wide text-gray-900">바비오더</p>
-                  <p className="mt-0.5 text-[9px] text-gray-400">(C) 2026 BabiOrder</p>
+                  <p className="text-[11px] font-bold text-gray-900">바비오더</p>
+                  <p className="mt-0.5 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
                 </div>
               </div>
             </aside>
@@ -426,19 +426,19 @@ export const UserShell: React.FC = () => {
                 <span className="text-xs font-bold text-gray-800">알림</span>
                 <button
                   onClick={() => setIsNotifOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none text-[10px] font-bold"
+                  className="text-gray-400 hover:text-gray-600 focus:outline-none text-[11px] font-semibold"
                 >
                   닫기
                 </button>
               </div>
 
               {notifications.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 text-[10px] font-semibold">
+                <div className="py-12 text-center text-gray-400 text-[11px] font-medium">
                   새로운 알림이 없습니다.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[9px] font-medium text-gray-400 px-0.5">
+                  <p className="text-[10px] font-medium text-gray-400 px-0.5">
                     ← 삭제 · 읽음 →
                   </p>
                   {notifications.map((notif) => (
