@@ -28,7 +28,7 @@
 
 ### 관리자
 
-- JWT 로그인·회원가입
+- JWT 로그인·관리자 계정 관리
 - 주문 대시보드(SSE + 폴링), 조리·호출·픽업 처리
 - 메뉴·카테고리·옵션, 이미지 업로드(S3 Presigned URL)
 - 결제 내역 조회·필터·취소·CSV/TXT 내보내기
@@ -206,7 +206,6 @@ sequenceDiagram
 | 팝업 | 원본 MIME (jpeg/png/webp/gif) |
 | 공통 util | `FE/src/utils/presignedImageUpload.ts` |
 | FE 제한 | 허용 MIME, 최대 5MB |
-| S3 키 | `menu/` 접두사 (메뉴·팝업 공통) |
 
 ---
 
@@ -358,10 +357,10 @@ UI 진입 경로는 Springdoc/Boot 버전에 따라 `/swagger-ui.html` 또는 `/
 
 ---
 
-## 17. 향후 개선 사항
+## 17. 알려진 개선 사항
 
-- 테스트 `application.yml`이 main 설정을 가려 `JavaMailSender` 미생성되는 문제
-- 공개 API·관리자 signup 등 보안 범위 재검토
+- 테스트 환경의 `application.yml` 설정 정리 및 메일 관련 테스트 구성 개선
+- 공개 API 및 관리자 인증·인가 범위 재검토
 - 테스트 커버리지 확대
 - 운영 DB를 `ddl-auto` 대신 마이그레이션 도구로 관리
 - `.env.example`과 `application.yml` 환경변수 목록 정합

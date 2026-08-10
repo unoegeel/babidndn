@@ -41,18 +41,131 @@ body {
   overscroll-behavior: none;
 }
 
-/* 긴 메뉴명: 넘칠 때만 좌우 순환 슬라이드 */
+/* 긴 텍스트: 오른쪽→왼쪽 한 방향 스크롤 후 처음으로 되돌아가 반복 */
 @keyframes marquee-x {
-  0%,
-  12% {
+  0% {
     transform: translateX(0);
   }
-  45%,
-  55% {
+  100% {
     transform: translateX(calc(-1 * var(--marquee-distance, 0px)));
   }
-  88%,
-  100% {
+}
+
+@keyframes slide-in-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
     transform: translateX(0);
   }
+}
+
+@keyframes slide-out-to-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes sheet-in-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-out-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes page-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes cat-slide-next {
+  from {
+    opacity: 0.35;
+    transform: translateX(28%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cat-slide-prev {
+  from {
+    opacity: 0.35;
+    transform: translateX(-28%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--cx, 0px), var(--cy, 110vh), 0) rotate(720deg);
+  }
+}
+
+@utility animate-slide-right {
+  animation: slide-in-from-left 0.28s ease-out both;
+}
+
+@utility animate-slide-left-out {
+  animation: slide-out-to-left 0.24s ease-in both;
+}
+
+@utility animate-sheet-in {
+  animation: sheet-in-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-sheet-out {
+  animation: sheet-out-down 0.26s ease-in both;
+}
+
+@utility animate-page-from-right {
+  animation: page-in-from-right 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-cat-next {
+  animation: cat-slide-next 0.28s ease-out both;
+}
+
+@utility animate-cat-prev {
+  animation: cat-slide-prev 0.28s ease-out both;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import {
@@ -10,6 +10,7 @@ import SwipeableNotificationItem from "./SwipeableNotificationItem";
 import UserPopupAd from "./UserPopupAd";
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
+const DRAWER_CLOSE_MS = 240;
 
 export const UserShell: React.FC = () => {
   const { pathname } = useLocation();
@@ -17,6 +18,8 @@ export const UserShell: React.FC = () => {
   const { cart, notifications, activeOrders, markAsRead, removeNotification } = useUserData();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerClosing, setIsDrawerClosing] = useState(false);
+  const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
@@ -39,6 +42,29 @@ export const UserShell: React.FC = () => {
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
 
+  const pageSlideClass =
+    isCartPage || isCheckoutPage ? "animate-page-from-right" : "";
+
+  const openDrawer = () => {
+    if (drawerCloseTimerRef.current) {
+      clearTimeout(drawerCloseTimerRef.current);
+      drawerCloseTimerRef.current = null;
+    }
+    setIsDrawerClosing(false);
+    setIsDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    if (!isDrawerOpen || isDrawerClosing) return;
+    setIsDrawerClosing(true);
+    if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+    drawerCloseTimerRef.current = setTimeout(() => {
+      setIsDrawerOpen(false);
+      setIsDrawerClosing(false);
+      drawerCloseTimerRef.current = null;
+    }, DRAWER_CLOSE_MS);
+  };
+
   // 헤더 렌더링 여부
   const showHeader = true;
 
@@ -55,14 +81,29 @@ export const UserShell: React.FC = () => {
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsDrawerOpen(false);
-        setIsNotifOpen(false);
-        setShowNotifPrompt(false);
-      }
+      if (e.key !== "Escape") return;
+      setIsNotifOpen(false);
+      setShowNotifPrompt(false);
+      setIsDrawerOpen((open) => {
+        if (!open) return open;
+        setIsDrawerClosing(true);
+        if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+        drawerCloseTimerRef.current = setTimeout(() => {
+          setIsDrawerOpen(false);
+          setIsDrawerClosing(false);
+          drawerCloseTimerRef.current = null;
+        }, DRAWER_CLOSE_MS);
+        return open;
+      });
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (drawerCloseTimerRef.current) clearTimeout(drawerCloseTimerRef.current);
+    };
   }, []);
 
   // 1) 알림 권한 안내 → 2) 팝업 광고 → 3) 첫 화면
@@ -159,7 +200,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsNotifOpen(false);
-                    setIsDrawerOpen(true);
+                    openDrawer();
                   }}
                   className="text-gray-700 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴"
@@ -247,7 +288,12 @@ export const UserShell: React.FC = () => {
 
         {/* 메인 콘텐츠 영역 */}
         <main className="flex-1 min-h-0 overflow-hidden bg-gray-50/30 flex flex-col relative">
-          <Outlet />
+          <div
+            key={pathname}
+            className={`flex min-h-0 flex-1 flex-col overflow-hidden ${pageSlideClass}`}
+          >
+            <Outlet />
+          </div>
         </main>
 
         {/* 메뉴 첫 화면: 준비완료 상단 슬라이드 배너 */}
@@ -261,16 +307,22 @@ export const UserShell: React.FC = () => {
           <div className="absolute inset-0 z-50 flex">
             {/* 오버레이 클릭 시 닫기 */}
             <div
-              className="absolute inset-0 bg-black/40 transition-opacity"
-              onClick={() => setIsDrawerOpen(false)}
+              className={`absolute inset-0 bg-black/40 transition-opacity duration-[240ms] ${
+                isDrawerClosing ? "opacity-0" : "animate-fade-in"
+              }`}
+              onClick={closeDrawer}
             ></div>
 
             {/* 단순한 흰색 패널 */}
-            <aside className="absolute inset-y-0 left-0 bg-white w-64 shadow-2xl flex flex-col p-5 z-50 animate-slide-right border-r border-gray-100">
+            <aside
+              className={`absolute inset-y-0 left-0 bg-white w-64 shadow-2xl flex flex-col p-5 z-50 border-r border-gray-100 ${
+                isDrawerClosing ? "animate-slide-left-out" : "animate-slide-right"
+              }`}
+            >
               <div className="flex justify-between items-center pb-4 border-b border-gray-100">
                 <span className="text-base font-extrabold text-gray-900 tracking-wide">바비든든</span>
                 <button
-                  onClick={() => setIsDrawerOpen(false)}
+                  onClick={closeDrawer}
                   className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
                   aria-label="메뉴 닫기"
                 >
@@ -284,7 +336,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -293,7 +345,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/cart");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -305,7 +357,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/orders");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -314,7 +366,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/notices");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -323,7 +375,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     navigate("/user/reviews");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -332,7 +384,7 @@ export const UserShell: React.FC = () => {
                 <button
                   onClick={() => {
                     handleRequestNotification();
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer border-t border-gray-100 mt-4 pt-4"
                 >
@@ -349,7 +401,7 @@ export const UserShell: React.FC = () => {
                   type="button"
                   onClick={() => {
                     navigate("/user/contact");
-                    setIsDrawerOpen(false);
+                    closeDrawer();
                   }}
                   className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >

@@ -8,8 +8,8 @@ interface MarqueeTextProps {
 }
 
 /**
- * 한 줄을 넘어가면 좌우로 순환 슬라이딩합니다.
- * 넘치지 않으면 일반 truncate 없이 그대로 표시합니다.
+ * 한 줄을 넘어가면 오른쪽→왼쪽으로 천천히 스크롤한 뒤
+ * 처음으로 되돌아가 반복합니다. 넘치지 않으면 애니메이션 없음.
  */
 export const MarqueeText: React.FC<MarqueeTextProps> = ({
   text,
@@ -17,16 +17,19 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   textClassName = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
+  const [textWidth, setTextWidth] = useState(0);
 
   useEffect(() => {
     const container = containerRef.current;
-    const label = textRef.current;
+    const label = measureRef.current;
     if (!container || !label) return;
 
     const measure = () => {
-      const delta = label.scrollWidth - container.clientWidth;
+      const width = label.scrollWidth;
+      const delta = width - container.clientWidth;
+      setTextWidth(width);
       setOverflowPx(delta > 1 ? delta : 0);
     };
 
@@ -38,27 +41,48 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   }, [text]);
 
   const isOverflow = overflowPx > 0;
-  // 넘친 길이에 비례해 속도 유지 (최소 4초)
-  const durationSec = Math.max(4, Math.min(12, 3 + overflowPx / 30));
+  const gapPx = 48;
+  // 읽을 수 있도록 느리게 (최소 ~10초, 길이에 비례)
+  const durationSec = Math.max(10, Math.min(28, 8 + overflowPx / 18));
+  // 본문+간격만큼 이동하면 복제본이 시작 위치에 맞춰짐
+  const loopDistance = textWidth + gapPx;
 
   return (
-    <div ref={containerRef} className={`min-w-0 overflow-hidden ${className}`}>
+    <div ref={containerRef} className={`relative min-w-0 overflow-hidden ${className}`}>
       <span
-        ref={textRef}
-        className={`inline-block max-w-none whitespace-nowrap ${textClassName} ${
-          isOverflow ? "will-change-transform" : ""
-        }`}
-        style={
-          isOverflow
-            ? ({
-                ["--marquee-distance" as string]: `${overflowPx}px`,
-                animation: `marquee-x ${durationSec}s ease-in-out infinite`,
-              } as React.CSSProperties)
-            : undefined
-        }
+        ref={measureRef}
+        className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${textClassName}`}
+        aria-hidden
       >
         {text}
       </span>
+
+      {isOverflow ? (
+        <div
+          className="flex w-max will-change-transform"
+          style={
+            {
+              ["--marquee-distance" as string]: `${loopDistance}px`,
+              animation: `marquee-x ${durationSec}s linear infinite`,
+            } as React.CSSProperties
+          }
+        >
+          <span className={`inline-block max-w-none whitespace-nowrap ${textClassName}`}>
+            {text}
+          </span>
+          <span
+            className={`inline-block max-w-none whitespace-nowrap ${textClassName}`}
+            style={{ paddingLeft: gapPx }}
+            aria-hidden
+          >
+            {text}
+          </span>
+        </div>
+      ) : (
+        <span className={`inline-block max-w-none whitespace-nowrap ${textClassName}`}>
+          {text}
+        </span>
+      )}
     </div>
   );
 };

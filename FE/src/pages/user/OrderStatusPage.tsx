@@ -4,7 +4,11 @@ import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
-import type { Order } from "../../types/user";
+import ReadyConfetti from "../../components/user/ReadyConfetti";
+import type { Order, OrderStatus } from "../../types/user";
+
+/** READY 전환 confetti를 주문 현황 화면에서 볼 수 있도록, 완료 페이지 이동만 짧게 보류 */
+const READY_CONFETTI_HOLD_MS = 2800;
 
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -14,11 +18,16 @@ export const OrderStatusPage: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
   const [error, setError] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // 최신 콜백 및 네비게이트 함수를 Ref로 유지하여 useEffect 재실행 차단
   const saveOrderToStateRef = useRef(saveOrderToState);
   const addNotificationRef = useRef(addNotification);
   const navigateRef = useRef(navigate);
+  /** null = 아직 서버/폴링 상태를 한 번도 받지 않음 (이미 READY인 진입은 confetti 금지) */
+  const prevStatusRef = useRef<OrderStatus | null>(null);
+  const readyConfettiFiredRef = useRef(false);
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     saveOrderToStateRef.current = saveOrderToState;
@@ -43,6 +52,13 @@ export const OrderStatusPage: React.FC = () => {
 
     // 주문마다 알림 플래그 초기화 (이전 주문 상태가 새 주문을 막지 않도록)
     alertSentRef.current = { preparing: false, ready: false, canceled: false };
+    prevStatusRef.current = null;
+    readyConfettiFiredRef.current = false;
+    setShowConfetti(false);
+    if (navigateTimerRef.current) {
+      clearTimeout(navigateTimerRef.current);
+      navigateTimerRef.current = null;
+    }
 
     // 준비완료 Web Push 대상 주문으로 현재 구독 연결 (다중 주문 누적)
     void linkPushSubscriptionToOrder(orderId);
@@ -50,6 +66,30 @@ export const OrderStatusPage: React.FC = () => {
     let isMounted = true;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     const isFetchingRef = { current: false };
+
+    /** READY(또는 COMPLETED)로 막 전환된 최초 순간에만 true */
+    const noteReadyTransition = (nextStatus: OrderStatus): boolean => {
+      const prev = prevStatusRef.current;
+      const isReadyLike = nextStatus === "READY" || nextStatus === "COMPLETED";
+      let shouldCelebrate = false;
+
+      if (prev !== null && prev !== "READY" && prev !== "COMPLETED" && isReadyLike) {
+        if (!readyConfettiFiredRef.current) {
+          readyConfettiFiredRef.current = true;
+          shouldCelebrate = true;
+        }
+      } else if (prev !== null && !isReadyLike && (prev === "READY" || prev === "COMPLETED")) {
+        // READY를 벗어난 뒤 다시 READY가 되면 재실행 가능
+        readyConfettiFiredRef.current = false;
+      }
+
+      prevStatusRef.current = nextStatus;
+      return shouldCelebrate;
+    };
+
+    const goToComplete = () => {
+      navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
+    };
 
     const fetchOrderDetails = async () => {
       if (isFetchingRef.current) return;
@@ -60,6 +100,10 @@ export const OrderStatusPage: React.FC = () => {
         if (!isMounted) return;
 
         const updatedOrder = mapOrderDetailToOrder(res);
+        const shouldCelebrate = noteReadyTransition(updatedOrder.status);
+        if (shouldCelebrate) {
+          setShowConfetti(true);
+        }
         setOrder(updatedOrder);
         saveOrderToStateRef.current(updatedOrder);
         setLoading(false);
@@ -88,7 +132,18 @@ export const OrderStatusPage: React.FC = () => {
           }
 
           if (intervalId) clearInterval(intervalId);
-          navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
+
+          // confetti를 주문 현황에서 보여 준 뒤에만 완료 페이지로 이동 (기존 진입·새로고침은 즉시 이동)
+          if (shouldCelebrate) {
+            if (!navigateTimerRef.current) {
+              navigateTimerRef.current = setTimeout(() => {
+                navigateTimerRef.current = null;
+                goToComplete();
+              }, READY_CONFETTI_HOLD_MS);
+            }
+          } else if (!navigateTimerRef.current) {
+            goToComplete();
+          }
           return;
         }
 
@@ -123,6 +178,10 @@ export const OrderStatusPage: React.FC = () => {
     return () => {
       isMounted = false;
       if (intervalId) clearInterval(intervalId);
+      if (navigateTimerRef.current) {
+        clearTimeout(navigateTimerRef.current);
+        navigateTimerRef.current = null;
+      }
     };
   }, [orderId]);
 
@@ -164,7 +223,9 @@ export const OrderStatusPage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
+    <div className="relative flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
+      <ReadyConfetti active={showConfetti} onDone={() => setShowConfetti(false)} />
+
       <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2">
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">내 대기번호</p>
         <h2

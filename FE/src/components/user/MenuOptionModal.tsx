@@ -32,8 +32,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // SIZE 그룹 중 기본 선택값 찾기
   const sizeOptions = menuDetail.options.filter((o) => o.groupType === "SIZE");
@@ -58,8 +60,21 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       if (warningTimeoutRef.current) {
         clearTimeout(warningTimeoutRef.current);
       }
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
     };
   }, []);
+
+  const requestClose = (afterClose?: () => void) => {
+    if (isClosing) return;
+    setIsClosing(true);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      afterClose?.();
+      onClose();
+    }, 260);
+  };
 
   const handleMenuQtyChange = (val: number) => {
     setQuantity((prev) => Math.max(1, prev + val));
@@ -156,6 +171,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const totalPrice = singlePrice * quantity;
 
   const handleSubmit = () => {
+    if (isClosing) return;
     const finalOptions: MenuOption[] = [];
 
     if (selectedSizeId !== undefined) {
@@ -172,7 +188,12 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       }
     });
 
-    onAddToCart(finalOptions, quantity);
+    // 닫힘 애니메이션 후 담기 — 부모 onAddToCart가 모달을 언마운트함
+    setIsClosing(true);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      onAddToCart(finalOptions, quantity);
+    }, 260);
   };
 
   const toppingAddOptions = otherOptions.filter((o) => o.groupType === "TOPPING_ADD");
@@ -180,11 +201,19 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
   return (
-    <div className="absolute inset-0 bg-black/40 z-[60] flex flex-col justify-end">
-      <div className="flex-1" onClick={onClose}></div>
+    <div
+      className={`absolute inset-0 z-[60] flex flex-col justify-end bg-black/40 transition-opacity duration-[260ms] ${
+        isClosing ? "opacity-0" : "animate-fade-in"
+      }`}
+    >
+      <div className="flex-1" onClick={() => requestClose()}></div>
 
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
-      <div className="bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100">
+      <div
+        className={`bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
+          isClosing ? "animate-sheet-out" : "animate-sheet-in"
+        }`}
+      >
         {/* 헤더 */}
         <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
           <div>
@@ -194,7 +223,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => requestClose()}
             className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
             aria-label="닫기"
           >
