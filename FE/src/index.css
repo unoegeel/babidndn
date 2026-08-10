@@ -144,27 +144,23 @@ label {
   }
 }
 
-/* viewport 하단 중앙 한 점 → 강한 상승 → 상단 방사형 확산 (전 조각 delay 0) */
+/* viewport 하단 중앙 한 점 → 강한 상승 → 상단 방사형 확산 (전 조각 delay 0)
+   최고점은 100%에만 두어 rise 끝과 fall 시작이 바로 이어지게 함 */
 @keyframes confetti-rise {
   0%,
   6% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  16% {
+  22% {
     opacity: 1;
     transform: translate3d(var(--launch-x, 0), var(--launch-y, -38vh), 0)
       rotate(calc(var(--spin-mid, 180deg) * 0.15));
   }
-  26% {
+  48% {
     opacity: 1;
     transform: translate3d(var(--open-x, 0), var(--open-y, -72vh), 0)
       rotate(calc(var(--spin-mid, 180deg) * 0.55));
-  }
-  38% {
-    opacity: 1;
-    transform: translate3d(var(--cx, 0), var(--peak-y, -90vh), 0)
-      rotate(var(--spin-mid, 180deg));
   }
   100% {
     opacity: 1;
@@ -173,7 +169,8 @@ label {
   }
 }
 
-/* 최고점 이후 천천히 낙하 + 좌우 살랑거림 */
+/* 최고점 이후 천천히 낙하 + 좌우 살랑거림
+   초반(0%~14%) Y 이동을 키워 최고점 직후 정지감 제거 — duration/후반 속도는 유지 */
 @keyframes confetti-fall {
   0% {
     opacity: 1;
@@ -184,7 +181,7 @@ label {
     opacity: 1;
     transform: translate3d(
         var(--sway1, 2vw),
-        calc(var(--peak-y, -85vh) * 0.9),
+        calc(var(--peak-y, -85vh) * 0.72),
         0
       )
       rotate(calc(var(--spin-mid, 180deg) + 40deg));
@@ -193,7 +190,7 @@ label {
     opacity: 1;
     transform: translate3d(
         var(--sway2, -2vw),
-        calc(var(--peak-y, -85vh) * 0.58),
+        calc(var(--peak-y, -85vh) * 0.48),
         0
       )
       rotate(calc(var(--spin-mid, 180deg) + 100deg));
