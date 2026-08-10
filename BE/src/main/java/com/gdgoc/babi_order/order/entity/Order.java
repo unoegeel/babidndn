@@ -80,6 +80,15 @@ public class Order {
         this.status = nextStatus;
     }
 
+    /**
+     * 호출/재호출 시 updatedAt을 강제 갱신합니다.
+     * READY→READY(재호출)는 status 값이 같아 Hibernate dirty 체크에 안 잡힐 수 있어
+     * 고객 FE 폴링이 재호출을 구분하려면 타임스탬프를 명시적으로 올려야 합니다.
+     */
+    public void touchUpdatedAt() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public boolean hasPickupNumber() {
         return pickupNumber != null && pickupNumber > UNASSIGNED_PICKUP_NUMBER;
     }

@@ -5,6 +5,7 @@ import { orderService, mapOrderDetailToOrder } from "../../services/user/orderSe
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import ReadyConfetti from "../../components/user/ReadyConfetti";
+import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
 import type { Order, OrderStatus } from "../../types/user";
 
 /** READY 전환 confetti를 주문 현황 화면에서 볼 수 있도록, 완료 페이지 이동만 짧게 보류 */
@@ -13,7 +14,7 @@ const READY_CONFETTI_HOLD_MS = 2800;
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, addNotification } = useUserData();
+  const { getOrderById, saveOrderToState, addNotification, readyCallSignal } = useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
@@ -28,12 +29,22 @@ export const OrderStatusPage: React.FC = () => {
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const readyConfettiFiredRef = useRef(false);
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRecallConfettiAtRef = useRef<string | null>(null);
 
   useEffect(() => {
     saveOrderToStateRef.current = saveOrderToState;
     addNotificationRef.current = addNotification;
     navigateRef.current = navigate;
   });
+
+  // 재호출 시그널 (컨텍스트 폴링) — 현황 화면에 남아 있는 동안 Confetti 재실행
+  useEffect(() => {
+    if (!orderId || !readyCallSignal?.isRecall) return;
+    if (readyCallSignal.orderId !== orderId) return;
+    if (!claimReadyConfetti(orderId, readyCallSignal.updatedAt)) return;
+    lastRecallConfettiAtRef.current = readyCallSignal.updatedAt;
+    setShowConfetti(true);
+  }, [readyCallSignal, orderId]);
 
   // 알림 중복 발송 방지용 Ref
   const alertSentRef = useRef<{ preparing: boolean; ready: boolean; canceled: boolean }>({
@@ -102,6 +113,10 @@ export const OrderStatusPage: React.FC = () => {
         const updatedOrder = mapOrderDetailToOrder(res);
         const shouldCelebrate = noteReadyTransition(updatedOrder.status);
         if (shouldCelebrate) {
+          if (updatedOrder.updatedAt) {
+            claimReadyCall(orderId, updatedOrder.updatedAt);
+            claimReadyConfetti(orderId, updatedOrder.updatedAt);
+          }
           setShowConfetti(true);
         }
         setOrder(updatedOrder);

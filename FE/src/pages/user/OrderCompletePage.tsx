@@ -1,17 +1,38 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
+import ReadyConfetti from "../../components/user/ReadyConfetti";
+import { claimReadyConfetti } from "../../utils/readyCall";
 import type { Order } from "../../types/user";
 
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState } = useUserData();
+  const { getOrderById, saveOrderToState, readyCallSignal, orders } = useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
   const [loading, setLoading] = useState<boolean>(!order);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const lastRecallConfettiAtRef = useRef<string | null>(null);
+
+  // 컨텍스트 폴링으로 갱신된 주문 반영
+  useEffect(() => {
+    if (!orderId) return;
+    const latest = getOrderById(orderId);
+    if (latest) setOrder(latest);
+  }, [orderId, orders, getOrderById]);
+
+  // 재호출 시그널 → Confetti (주문 현황/완료 화면)
+  useEffect(() => {
+    if (!orderId || !readyCallSignal) return;
+    if (!readyCallSignal.isRecall) return;
+    if (readyCallSignal.orderId !== orderId) return;
+    if (!claimReadyConfetti(orderId, readyCallSignal.updatedAt)) return;
+    lastRecallConfettiAtRef.current = readyCallSignal.updatedAt;
+    setShowConfetti(true);
+  }, [readyCallSignal, orderId]);
 
   useEffect(() => {
     if (!orderId) {
@@ -47,7 +68,9 @@ export const OrderCompletePage: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
+    <div className="relative flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
+      <ReadyConfetti active={showConfetti} onDone={() => setShowConfetti(false)} />
+
       {/* 1. 스크롤 가능한 상단 주문 현황 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-6">
         {/* 대기번호 */}

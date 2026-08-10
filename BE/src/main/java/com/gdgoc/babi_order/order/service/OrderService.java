@@ -154,6 +154,10 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         validateStatusTransition(order.getStatus(), nextStatus);
         order.changeStatus(nextStatus);
+        // 최초 READY 전환·재호출(READY→READY) 모두 updatedAt을 갱신해 고객 폴링이 감지할 수 있게 함
+        if (nextStatus == OrderStatus.READY) {
+            order.touchUpdatedAt();
+        }
 
         PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
                 .map(Payment::getStatus)

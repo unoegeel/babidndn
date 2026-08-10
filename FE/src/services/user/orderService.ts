@@ -105,6 +105,7 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
         ? "CANCELED"
         : res.status,
     createdAt: formattedDate,
+    updatedAt: res.updatedAt || undefined,
     pickupNumber: String(res.pickupNumber),
     waitingCount,
     // 앞 대기 1명당 약 2분, 앞 대기가 없으면 약 1분

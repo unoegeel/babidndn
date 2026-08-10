@@ -43,6 +43,22 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
   const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
   const [entering, setEntering] = useState(false);
 
+  useEffect(() => {
+    const onUndismiss = (e: Event) => {
+      const orderId = (e as CustomEvent<{ orderId: string }>).detail?.orderId;
+      if (!orderId) return;
+      setDismissed((prev) => {
+        if (!prev.has(orderId)) return prev;
+        const next = new Set(prev);
+        next.delete(orderId);
+        persistDismissed(next);
+        return next;
+      });
+    };
+    window.addEventListener("babi-ready-banner-undismiss", onUndismiss);
+    return () => window.removeEventListener("babi-ready-banner-undismiss", onUndismiss);
+  }, []);
+
   const visibleOrders = readyOrders.filter((o) => !dismissed.has(o.orderId));
 
   useEffect(() => {
