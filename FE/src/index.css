@@ -135,59 +135,71 @@ label {
   }
 }
 
-/* 하단 폭죽 발사(짧게) → 최고점 이후 천천히 좌우 흔들리며 낙하 */
+/* 하단 중앙 발사 → 상단 폭발 확산 → 천천히 좌우 흔들리며 낙하 */
 @keyframes confetti-burst {
   0% {
     opacity: 1;
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  /* 빠른 상승 (전체의 ~11%) */
-  11% {
+  /* 기둥처럼 중앙에서 강하게 상승 (아직 좁게) */
+  5% {
     opacity: 1;
-    transform: translate3d(var(--cx, 0px), var(--peak-y, -45vh), 0)
+    transform: translate3d(var(--launch-x, 0), var(--launch-y, -40vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.25));
+  }
+  /* 올라가며 좌우로 벌어지기 시작 */
+  9% {
+    opacity: 1;
+    transform: translate3d(var(--open-x, 0), var(--open-y, -70vh), 0)
+      rotate(calc(var(--spin-mid, 180deg) * 0.7));
+  }
+  /* 화면 상단 근처에서 사방 폭발 */
+  13% {
+    opacity: 1;
+    transform: translate3d(var(--cx, 0), var(--peak-y, -85vh), 0)
       rotate(var(--spin-mid, 180deg));
   }
-  /* 최고점 잠시 머문 뒤 천천히 낙하 + 좌우 살랑거림 */
-  22% {
+  /* 최고점 이후 천천히 낙하 + 좌우 살랑거림 */
+  24% {
     opacity: 1;
     transform: translate3d(
-        var(--sway1, 12px),
-        calc(var(--peak-y, -45vh) * 0.88),
+        var(--sway1, 2vw),
+        calc(var(--peak-y, -85vh) * 0.9),
         0
       )
       rotate(calc(var(--spin-mid, 180deg) + 40deg));
   }
-  38% {
+  40% {
     opacity: 1;
     transform: translate3d(
-        var(--sway2, -14px),
-        calc(var(--peak-y, -45vh) * 0.58),
+        var(--sway2, -2vw),
+        calc(var(--peak-y, -85vh) * 0.58),
         0
       )
       rotate(calc(var(--spin-mid, 180deg) + 100deg));
   }
-  54% {
+  56% {
     opacity: 1;
     transform: translate3d(
-        var(--sway3, 10px),
-        calc(var(--peak-y, -45vh) * 0.28),
+        var(--sway3, 1vw),
+        calc(var(--peak-y, -85vh) * 0.26),
         0
       )
       rotate(calc(var(--spin-end, 540deg) * 0.45));
   }
-  70% {
+  72% {
     opacity: 0.95;
     transform: translate3d(
-        var(--sway1, 12px),
+        var(--sway1, 2vw),
         calc(var(--fall-y, 40vh) * 0.08),
         0
       )
       rotate(calc(var(--spin-end, 540deg) * 0.62));
   }
-  85% {
+  86% {
     opacity: 0.75;
     transform: translate3d(
-        var(--sway2, -14px),
+        var(--sway2, -2vw),
         calc(var(--fall-y, 40vh) * 0.55),
         0
       )
@@ -195,7 +207,7 @@ label {
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--cx2, 0px), var(--fall-y, 40vh), 0)
+    transform: translate3d(var(--cx2, 0), var(--fall-y, 40vh), 0)
       rotate(var(--spin-end, 540deg));
   }
 }

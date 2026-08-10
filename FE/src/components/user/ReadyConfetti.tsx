@@ -15,17 +15,20 @@ const COLORS = [
   "#fbbf24",
 ];
 
-/** 하단 발사 지점 (폭죽처럼 여러 곳에서) */
-const ORIGINS = [18, 35, 50, 65, 82];
-
 interface Piece {
   id: number;
-  left: string;
   delay: string;
   duration: string;
   width: number;
   height: number;
   color: string;
+  /** 발사 직후 살짝만 벌어짐 (기둥처럼 상승) */
+  launchX: string;
+  launchY: string;
+  /** 상승 중 벌어지기 시작 */
+  openX: string;
+  openY: string;
+  /** 상단 폭발 지점 X (넓게 확산) */
   cx: string;
   sway1: string;
   sway2: string;
@@ -52,7 +55,7 @@ interface ReadyConfettiProps {
 /** Strict Mode 리마운트·effect 재실행에도 동일 playKey 발사를 한 번만 허용 */
 let lastModulePlayKey: string | null = null;
 
-/** 다색 confetti — 하단 폭죽 발사 후 천천히 살랑거리며 낙하 (CSS only) */
+/** 다색 confetti — 하단 중앙 폭죽 발사 → 상단 확산 → 천천히 살랑거리며 낙하 */
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
@@ -63,30 +66,41 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
   }, [onDone]);
 
   const pieces = useMemo<Piece[]>(() => {
-    return Array.from({ length: 44 }, (_, i) => {
-      const origin = ORIGINS[i % ORIGINS.length];
-      const drift = (Math.random() - 0.5) * (130 + Math.random() * 90);
-      const swayAmp = 18 + Math.random() * 42;
+    return Array.from({ length: 48 }, (_, i) => {
+      // 상단 전체를 쓰도록 좌우로 넓게 퍼지되, 높이·각도는 조각마다 다르게
+      const angleBias = (i / 47) * 2 - 1; // -1 … 1 균등 분배 후 랜덤 섞음
+      const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
+      const burstXVw = Math.max(-48, Math.min(48, spread));
+      // 일부는 상단 가까이, 일부는 조금 낮은 폭발점
+      const peak = -(62 + Math.random() * 34); // -62vh … -96vh
+      const launchY = peak * (0.42 + Math.random() * 0.12); // 상승 중반 (아직 좁게)
+      const launchX = burstXVw * (0.08 + Math.random() * 0.1);
+      const openX = burstXVw * (0.4 + Math.random() * 0.12);
+      const openY = peak * (0.78 + Math.random() * 0.08);
+
+      const swayAmp = 2.2 + Math.random() * 4.5; // vw
       const dir = Math.random() > 0.5 ? 1 : -1;
       const width = 5 + Math.floor(Math.random() * 7);
-      const peak = -(34 + Math.random() * 38);
-      // 시작점(bottom)보다 아래로 충분히 내려가며 천천히 사라짐
-      const fall = 35 + Math.random() * 45;
+      const fall = 28 + Math.random() * 48;
       const spin = 160 + Math.random() * 380;
+
       return {
         id: i,
-        left: `${origin + (Math.random() - 0.5) * 10}%`,
-        delay: `${Math.random() * 0.22}s`,
-        // 낙하 구간이 길도록 전체 시간을 충분히 확보
+        // 한 폭죽처럼 거의 동시에 발사
+        delay: `${Math.random() * 0.06}s`,
         duration: `${5.2 + Math.random() * 2.6}s`,
         width,
         height: width * (0.5 + Math.random() * 0.9),
         color: COLORS[i % COLORS.length],
-        cx: `${drift}px`,
-        sway1: `${drift + dir * swayAmp}px`,
-        sway2: `${drift - dir * swayAmp * (0.6 + Math.random() * 0.5)}px`,
-        sway3: `${drift + dir * swayAmp * (0.35 + Math.random() * 0.4)}px`,
-        cx2: `${drift + (Math.random() - 0.5) * 50}px`,
+        launchX: `${launchX}vw`,
+        launchY: `${launchY}vh`,
+        openX: `${openX}vw`,
+        openY: `${openY}vh`,
+        cx: `${burstXVw}vw`,
+        sway1: `${burstXVw + dir * swayAmp}vw`,
+        sway2: `${burstXVw - dir * swayAmp * (0.55 + Math.random() * 0.45)}vw`,
+        sway3: `${burstXVw + dir * swayAmp * (0.3 + Math.random() * 0.4)}vw`,
+        cx2: `${burstXVw + (Math.random() - 0.5) * 8}vw`,
         peakY: `${peak}vh`,
         fallY: `${fall}vh`,
         spinMid: `${spin * 0.35}deg`,
@@ -113,7 +127,6 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
 
     setVisible(true);
 
-    // 조각 duration 최대(~7.8s) + delay 여유
     const timer = window.setTimeout(() => {
       setVisible(false);
       if (lastModulePlayKey === key) {
@@ -137,14 +150,18 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
       {pieces.map((p) => (
         <span
           key={`${burstKey}-${p.id}`}
-          className="absolute bottom-[4%] block will-change-transform"
+          className="absolute bottom-[3%] left-1/2 block will-change-transform"
           style={
             {
-              left: p.left,
               width: p.width,
               height: p.height,
+              marginLeft: -p.width / 2,
               backgroundColor: p.color,
               borderRadius: p.radius,
+              ["--launch-x" as string]: p.launchX,
+              ["--launch-y" as string]: p.launchY,
+              ["--open-x" as string]: p.openX,
+              ["--open-y" as string]: p.openY,
               ["--cx" as string]: p.cx,
               ["--sway1" as string]: p.sway1,
               ["--sway2" as string]: p.sway2,
@@ -154,7 +171,6 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
               ["--fall-y" as string]: p.fallY,
               ["--spin-mid" as string]: p.spinMid,
               ["--spin-end" as string]: p.spinEnd,
-              // linear: 키프레임 %로 상승(짧게)·낙하(길게) 타이밍 제어
               animation: `confetti-burst ${p.duration} linear ${p.delay} both`,
             } as React.CSSProperties
           }
