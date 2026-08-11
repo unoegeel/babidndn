@@ -581,7 +581,7 @@ function PaymentDetailPanel({
                 {downloading === "pdf" ? "저장 중..." : "PDF 저장"}
               </button>
               <p className="max-w-[220px] text-[12px] leading-relaxed text-black/45">
-                실물 프린터 연동은 다음 단계에서 연결됩니다.
+                관리자 프린터 앱에서 USB 영수증 프린터로 출력합니다.
               </p>
             </div>
           </div>
