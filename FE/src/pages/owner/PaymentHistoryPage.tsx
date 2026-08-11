@@ -626,9 +626,6 @@ function ReceiptPopup({
               {downloading === "pdf" ? "저장 중..." : "PDF 저장"}
             </button>
           </div>
-          <p className="text-center text-[12px] leading-relaxed text-black/45">
-            관리자 프린터 앱에서 USB 영수증 프린터로 출력합니다.
-          </p>
         </div>
       </div>
     </div>
