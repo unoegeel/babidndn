@@ -20,12 +20,20 @@ export default function UserGuidePage() {
             <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">
               {item.description}
             </p>
-            {/* 2열 그리드: 2장은 좌우, 1장도 동일 열 너비(카드의 절반) */}
-            <div className="mt-3 grid grid-cols-2 items-start gap-2">
+            {/* 2장: 좌우 배치 / 1장: 동일 너비로 가운데 정렬 */}
+            <div
+              className={
+                item.images.length > 1
+                  ? "mt-3 grid grid-cols-2 items-start gap-2"
+                  : "mt-3 flex justify-center"
+              }
+            >
               {item.images.map((image) => (
                 <div
                   key={image.src}
-                  className="min-w-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
+                  className={`min-w-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 ${
+                    item.images.length === 1 ? "w-1/2" : ""
+                  }`}
                 >
                   <img
                     src={image.src}
