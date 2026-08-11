@@ -56,10 +56,13 @@ export const UserShell: React.FC = () => {
   const isCheckoutPage = pathname === "/user/checkout" || pathname === "/user/checkout/";
   const isOrderHistoryPage = pathname === "/user/orders" || pathname === "/user/orders/";
   const isReviewPage = pathname === "/user/reviews" || pathname === "/user/reviews/";
+  const isGuidePage = pathname === "/user/guide" || pathname === "/user/guide/";
   const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
-  const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
+  const isReceiptPage = pathname.endsWith("/receipt") || pathname.endsWith("/receipt/");
+  const isStatusPage =
+    pathname.includes("/orders/") && !isCompletePage && !isReceiptPage && !isOrderHistoryPage;
   /** OrderStatusPage(`/user/orders/:id`) + OrderCompletePage(`/user/orders/:id/complete`) */
   const isOrderReadyFlow = isStatusPage || isCompletePage;
 
@@ -126,8 +129,10 @@ export const UserShell: React.FC = () => {
   if (isOrderHistoryPage) headerTitle = "최근 주문 내역";
   if (isNoticesPage) headerTitle = "공지사항";
   if (isReviewPage) headerTitle = "리뷰";
+  if (isGuidePage) headerTitle = "사용 가이드";
   if (isContactPage) headerTitle = "서비스 문의";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
+  if (isReceiptPage) headerTitle = "전자영수증";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
   useEffect(() => {
@@ -442,10 +447,19 @@ export const UserShell: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    handleRequestNotification();
+                    navigate("/user/guide");
                     closeDrawer();
                   }}
                   className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer border-t border-gray-100 mt-4 pt-4"
+                >
+                  사용 가이드
+                </button>
+                <button
+                  onClick={() => {
+                    handleRequestNotification();
+                    closeDrawer();
+                  }}
+                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   브라우저 알림 설정
                 </button>

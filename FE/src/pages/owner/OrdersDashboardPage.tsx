@@ -9,6 +9,7 @@ declare global {
   interface Window {
     Android?: {
       printKitchenTicket: (orderJson: string) => void;
+      printCustomerReceipt?: (receiptJson: string) => void;
     };
   }
 }

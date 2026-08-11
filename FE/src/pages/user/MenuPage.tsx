@@ -328,13 +328,13 @@ export const MenuPage: React.FC = () => {
           <button
             disabled={totalCartItems === 0}
             onClick={() => totalCartItems > 0 && navigate("/user/cart")}
-            className={`py-3 px-6 rounded-xl font-bold text-xs transition-all border ${
+            className={`py-3 px-6 rounded-xl font-bold text-[13px] transition-all border ${
               totalCartItems === 0
                 ? "bg-[#D8B47E]/40 text-[#D8B47E]/60 border-transparent cursor-not-allowed"
                 : "bg-[#D8B47E] text-white border-[#D8B47E] hover:bg-[#C59B62] cursor-pointer"
             }`}
           >
-            결제하기
+            장바구니 보기
           </button>
         </div>
       </div>

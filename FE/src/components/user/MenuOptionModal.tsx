@@ -7,18 +7,17 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
-/** 토핑명을 1줄로 유지하되, 최소 10px 이상으로 가독성을 확보합니다. */
+/** 토핑 추가명: 길이에 따라 11/10/9px. 선택 시 -/+ 로 폭이 좁아지면 한 단계 더 작게. */
 function toppingNameFontClass(name: string, withQtyControls: boolean): string {
-  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음 — 넘치면 truncate에 맡김
   const len = name.length;
   if (withQtyControls) {
-    if (len <= 4) return "text-[12px]";
-    if (len <= 6) return "text-[11px]";
-    return "text-[10px]";
+    if (len <= 4) return "text-[11px]";
+    if (len <= 6) return "text-[10px]";
+    return "text-[9px]";
   }
-  if (len <= 5) return "text-[12px]";
-  if (len <= 8) return "text-[11px]";
-  return "text-[10px]";
+  if (len <= 5) return "text-[11px]";
+  if (len <= 8) return "text-[10px]";
+  return "text-[9px]";
 }
 
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
@@ -288,8 +287,8 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {toppingAddOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
-              {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto·타이틀에 잘리지 않도록 여유 확보 */}
-              <div className="-mx-1 overflow-x-auto px-0.5 pb-0.5 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {/* overflow-x-auto는 세로도 clip → 배지(-top/-right 1.5 = 6px)보다 큰 padding으로 잘림 방지 */}
+              <div className="-mx-1 overflow-x-auto px-1.5 pb-1.5 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex w-max gap-2 px-1.5">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
@@ -476,7 +475,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           <button
             onClick={handleSubmit}
-            className="w-full bg-black text-white py-3.5 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
+            className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-3.5 text-center text-sm font-bold text-white transition-colors hover:bg-[#C59B62]"
           >
             장바구니 담기 · {totalPrice.toLocaleString()} 원
           </button>

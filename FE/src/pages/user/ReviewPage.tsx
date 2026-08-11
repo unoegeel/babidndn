@@ -80,7 +80,7 @@ export default function ReviewPage() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#C59B62] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? "전송 중…" : "의견 보내기"}
             </button>

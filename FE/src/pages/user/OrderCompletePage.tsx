@@ -161,6 +161,14 @@ export const OrderCompletePage: React.FC = () => {
               })}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
+            className="w-full cursor-pointer rounded-2xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
+          >
+            전자영수증
+          </button>
         </div>
       </div>
 
@@ -176,7 +184,7 @@ export const OrderCompletePage: React.FC = () => {
             stopConfetti();
             navigate("/user");
           }}
-          className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm transition-colors hover:bg-gray-800 cursor-pointer text-center shadow-md"
+          className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-4 text-center text-sm font-bold text-white shadow-md transition-colors hover:bg-[#C59B62]"
         >
           처음 화면으로 이동
         </button>

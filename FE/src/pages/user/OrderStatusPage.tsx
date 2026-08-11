@@ -377,6 +377,14 @@ export const OrderStatusPage: React.FC = () => {
             })}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
+          className="w-full cursor-pointer rounded-2xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
+        >
+          전자영수증
+        </button>
       </div>
 
       {!isCanceled && (
