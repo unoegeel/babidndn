@@ -74,6 +74,8 @@ interface AdminDataValue {
   pickupOrder: (orderId: string) => Promise<void>;
 
   // 결제 내역
+  /** 캐시된 서버 결제 정보 (영수증 등 — null이면 결제 없음, undefined면 미조회) */
+  getPaymentByOrderId: (orderId: string | number) => PaymentResponse | null | undefined;
   /**
    * 결제 취소
    * @returns 취소 성공 여부
@@ -450,6 +452,10 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     return orderDetailCacheRef.current.get(Number(orderId));
   }, []);
 
+  const getPaymentByOrderId = useCallback((orderId: string | number) => {
+    return paymentCacheRef.current.get(Number(orderId));
+  }, []);
+
   const cookItems = useCallback(
     async (orderId: string, itemIds: string[]) => {
       // 조리 체크는 주방 화면 전용. 고객 준비완료(READY)는 '호출'에서만 반영합니다.
@@ -653,6 +659,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       deleteMenu,
       getMenuDetail,
       getOrderDetail,
+      getPaymentByOrderId,
       cookItems,
       callOrder,
       pickupOrder,
@@ -676,6 +683,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       deleteMenu,
       getMenuDetail,
       getOrderDetail,
+      getPaymentByOrderId,
       cookItems,
       callOrder,
       pickupOrder,
