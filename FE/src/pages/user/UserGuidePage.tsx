@@ -9,9 +9,6 @@ export default function UserGuidePage() {
     <div className="flex h-full flex-col overflow-y-auto bg-gray-50/30 px-4 py-5">
       <div className="mb-4">
         <h2 className="text-base font-bold text-gray-900">사용 가이드</h2>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">
-          바비오더로 주문하는 방법을 단계별로 안내합니다.
-        </p>
       </div>
 
       <ol className="space-y-3 pb-2">

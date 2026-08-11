@@ -59,11 +59,11 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
   {
     step: 5,
     title: "결제하기 진입",
-    description: "장바구니에 원하는 상품을 담은 후 우측 하단의 결제하기 버튼을 눌러주세요!",
+    description: "장바구니에 원하는 상품을 담은 후 결제하기 버튼을 눌러주세요!",
     images: [
       {
         src: "/guide/guide_step_5.png",
-        alt: "장바구니에 원하는 상품을 담은 후 우측 하단의 결제하기 버튼을 눌러주세요!",
+        alt: "장바구니에 원하는 상품을 담은 후 결제하기 버튼을 눌러주세요!",
       },
     ],
   },
@@ -81,11 +81,11 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
   {
     step: 7,
     title: "결제수단·결제",
-    description: "원하는 결제수단을 선택 후 하단의 결제하기 버튼을 눌러 결제해주세요!",
+    description: "원하는 결제수단을 선택 후 결제하기 버튼을 눌러 결제해주세요!",
     images: [
       {
         src: "/guide/guide_step_7.png",
-        alt: "원하는 결제수단을 선택 후 하단의 결제하기 버튼을 눌러 결제해주세요!",
+        alt: "원하는 결제수단을 선택 후 결제하기 버튼을 눌러 결제해주세요!",
       },
     ],
   },
@@ -108,11 +108,11 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
     step: 9,
     title: "대기 중 메뉴·알림",
     description:
-      "음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요! 준비되면 알림이 뜹니다!",
+      "음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요! <br/> 준비되면 알림이 뜹니다!",
     images: [
       {
         src: "/guide/guide_step_9.png",
-        alt: "음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요! 준비되면 알림이 뜹니다!",
+        alt: "음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요! <br/> 준비되면 알림이 뜹니다!",
       },
     ],
   },
@@ -120,7 +120,7 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
     step: 10,
     title: "리뷰·서비스 문의",
     description:
-      "사장님께 전달하고 싶으신 의견은 리뷰로! 서비스 이용에 관한 의견은 서비스 문의로! 말씀해주세요!",
+      "사장님께 전달하고 싶으신 의견은 리뷰로! <br/> 서비스 이용에 관한 의견은 서비스 문의로! 말씀해주세요!",
     images: [
       {
         src: "/guide/guide_step_10-1.png",
