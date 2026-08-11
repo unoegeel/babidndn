@@ -128,9 +128,12 @@ export const OrderReceiptPage: React.FC = () => {
       </div>
 
       <div
-        className="shrink-0 space-y-2 border-t border-gray-200 bg-white px-4 pt-3"
-        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+        className="shrink-0 border-t border-gray-200 bg-white px-4 pt-5"
+        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
       >
+        <p className="mb-4 text-center text-[11px] font-medium leading-relaxed text-gray-500">
+          실물 영수증은 매장에 문의해주세요.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
