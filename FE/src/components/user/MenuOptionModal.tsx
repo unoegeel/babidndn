@@ -7,18 +7,17 @@ interface MenuOptionModalProps {
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
 
-/** 토핑명을 1줄로 유지하되, 최소 10px 이상으로 가독성을 확보합니다. */
+/** 토핑 추가명: 길이에 따라 11/10/9px. 선택 시 -/+ 로 폭이 좁아지면 한 단계 더 작게. */
 function toppingNameFontClass(name: string, withQtyControls: boolean): string {
-  // 선택 시 -/+ 때문에 이름 가용 폭이 더 좁음 — 넘치면 truncate에 맡김
   const len = name.length;
   if (withQtyControls) {
-    if (len <= 4) return "text-[12px]";
-    if (len <= 6) return "text-[11px]";
-    return "text-[10px]";
+    if (len <= 4) return "text-[11px]";
+    if (len <= 6) return "text-[10px]";
+    return "text-[9px]";
   }
-  if (len <= 5) return "text-[12px]";
-  if (len <= 8) return "text-[11px]";
-  return "text-[10px]";
+  if (len <= 5) return "text-[11px]";
+  if (len <= 8) return "text-[10px]";
+  return "text-[9px]";
 }
 
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
