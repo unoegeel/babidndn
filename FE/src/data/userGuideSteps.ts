@@ -58,12 +58,12 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
   },
   {
     step: 5,
-    title: "결제하기 진입",
-    description: "장바구니에 원하는 상품을 담은 후 결제하기 버튼을 눌러주세요!",
+    title: "장바구니 진입",
+    description: "원하는 상품을 담은 후 장바구니 보기 버튼을 눌러주세요!",
     images: [
       {
         src: "/guide/guide_step_5.png",
-        alt: "장바구니에 원하는 상품을 담은 후 결제하기 버튼을 눌러주세요!",
+        alt: "원하는 상품을 담은 후 장바구니 보기 버튼을 눌러주세요!",
       },
     ],
   },
