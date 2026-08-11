@@ -59,7 +59,9 @@ export const UserShell: React.FC = () => {
   const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
-  const isStatusPage = pathname.includes("/orders/") && !isCompletePage && !isOrderHistoryPage;
+  const isReceiptPage = pathname.endsWith("/receipt") || pathname.endsWith("/receipt/");
+  const isStatusPage =
+    pathname.includes("/orders/") && !isCompletePage && !isReceiptPage && !isOrderHistoryPage;
   /** OrderStatusPage(`/user/orders/:id`) + OrderCompletePage(`/user/orders/:id/complete`) */
   const isOrderReadyFlow = isStatusPage || isCompletePage;
 
@@ -128,6 +130,7 @@ export const UserShell: React.FC = () => {
   if (isReviewPage) headerTitle = "리뷰";
   if (isContactPage) headerTitle = "서비스 문의";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
+  if (isReceiptPage) headerTitle = "전자영수증";
 
   // Escape 키 입력 시 패널 닫기 이벤트 핸들러
   useEffect(() => {

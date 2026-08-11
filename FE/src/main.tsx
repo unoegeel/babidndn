@@ -23,6 +23,7 @@ import CartPage from "./pages/user/CartPage";
 import CheckoutPage from "./pages/user/CheckoutPage";
 import OrderStatusPage from "./pages/user/OrderStatusPage";
 import OrderCompletePage from "./pages/user/OrderCompletePage";
+import OrderReceiptPage from "./pages/user/OrderReceiptPage";
 import OrderHistoryPage from "./pages/user/OrderHistoryPage";
 import ReviewPage from "./pages/user/ReviewPage";
 import NoticesPage from "./pages/user/NoticesPage";
@@ -97,6 +98,7 @@ const router = createBrowserRouter([
           { path: "contact", element: <ContactPage /> },
           { path: "orders/:orderId", element: <OrderStatusPage /> },
           { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
+          { path: "orders/:orderId/receipt", element: <OrderReceiptPage /> },
         ],
       },
       { path: "*", element: <HomeRedirect /> },
