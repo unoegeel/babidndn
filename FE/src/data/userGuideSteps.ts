@@ -102,7 +102,7 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
         src: "/guide/guide_step_8-2.png",
         alt: "준비가 완료되면 카운터에서 픽업해주세요! (픽업 안내)",
       },
-    ],
+    ], 
   },
   {
     step: 9,
