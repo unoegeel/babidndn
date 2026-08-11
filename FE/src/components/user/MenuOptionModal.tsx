@@ -476,7 +476,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           <button
             onClick={handleSubmit}
-            className="w-full bg-black text-white py-3.5 rounded-xl font-bold text-sm transition-colors hover:bg-gray-900 cursor-pointer text-center"
+            className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-3.5 text-center text-sm font-bold text-white transition-colors hover:bg-[#C59B62]"
           >
             장바구니 담기 · {totalPrice.toLocaleString()} 원
           </button>

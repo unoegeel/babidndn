@@ -127,7 +127,7 @@ export const CartPage: React.FC = () => {
 
         <button
           onClick={() => navigate("/user/checkout")}
-          className="w-full cursor-pointer rounded-xl bg-black py-3.5 text-base font-bold text-white transition-colors hover:bg-gray-900"
+          className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-3.5 text-base font-bold text-white transition-colors hover:bg-[#C59B62]"
         >
           주문하기
         </button>

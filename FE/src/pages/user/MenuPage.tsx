@@ -334,7 +334,7 @@ export const MenuPage: React.FC = () => {
                 : "bg-[#D8B47E] text-white border-[#D8B47E] hover:bg-[#C59B62] cursor-pointer"
             }`}
           >
-            결제하기
+            장바구니 보기
           </button>
         </div>
       </div>
