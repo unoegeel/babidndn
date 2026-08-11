@@ -103,14 +103,11 @@ export const OrderHistoryPage: React.FC = () => {
       ) : (
         <ul className="space-y-2">
           {recentOrders.map((order) => (
-            <li
-              key={order.orderId}
-              className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-            >
+            <li key={order.orderId}>
               <button
                 type="button"
                 onClick={() => openOrder(order)}
-                className="w-full text-left transition-colors cursor-pointer"
+                className="w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:border-gray-200 cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -136,13 +133,6 @@ export const OrderHistoryPage: React.FC = () => {
                     <span className="mt-2 inline-block text-[11px] font-semibold text-gray-400">보기 →</span>
                   </div>
                 </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
-                className="mt-3 w-full cursor-pointer rounded-2xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
-              >
-                전자영수증
               </button>
             </li>
           ))}

@@ -72,7 +72,7 @@ export const OrderReceiptPage: React.FC = () => {
     try {
       await downloadReceiptPng(receiptRef.current, receipt.orderId);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to download receipt:", err);
       alert("PNG 다운로드에 실패했습니다.");
     } finally {
       setExporting(null);
@@ -85,7 +85,7 @@ export const OrderReceiptPage: React.FC = () => {
     try {
       await downloadReceiptPdf(receiptRef.current, receipt.orderId);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to download receipt:", err);
       alert("PDF 다운로드에 실패했습니다.");
     } finally {
       setExporting(null);
