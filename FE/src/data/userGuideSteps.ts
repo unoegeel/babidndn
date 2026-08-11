@@ -112,7 +112,7 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
     images: [
       {
         src: "/guide/guide_step_9.png",
-        alt: `음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요!<br/>준비되면 알림이 뜹니다!`,
+        alt: "음식이 준비되는 동안 바비든든의 메뉴를 구경해보세요! 준비되면 알림이 뜹니다!",
       },
     ],
   },

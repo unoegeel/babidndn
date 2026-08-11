@@ -4,6 +4,21 @@ function formatStepNumber(step: number): string {
   return String(step).padStart(2, "0");
 }
 
+/** description 내 `<br/>` 등을 실제 줄바꿈으로 렌더링 */
+function GuideDescription({ text }: { text: string }) {
+  const lines = text.split(/<br\s*\/?>/i);
+  return (
+    <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">
+      {lines.map((line, index) => (
+        <span key={index}>
+          {index > 0 && <br />}
+          {line}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export default function UserGuidePage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-gray-50/30 px-4 py-5">
@@ -17,9 +32,7 @@ export default function UserGuidePage() {
               {formatStepNumber(item.step)}
             </p>
             <h3 className="mt-1 text-sm font-bold text-gray-900">{item.title}</h3>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">
-              {item.description}
-            </p>
+            <GuideDescription text={item.description} />
             {/* 2장: 좌우 배치 / 1장: 동일 너비로 가운데 정렬 */}
             <div
               className={
