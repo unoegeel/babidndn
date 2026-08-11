@@ -288,8 +288,8 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {toppingAddOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
-              {/* pt-2/px: 우측 상단 수량 배지가 overflow-x-auto·타이틀에 잘리지 않도록 여유 확보 */}
-              <div className="-mx-1 overflow-x-auto px-0.5 pb-0.5 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {/* overflow-x-auto는 세로도 clip → 배지(-top/-right 1.5 = 6px)보다 큰 padding으로 잘림 방지 */}
+              <div className="-mx-1 overflow-x-auto px-1.5 pb-1.5 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex w-max gap-2 px-1.5">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
