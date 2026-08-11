@@ -4,6 +4,7 @@ import { ReceiptTemplate } from "../../components/user/ReceiptTemplate";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
 import type { OrderDetailResponse } from "../../types/api";
+import type { ReceiptViewModel } from "../../types/receipt";
 import { buildReceiptViewModel } from "../../utils/buildReceiptViewModel";
 import {
   downloadReceiptPdf,
@@ -442,8 +443,7 @@ function PaymentDetailPanel({
   detail: OrderDetailResponse | undefined;
 }) {
   const { getPaymentByOrderId } = useAdminData();
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const [downloading, setDownloading] = useState<"png" | "pdf" | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const paymentApi =
     payment.orderId !== undefined
@@ -452,32 +452,8 @@ function PaymentDetailPanel({
 
   const receipt = useMemo(() => {
     if (!detail) return null;
-    // 캐시에 결제 없음(null)이거나 미조회(undefined)면 결제 없이 주문만으로 구성
     return buildReceiptViewModel(detail, paymentApi ?? null);
   }, [detail, paymentApi]);
-
-  const runDownload = async (kind: "png" | "pdf") => {
-    if (!receiptRef.current || !receipt || downloading) return;
-    setDownloading(kind);
-    try {
-      if (kind === "png") {
-        await downloadReceiptPng(receiptRef.current, {
-          pickupNumber: receipt.pickupNumber,
-          orderedAt: receipt.orderedAt,
-        });
-      } else {
-        await downloadReceiptPdf(receiptRef.current, {
-          pickupNumber: receipt.pickupNumber,
-          orderedAt: receipt.orderedAt,
-        });
-      }
-    } catch (err) {
-      console.error("영수증 다운로드 실패:", err);
-      alert("영수증 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setDownloading(null);
-    }
-  };
 
   return (
     <div className="space-y-[20px]">
@@ -502,6 +478,24 @@ function PaymentDetailPanel({
           <div>
             <dt className="text-black/50">상태</dt>
             <dd className="font-medium">{payment.status}</dd>
+          </div>
+          <div className="pt-[4px]">
+            <button
+              type="button"
+              disabled={!receipt}
+              onClick={(e) => {
+                e.stopPropagation();
+                setReceiptOpen(true);
+              }}
+              className="h-[40px] w-full rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              전자영수증
+            </button>
+            {!receipt && (
+              <p className="mt-[6px] text-[12px] text-black/45">
+                주문 상세가 없어 전자영수증을 열 수 없습니다.
+              </p>
+            )}
           </div>
         </dl>
 
@@ -542,56 +536,100 @@ function PaymentDetailPanel({
         </div>
       </div>
 
-      <div className="border-t border-black/15 pt-[16px]">
-        <p className="mb-[12px] text-[14px] font-medium text-black">전자영수증 미리보기</p>
-        {!receipt ? (
-          <p className="text-[14px] text-black/50">
-            주문 상세가 없어 전자영수증을 표시할 수 없습니다.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-[14px] lg:flex-row lg:items-start">
-            <div className="max-h-[420px] max-w-[340px] overflow-auto rounded-[12px] border border-black/20 bg-white shadow-sm">
-              <ReceiptTemplate ref={receiptRef} receipt={receipt} />
-            </div>
-            <div className="flex flex-col gap-[10px]">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrintCustomerReceipt(receipt);
-                }}
-                className="h-[44px] min-w-[160px] rounded-[10px] bg-black px-[18px] text-[15px] font-medium text-canvas"
-              >
-                영수증 출력
-              </button>
-              <button
-                type="button"
-                disabled={!!downloading}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void runDownload("png");
-                }}
-                className="h-[44px] min-w-[160px] rounded-[10px] border border-black/50 bg-canvas px-[18px] text-[15px] font-medium text-black disabled:opacity-40"
-              >
-                {downloading === "png" ? "저장 중..." : "PNG 저장"}
-              </button>
-              <button
-                type="button"
-                disabled={!!downloading}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void runDownload("pdf");
-                }}
-                className="h-[44px] min-w-[160px] rounded-[10px] border border-black/50 bg-canvas px-[18px] text-[15px] font-medium text-black disabled:opacity-40"
-              >
-                {downloading === "pdf" ? "저장 중..." : "PDF 저장"}
-              </button>
-              <p className="max-w-[220px] text-[12px] leading-relaxed text-black/45">
-                관리자 프린터 앱에서 USB 영수증 프린터로 출력합니다.
-              </p>
-            </div>
+      {receiptOpen && receipt && (
+        <ReceiptPopup receipt={receipt} onClose={() => setReceiptOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function ReceiptPopup({
+  receipt,
+  onClose,
+}: {
+  receipt: ReceiptViewModel;
+  onClose: () => void;
+}) {
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState<"png" | "pdf" | null>(null);
+
+  const runDownload = async (kind: "png" | "pdf") => {
+    if (!receiptRef.current || downloading) return;
+    setDownloading(kind);
+    try {
+      const meta = {
+        pickupNumber: receipt.pickupNumber,
+        orderedAt: receipt.orderedAt,
+      };
+      if (kind === "png") {
+        await downloadReceiptPng(receiptRef.current, meta);
+      } else {
+        await downloadReceiptPdf(receiptRef.current, meta);
+      }
+    } catch (err) {
+      console.error("영수증 다운로드 실패:", err);
+      alert("영수증 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/10 p-[20px]"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[min(920px,calc(100vh-40px))] w-full max-w-[400px] flex-col overflow-hidden rounded-[25px] border border-black/50 bg-canvas shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-black/15 px-[20px] py-[16px]">
+          <h2 className="text-[18px] font-medium text-black">전자영수증</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[36px] rounded-[10px] border border-black/40 bg-canvas px-[12px] text-[13px] font-medium text-black"
+          >
+            닫기
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-panel/40 px-[16px] py-[16px]">
+          <div className="mx-auto max-w-[320px] overflow-hidden rounded-[12px] border border-black/15 bg-white shadow-sm">
+            <ReceiptTemplate ref={receiptRef} receipt={receipt} />
           </div>
-        )}
+        </div>
+
+        <div className="shrink-0 space-y-[10px] border-t border-black/15 bg-canvas px-[16px] py-[16px]">
+          <button
+            type="button"
+            onClick={() => handlePrintCustomerReceipt(receipt)}
+            className="h-[48px] w-full rounded-[10px] bg-black text-[15px] font-medium text-canvas"
+          >
+            영수증 출력
+          </button>
+          <div className="grid grid-cols-2 gap-[10px]">
+            <button
+              type="button"
+              disabled={!!downloading}
+              onClick={() => void runDownload("png")}
+              className="h-[44px] rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:opacity-40"
+            >
+              {downloading === "png" ? "저장 중..." : "PNG 저장"}
+            </button>
+            <button
+              type="button"
+              disabled={!!downloading}
+              onClick={() => void runDownload("pdf")}
+              className="h-[44px] rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:opacity-40"
+            >
+              {downloading === "pdf" ? "저장 중..." : "PDF 저장"}
+            </button>
+          </div>
+          <p className="text-center text-[12px] leading-relaxed text-black/45">
+            관리자 프린터 앱에서 USB 영수증 프린터로 출력합니다.
+          </p>
+        </div>
       </div>
     </div>
   );
