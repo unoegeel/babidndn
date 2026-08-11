@@ -70,7 +70,10 @@ export const OrderReceiptPage: React.FC = () => {
     if (!receiptRef.current || !receipt || exporting) return;
     setExporting("png");
     try {
-      await downloadReceiptPng(receiptRef.current, receipt.orderId);
+      await downloadReceiptPng(receiptRef.current, {
+        pickupNumber: receipt.pickupNumber,
+        orderedAt: receipt.orderedAt,
+      });
     } catch (err) {
       console.error("Failed to download receipt:", err);
       alert("PNG 다운로드에 실패했습니다.");
@@ -83,7 +86,10 @@ export const OrderReceiptPage: React.FC = () => {
     if (!receiptRef.current || !receipt || exporting) return;
     setExporting("pdf");
     try {
-      await downloadReceiptPdf(receiptRef.current, receipt.orderId);
+      await downloadReceiptPdf(receiptRef.current, {
+        pickupNumber: receipt.pickupNumber,
+        orderedAt: receipt.orderedAt,
+      });
     } catch (err) {
       console.error("Failed to download receipt:", err);
       alert("PDF 다운로드에 실패했습니다.");

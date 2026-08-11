@@ -461,9 +461,15 @@ function PaymentDetailPanel({
     setDownloading(kind);
     try {
       if (kind === "png") {
-        await downloadReceiptPng(receiptRef.current, receipt.orderId);
+        await downloadReceiptPng(receiptRef.current, {
+          pickupNumber: receipt.pickupNumber,
+          orderedAt: receipt.orderedAt,
+        });
       } else {
-        await downloadReceiptPdf(receiptRef.current, receipt.orderId);
+        await downloadReceiptPdf(receiptRef.current, {
+          pickupNumber: receipt.pickupNumber,
+          orderedAt: receipt.orderedAt,
+        });
       }
     } catch (err) {
       console.error("영수증 다운로드 실패:", err);

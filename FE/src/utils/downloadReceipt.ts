@@ -21,6 +21,30 @@ function captureScale(): number {
   return Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2);
 }
 
+/** orderedAt → YYYY-MM-DD_HH-mm (파일명용, 괄호 없음) */
+function formatOrderedAtForFilename(orderedAt: string): string {
+  const match = orderedAt.trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!match) {
+    return "unknown";
+  }
+  return `${match[1]}-${match[2]}-${match[3]}_${match[4]}-${match[5]}`;
+}
+
+export type ReceiptDownloadMeta = {
+  pickupNumber: number | string;
+  orderedAt: string;
+};
+
+/** 바비든든_전자영수증_{픽업번호}_{YYYY-MM-DD_HH-mm}.{ext} */
+export function buildReceiptDownloadFilename(
+  meta: ReceiptDownloadMeta,
+  ext: "png" | "pdf",
+): string {
+  const pickup = String(meta.pickupNumber).trim() || "0";
+  const when = formatOrderedAtForFilename(meta.orderedAt);
+  return `바비든든_전자영수증_${pickup}_${when}.${ext}`;
+}
+
 /**
  * 스크롤/overflow 부모와 분리해 전체 높이로 캡처.
  * ReceiptTemplate 은 html2canvas 호환을 위해 hex/rgba 인라인 색상을 사용한다.
@@ -78,7 +102,7 @@ async function captureReceiptElement(element: HTMLElement): Promise<HTMLCanvasEl
 /** ReceiptTemplate DOM → PNG 다운로드 */
 export async function downloadReceiptPng(
   element: HTMLElement,
-  orderId: number | string,
+  meta: ReceiptDownloadMeta,
 ): Promise<void> {
   let canvas: HTMLCanvasElement;
   try {
@@ -102,7 +126,7 @@ export async function downloadReceiptPng(
   }
 
   try {
-    triggerDownload(blob, `babidndn-receipt-${orderId}.png`);
+    triggerDownload(blob, buildReceiptDownloadFilename(meta, "png"));
   } catch (err) {
     console.error("Failed to download receipt (PNG triggerDownload):", err);
     throw err;
@@ -112,7 +136,7 @@ export async function downloadReceiptPng(
 /** ReceiptTemplate DOM → PDF 다운로드 (세로형, 내용 맞춤) */
 export async function downloadReceiptPdf(
   element: HTMLElement,
-  orderId: number | string,
+  meta: ReceiptDownloadMeta,
 ): Promise<void> {
   let canvas: HTMLCanvasElement;
   try {
@@ -157,8 +181,9 @@ export async function downloadReceiptPdf(
       format: [pageWidth, pageHeight],
     });
 
+    const filename = buildReceiptDownloadFilename(meta, "pdf");
     pdf.addImage(imgData, "PNG", marginMm, marginMm, widthMm, heightMm);
-    pdf.save(`babidndn-receipt-${orderId}.pdf`);
+    pdf.save(filename);
   } catch (err) {
     console.error("Failed to download receipt (jsPDF):", err);
     throw err;
