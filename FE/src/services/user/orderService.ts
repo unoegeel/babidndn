@@ -10,6 +10,7 @@ import type {
   OrderItemOptionRequest,
   OrderItemRequest,
   PaymentConfirmResponse,
+  WaitingCountResponse,
 } from "../../types/api";
 import type { CartItem, Order, MenuOption, GroupType } from "../../types/user";
 import { formatServerDateTimeDash } from "../../utils/serverDate";
@@ -122,6 +123,14 @@ export const orderService = {
     return api.get<OrderDetailResponse>(`/api/orders/${id}`, {
       baseUrl: getOrderApiBaseUrl(),
     });
+  },
+
+  /**
+   * 매장 전체 대기 인원 (GET /api/orders/waiting-count)
+   * 주문 전 메뉴 화면용. 개인 waitingAheadCount 와 분리.
+   */
+  async getWaitingCount(): Promise<WaitingCountResponse> {
+    return api.get<WaitingCountResponse>("/api/orders/waiting-count");
   },
 
   /**

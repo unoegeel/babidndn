@@ -69,6 +69,10 @@ export interface OrderStatusUpdateRequest {
   status: ApiOrderStatus;
 }
 
+export interface WaitingCountResponse {
+  waitingCount: number;
+}
+
 /* ── 관리자 (Admin) ── */
 
 export interface AdminLoginRequest {

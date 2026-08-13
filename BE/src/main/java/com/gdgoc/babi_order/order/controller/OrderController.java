@@ -4,6 +4,7 @@ import com.gdgoc.babi_order.order.dto.request.OrderCreateRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderStatusUpdateRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
+import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
 import com.gdgoc.babi_order.order.service.OrderEventService;
 import com.gdgoc.babi_order.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,14 @@ public class OrderController {
     @Operation(summary = "전체 주문 조회", description = "결제 내역이 있는 주문을 최근순으로 조회합니다. 미결제 임시 주문은 제외됩니다.")
     public ResponseEntity<List<OrderSummaryResponse>> getOrders() {
         return ResponseEntity.ok(orderService.getOrders());
+    }
+
+    @GetMapping("/waiting-count")
+    @Operation(summary = "매장 전체 대기 인원", description = "결제 완료된 PREPARING/READY 주문 수를 반환합니다.")
+    public ResponseEntity<WaitingCountResponse> getWaitingCount() {
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
+                .body(orderService.getWaitingCount());
     }
 
     @GetMapping("/{id}")

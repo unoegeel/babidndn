@@ -40,4 +40,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("statuses") Collection<OrderStatus> statuses,
             @Param("orderId") Long orderId,
             @Param("paymentStatus") PaymentStatus paymentStatus);
+
+    @Query("""
+            select count(o) from Order o
+            where o.status in :statuses
+              and exists (
+                select 1 from Payment p
+                where p.order = o and p.status = :paymentStatus
+              )
+            """)
+    long countByStatusInAndPaid(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("paymentStatus") PaymentStatus paymentStatus);
 }
