@@ -174,6 +174,28 @@ export interface DailySalesResponse {
   averageAmount: number;
 }
 
+export interface WeeklySalesResponse {
+  weekStart: string;
+  weekEnd: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface MonthlySalesResponse {
+  yearMonth: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface YearlySalesResponse {
+  year: number;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
 export interface MenuSalesResponse {
   menuName: string;
   itemQuantity: number;

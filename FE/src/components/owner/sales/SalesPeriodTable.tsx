@@ -1,36 +1,44 @@
-import type { DailySalesResponse } from "../../../types/api";
+export type PeriodSortKey = "period" | "paymentCount" | "totalAmount" | "averageAmount";
 
-export type DailySortKey = "date" | "paymentCount" | "totalAmount" | "averageAmount";
+export type SalesPeriodRow = {
+  periodKey: string;
+  periodLabel: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+};
 
-export function SalesDateTable({
+export function SalesPeriodTable({
   rows,
   loading,
   error,
+  periodHeader,
   sortKey,
   sortDir,
   onSort,
 }: {
-  rows: DailySalesResponse[];
+  rows: SalesPeriodRow[];
   loading: boolean;
   error: string | null;
-  sortKey: DailySortKey;
+  periodHeader: string;
+  sortKey: PeriodSortKey;
   sortDir: "asc" | "desc";
-  onSort: (key: DailySortKey) => void;
+  onSort: (key: PeriodSortKey) => void;
 }) {
   const sorted = [...rows].sort((a, b) => {
     const cmp =
-      sortKey === "date"
-        ? a.date.localeCompare(b.date)
+      sortKey === "period"
+        ? a.periodKey.localeCompare(b.periodKey)
         : a[sortKey] - b[sortKey];
     return sortDir === "asc" ? cmp : -cmp;
   });
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-[25px] border border-black/50 bg-canvas">
+    <div className="max-h-[420px] min-h-[200px] overflow-auto rounded-[25px] border border-black/50 bg-canvas">
       <table className="w-full min-w-[640px] border-collapse text-[15px]">
         <thead>
           <tr className="bg-panel text-[16px] font-medium text-black">
-            <SortTh label="날짜" column="date" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+            <SortTh label={periodHeader} column="period" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <SortTh label="결제건수" column="paymentCount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <SortTh label="총 판매금액" column="totalAmount" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
             <SortTh
@@ -44,9 +52,9 @@ export function SalesDateTable({
         </thead>
         <tbody>
           {sorted.map((row) => (
-            <tr key={row.date} className="border-t border-black/20">
-              <Td>{row.date}</Td>
-              <Td>{row.paymentCount.toLocaleString()}</Td>
+            <tr key={row.periodKey} className="border-t border-black/20">
+              <Td>{row.periodLabel}</Td>
+              <Td>{row.paymentCount.toLocaleString()}건</Td>
               <Td>{row.totalAmount.toLocaleString()}원</Td>
               <Td>{row.averageAmount.toLocaleString()}원</Td>
             </tr>
@@ -77,10 +85,10 @@ function SortTh({
   onSort,
 }: {
   label: string;
-  column: DailySortKey;
-  sortKey: DailySortKey;
+  column: PeriodSortKey;
+  sortKey: PeriodSortKey;
   sortDir: "asc" | "desc";
-  onSort: (key: DailySortKey) => void;
+  onSort: (key: PeriodSortKey) => void;
 }) {
   const mark = sortKey === column ? (sortDir === "asc" ? "↑" : "↓") : "↕";
   return (

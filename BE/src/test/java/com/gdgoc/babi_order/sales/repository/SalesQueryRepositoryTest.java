@@ -98,6 +98,41 @@ class SalesQueryRepositoryTest {
         assertThat(rows.get(1).totalAmount()).isEqualTo(8000L);
     }
 
+    @Test
+    void monthlyAndYearlySalesGroupDonePaymentsOnly() {
+        Menu salt = menu("삼겹소금", 3500);
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2025, 12, 31, 10, 0), 1000, "y2025");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 5, 1, 10, 0), 2000, "may-1");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 5, 31, 10, 0), 3000, "may-2");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 6, 1, 10, 0), 4000, "jun");
+        persistPaidOrder(salt, 1, PaymentStatus.CANCELED, LocalDateTime.of(2026, 5, 15, 10, 0), 9999, "canceled");
+        entityManager.flush();
+
+        List<MonthlySalesRow> months = salesQueryRepository.findMonthlySales();
+        assertThat(months).extracting(row -> row.year() + "-" + row.month())
+                .containsExactly("2025-12", "2026-5", "2026-6");
+        assertThat(months.get(1).paymentCount()).isEqualTo(2L);
+        assertThat(months.get(1).totalAmount()).isEqualTo(5000L);
+
+        List<YearlySalesRow> years = salesQueryRepository.findYearlySales();
+        assertThat(years).extracting(YearlySalesRow::year).containsExactly(2025, 2026);
+        assertThat(years.get(1).paymentCount()).isEqualTo(3L);
+        assertThat(years.get(1).totalAmount()).isEqualTo(9000L);
+    }
+
+    @Test
+    void menuSalesAllIncludesEveryDonePayment() {
+        Menu salt = menu("삼겹소금", 3500);
+        persistPaidOrder(salt, 2, PaymentStatus.DONE, LocalDateTime.of(2026, 1, 1, 10, 0), 7000, "all");
+        persistPaidOrder(salt, 1, PaymentStatus.CANCELED, LocalDateTime.of(2026, 1, 2, 10, 0), 3500, "skip");
+        entityManager.flush();
+
+        List<MenuSalesRow> rows = salesQueryRepository.findMenuSalesAll();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().itemQuantity()).isEqualTo(2L);
+        assertThat(rows.getFirst().totalAmount()).isEqualTo(7000L);
+    }
+
     private Menu menu(String name, int price) {
         Category category = entityManager.persist(Category.builder().name("컵밥-" + name).displayOrder(1).build());
         return entityManager.persist(Menu.builder()

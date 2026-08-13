@@ -2,18 +2,28 @@ package com.gdgoc.babi_order.sales.service;
 
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.YearlySalesResponse;
 import com.gdgoc.babi_order.sales.exception.SalesApiException;
 import com.gdgoc.babi_order.sales.repository.DailySalesRow;
 import com.gdgoc.babi_order.sales.repository.MenuSalesRow;
+import com.gdgoc.babi_order.sales.repository.MonthlySalesRow;
 import com.gdgoc.babi_order.sales.repository.SalesQueryRepository;
+import com.gdgoc.babi_order.sales.repository.WeeklySalesRow;
+import com.gdgoc.babi_order.sales.repository.YearlySalesRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +39,30 @@ public class SalesService {
                 .toList();
     }
 
+    public List<WeeklySalesResponse> getWeeklySales(LocalDate from, LocalDate to) {
+        DateRange range = validateWeekRange(from, to);
+        return groupDailyByIsoWeek(
+                salesQueryRepository.findDailySales(range.fromInclusive(), range.toExclusive()));
+    }
+
+    public List<MonthlySalesResponse> getMonthlySales() {
+        return salesQueryRepository.findMonthlySales().stream()
+                .map(SalesService::toMonthlyResponse)
+                .toList();
+    }
+
+    public List<YearlySalesResponse> getYearlySales() {
+        return salesQueryRepository.findYearlySales().stream()
+                .map(SalesService::toYearlyResponse)
+                .toList();
+    }
+
     public List<MenuSalesResponse> getMenuSales(LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return salesQueryRepository.findMenuSalesAll().stream()
+                    .map(SalesService::toMenuResponse)
+                    .toList();
+        }
         DateRange range = validateRange(from, to);
         return salesQueryRepository.findMenuSales(range.fromInclusive(), range.toExclusive()).stream()
                 .map(SalesService::toMenuResponse)
@@ -54,15 +87,63 @@ public class SalesService {
         return new DateRange(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
     }
 
+    /** from/to를 각각 그 주의 월요일·일요일로 확장한 뒤 [월 00:00, 다음주 월 00:00) 로 조회한다. */
+    private DateRange validateWeekRange(LocalDate from, LocalDate to) {
+        validateRange(from, to);
+        LocalDate weekFrom = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekTo = to.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        return new DateRange(weekFrom.atStartOfDay(), weekTo.plusDays(1).atStartOfDay());
+    }
+
+    /** 일별 DONE 집계를 월요일~일요일 주로 합친다. 평균은 주 합계 기준. */
+    private static List<WeeklySalesResponse> groupDailyByIsoWeek(List<DailySalesRow> dailyRows) {
+        Map<LocalDate, long[]> byMonday = new LinkedHashMap<>();
+        for (DailySalesRow row : dailyRows) {
+            LocalDate monday = row.date().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            long[] totals = byMonday.computeIfAbsent(monday, key -> new long[2]);
+            totals[0] += row.paymentCount();
+            totals[1] += row.totalAmount();
+        }
+        return byMonday.entrySet().stream()
+                .map(entry -> toWeeklyResponse(
+                        new WeeklySalesRow(entry.getKey(), entry.getValue()[0], entry.getValue()[1])))
+                .toList();
+    }
+
     private static DailySalesResponse toDailyResponse(DailySalesRow row) {
-        long paymentCount = row.paymentCount();
-        long totalAmount = row.totalAmount();
-        long averageAmount = paymentCount == 0 ? 0L : totalAmount / paymentCount;
         return DailySalesResponse.builder()
                 .date(row.date())
-                .paymentCount(paymentCount)
-                .totalAmount(totalAmount)
-                .averageAmount(averageAmount)
+                .paymentCount(row.paymentCount())
+                .totalAmount(row.totalAmount())
+                .averageAmount(average(row.paymentCount(), row.totalAmount()))
+                .build();
+    }
+
+    private static WeeklySalesResponse toWeeklyResponse(WeeklySalesRow row) {
+        return WeeklySalesResponse.builder()
+                .weekStart(row.weekStart())
+                .weekEnd(row.weekStart().plusDays(6))
+                .paymentCount(row.paymentCount())
+                .totalAmount(row.totalAmount())
+                .averageAmount(average(row.paymentCount(), row.totalAmount()))
+                .build();
+    }
+
+    private static MonthlySalesResponse toMonthlyResponse(MonthlySalesRow row) {
+        return MonthlySalesResponse.builder()
+                .yearMonth("%04d-%02d".formatted(row.year(), row.month()))
+                .paymentCount(row.paymentCount())
+                .totalAmount(row.totalAmount())
+                .averageAmount(average(row.paymentCount(), row.totalAmount()))
+                .build();
+    }
+
+    private static YearlySalesResponse toYearlyResponse(YearlySalesRow row) {
+        return YearlySalesResponse.builder()
+                .year(row.year())
+                .paymentCount(row.paymentCount())
+                .totalAmount(row.totalAmount())
+                .averageAmount(average(row.paymentCount(), row.totalAmount()))
                 .build();
     }
 
@@ -72,6 +153,10 @@ public class SalesService {
                 .itemQuantity(row.itemQuantity())
                 .totalAmount(row.totalAmount())
                 .build();
+    }
+
+    private static long average(long paymentCount, long totalAmount) {
+        return paymentCount == 0 ? 0L : totalAmount / paymentCount;
     }
 
     private record DateRange(LocalDateTime fromInclusive, LocalDateTime toExclusive) {

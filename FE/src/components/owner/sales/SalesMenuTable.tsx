@@ -26,7 +26,7 @@ export function SalesMenuTable({
   });
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-[25px] border border-black/50 bg-canvas">
+    <div className="max-h-[420px] min-h-[200px] overflow-auto rounded-[25px] border border-black/50 bg-canvas">
       <table className="w-full min-w-[520px] border-collapse text-[15px]">
         <thead>
           <tr className="bg-panel text-[16px] font-medium text-black">

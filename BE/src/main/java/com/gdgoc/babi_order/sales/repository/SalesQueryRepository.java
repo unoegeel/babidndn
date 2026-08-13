@@ -60,6 +60,60 @@ public class SalesQueryRepository {
                 .toList();
     }
 
+    public List<MenuSalesRow> findMenuSalesAll() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                        SELECT oi.menu_name_snapshot AS menu_name,
+                               COALESCE(SUM(oi.quantity), 0) AS item_quantity,
+                               COALESCE(SUM(oi.line_amount), 0) AS total_amount
+                        FROM order_items oi
+                        INNER JOIN orders o ON oi.order_id = o.id
+                        INNER JOIN payments p ON p.order_id = o.id
+                        WHERE p.status = 'DONE'
+                        GROUP BY oi.menu_name_snapshot
+                        ORDER BY total_amount DESC, menu_name ASC
+                        """)
+                .getResultList();
+        return rows.stream()
+                .map(row -> new MenuSalesRow((String) row[0], toLong(row[1]), toLong(row[2])))
+                .toList();
+    }
+
+    public List<MonthlySalesRow> findMonthlySales() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                        SELECT YEAR(p.approved_at) AS sales_year,
+                               MONTH(p.approved_at) AS sales_month,
+                               COUNT(p.id) AS payment_count,
+                               COALESCE(SUM(p.amount), 0) AS total_amount
+                        FROM payments p
+                        WHERE p.status = 'DONE'
+                        GROUP BY YEAR(p.approved_at), MONTH(p.approved_at)
+                        ORDER BY sales_year ASC, sales_month ASC
+                        """)
+                .getResultList();
+        return rows.stream()
+                .map(row -> new MonthlySalesRow(toInt(row[0]), toInt(row[1]), toLong(row[2]), toLong(row[3])))
+                .toList();
+    }
+
+    public List<YearlySalesRow> findYearlySales() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                        SELECT YEAR(p.approved_at) AS sales_year,
+                               COUNT(p.id) AS payment_count,
+                               COALESCE(SUM(p.amount), 0) AS total_amount
+                        FROM payments p
+                        WHERE p.status = 'DONE'
+                        GROUP BY YEAR(p.approved_at)
+                        ORDER BY sales_year ASC
+                        """)
+                .getResultList();
+        return rows.stream()
+                .map(row -> new YearlySalesRow(toInt(row[0]), toLong(row[1]), toLong(row[2])))
+                .toList();
+    }
+
     private static LocalDate toLocalDate(Object value) {
         if (value instanceof LocalDate localDate) {
             return localDate;
@@ -81,5 +135,9 @@ public class SalesQueryRepository {
             return number.longValue();
         }
         return Long.parseLong(value.toString());
+    }
+
+    private static int toInt(Object value) {
+        return (int) toLong(value);
     }
 }

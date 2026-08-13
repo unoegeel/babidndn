@@ -120,3 +120,70 @@ export function formatServerDateTimeDash(iso: string): string {
   if (!p) return iso;
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
 }
+
+const SEOUL_WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+const EN_WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 서울 달력일 요일 인덱스 (일=0 … 토=6) */
+export function seoulWeekdayIndex(dateStr: string): number | null {
+  const bounds = seoulDayBoundsMs(dateStr);
+  if (!bounds) return null;
+  const noon = new Date(bounds.startMs + 12 * 60 * 60 * 1000);
+  const short = new Intl.DateTimeFormat("en-US", {
+    timeZone: SEOUL,
+    weekday: "short",
+  }).format(noon);
+  return EN_WEEKDAY_INDEX[short] ?? null;
+}
+
+/** 서울 달력일 요일 한글 한 글자 */
+export function seoulWeekdayLabel(dateStr: string): string | null {
+  const index = seoulWeekdayIndex(dateStr);
+  if (index === null) return null;
+  return SEOUL_WEEKDAY_LABELS[index];
+}
+
+/** "2026-08-13 (목)" */
+export function formatSeoulDateWithWeekday(dateStr: string): string {
+  const weekday = seoulWeekdayLabel(dateStr);
+  return weekday ? `${dateStr} (${weekday})` : dateStr;
+}
+
+/** 해당 서울 날짜가 속한 주의 월요일 (월~일) */
+export function seoulMondayOf(dateStr: string): string | null {
+  const bounds = seoulDayBoundsMs(dateStr);
+  const index = seoulWeekdayIndex(dateStr);
+  if (!bounds || index === null) return null;
+  const daysFromMonday = index === 0 ? 6 : index - 1;
+  return seoulDateKey(bounds.startMs - daysFromMonday * DAY_MS);
+}
+
+/** 해당 서울 날짜가 속한 주의 일요일 (월~일) */
+export function seoulSundayOf(dateStr: string): string | null {
+  const monday = seoulMondayOf(dateStr);
+  const bounds = monday ? seoulDayBoundsMs(monday) : null;
+  if (!bounds) return null;
+  return seoulDateKey(bounds.startMs + 6 * DAY_MS);
+}
+
+/** 서울 달력일 기준 월 가감 (말일 overflow는 해당 월 말일로 클램프) */
+export function addSeoulCalendarMonths(dateStr: string, months: number): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const utc = Date.UTC(year, month - 1 + months, 1);
+  const next = new Date(utc);
+  const nextYear = next.getUTCFullYear();
+  const nextMonth = next.getUTCMonth();
+  const lastDay = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDay);
+  return `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+}

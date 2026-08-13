@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -18,8 +18,17 @@ interface AdminShellProps {
   children: ReactNode;
 }
 
+function isAdminNavActive(to: string, pathname: string): boolean {
+  if (to === "/admin/payments") {
+    return pathname === "/admin/payments" || pathname === "/admin/sales";
+  }
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
 /** 관리자 공통 레이아웃 (사이드바 + 메인) — 피그마 기준 */
 export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
+  const { pathname } = useLocation();
+
   return (
     // --app-height: 태블릿 브라우저 상·하단 바를 제외한 실제 가시 높이
     <div
@@ -47,7 +56,12 @@ export default function AdminShell({ sidebarTop, children }: AdminShellProps) {
         <nav className="flex shrink-0 flex-col gap-[20px] short:gap-[8px]">
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} className="block">
-              {({ isActive }) => <NavPill label={item.label} active={isActive} />}
+              {() => (
+                <NavPill
+                  label={item.label}
+                  active={isAdminNavActive(item.to, pathname)}
+                />
+              )}
             </NavLink>
           ))}
         </nav>

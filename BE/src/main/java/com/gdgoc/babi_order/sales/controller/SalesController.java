@@ -2,6 +2,9 @@ package com.gdgoc.babi_order.sales.controller;
 
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.YearlySalesResponse;
 import com.gdgoc.babi_order.sales.service.SalesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,11 +35,33 @@ public class SalesController {
         return ResponseEntity.ok(salesService.getDailySales(from, to));
     }
 
-    @GetMapping("/by-menu")
-    @Operation(summary = "메뉴별 매출 조회")
-    public ResponseEntity<List<MenuSalesResponse>> getMenuSales(
+    @GetMapping("/weekly")
+    @Operation(summary = "주별 매출 조회 (월요일~일요일)")
+    public ResponseEntity<List<WeeklySalesResponse>> getWeeklySales(
             @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(salesService.getWeeklySales(from, to));
+    }
+
+    @GetMapping("/monthly")
+    @Operation(summary = "월별 매출 조회 (전체 기간)")
+    public ResponseEntity<List<MonthlySalesResponse>> getMonthlySales() {
+        return ResponseEntity.ok(salesService.getMonthlySales());
+    }
+
+    @GetMapping("/yearly")
+    @Operation(summary = "연도별 매출 조회 (전체 기간)")
+    public ResponseEntity<List<YearlySalesResponse>> getYearlySales() {
+        return ResponseEntity.ok(salesService.getYearlySales());
+    }
+
+    @GetMapping("/by-menu")
+    @Operation(summary = "메뉴별 매출 조회 (from/to 생략 시 전체 기간)")
+    public ResponseEntity<List<MenuSalesResponse>> getMenuSales(
+            @RequestParam(value = "from", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = "to", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ResponseEntity.ok(salesService.getMenuSales(from, to));
     }
 }
