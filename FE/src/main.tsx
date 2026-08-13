@@ -11,6 +11,7 @@ import SignupPage from "./pages/owner/SignupPage";
 import OrdersDashboardPage from "./pages/owner/OrdersDashboardPage";
 import MenuManagementPage from "./pages/owner/MenuManagementPage";
 import PaymentHistoryPage from "./pages/owner/PaymentHistoryPage";
+import SalesAnalyticsPage from "./pages/owner/SalesAnalyticsPage";
 import SettingsPage from "./pages/owner/SettingsPage";
 import StoreManagementPage from "./pages/owner/StoreManagementPage";
 import StoreReviewsPage from "./pages/owner/StoreReviewsPage";
@@ -75,6 +76,7 @@ const router = createBrowserRouter([
           { path: "orders", element: <OrdersDashboardPage /> },
           { path: "menus", element: <MenuManagementPage /> },
           { path: "payments", element: <PaymentHistoryPage /> },
+          { path: "sales", element: <SalesAnalyticsPage /> },
           { path: "store", element: <StoreManagementPage /> },
           { path: "store/reviews", element: <StoreReviewsPage /> },
           { path: "settings", element: <SettingsPage /> },

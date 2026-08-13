@@ -98,6 +98,10 @@ export interface CategoryUpsertRequest {
   displayOrder: number;
 }
 
+export interface CategoryOrderUpdateRequest {
+  categoryIds: number[];
+}
+
 export interface MenuUpsertRequest {
   categoryId: number;
   name: string;
@@ -161,4 +165,17 @@ export interface PaymentResponse {
 
 export interface PaymentCancelRequest {
   cancelReason: string;
+}
+
+export interface DailySalesResponse {
+  date: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface MenuSalesResponse {
+  menuName: string;
+  itemQuantity: number;
+  totalAmount: number;
 }

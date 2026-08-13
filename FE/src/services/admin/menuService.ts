@@ -1,6 +1,7 @@
 import { adminApi } from "../../api/client";
 import type { MenuCategory, MenuDetail, MenuOption, SaleStatus } from "../../types/user";
 import type {
+  CategoryOrderUpdateRequest,
   CategoryResponse,
   CategoryUpsertRequest,
   MenuOptionUpsertRequest,
@@ -49,6 +50,15 @@ export const adminMenuService = {
    */
   deleteCategory(categoryId: number | string): Promise<void> {
     return adminApi.delete<void>(`/api/admin/categories/${categoryId}`);
+  },
+
+  /**
+   * 카테고리 표시 순서 변경
+   * PUT /api/admin/categories/order
+   */
+  reorderCategories(categoryIds: number[]): Promise<CategoryResponse[]> {
+    const body: CategoryOrderUpdateRequest = { categoryIds };
+    return adminApi.put<CategoryResponse[]>("/api/admin/categories/order", body);
   },
 
   /**

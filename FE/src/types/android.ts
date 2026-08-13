@@ -9,6 +9,11 @@ declare global {
     Android?: {
       printKitchenTicket: (orderJson: string) => void;
       printCustomerReceipt?: (receiptJson: string) => void;
+      downloadFile?: (
+        filename: string,
+        mimeType: string,
+        base64Data: string,
+      ) => void;
     };
   }
 }

@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.menu.controller;
 
+import com.gdgoc.babi_order.menu.dto.request.CategoryOrderUpdateRequest;
 import com.gdgoc.babi_order.menu.dto.request.CategoryUpsertRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuImageUploadUrlRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuOptionUpsertRequest;
@@ -51,6 +52,13 @@ public class AdminMenuController {
     @Operation(summary = "관리자 카테고리 목록 조회")
     public ResponseEntity<List<CategoryResponse>> getCategories() {
         return ResponseEntity.ok(adminMenuService.getCategories());
+    }
+
+    @PutMapping("/categories/order")
+    @Operation(summary = "카테고리 표시 순서 변경")
+    public ResponseEntity<List<CategoryResponse>> reorderCategories(
+            @Valid @RequestBody CategoryOrderUpdateRequest request) {
+        return ResponseEntity.ok(adminMenuService.reorderCategories(request.getCategoryIds()));
     }
 
     @PostMapping("/categories")

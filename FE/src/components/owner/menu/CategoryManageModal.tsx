@@ -1,13 +1,28 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import type { CategoryResponse } from "../../../types/api";
 
-/** 카테고리 관리 모달 (추가 / 이름 변경 / 삭제) */
+function moveCategory(
+  list: CategoryResponse[],
+  fromId: number,
+  toId: number,
+): CategoryResponse[] {
+  const from = list.findIndex((c) => c.id === fromId);
+  const to = list.findIndex((c) => c.id === toId);
+  if (from < 0 || to < 0 || from === to) return list;
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+/** 카테고리 관리 모달 (추가 / 이름 변경 / 삭제 / 순서 변경) */
 export function CategoryManageModal({
   categories,
   onClose,
   onAdd,
   onRename,
   onDelete,
+  onReorder,
 }: {
   categories: CategoryResponse[];
   onClose: () => void;
@@ -17,6 +32,8 @@ export function CategoryManageModal({
   onRename: (id: number, name: string) => Promise<boolean>;
   /** 삭제 성공 여부 반환 */
   onDelete: (id: number) => Promise<boolean>;
+  /** 순서 변경 성공 여부 반환 */
+  onReorder: (categoryIds: number[]) => Promise<boolean>;
 }) {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,10 +41,28 @@ export function CategoryManageModal({
   // 이름 변경 중인 카테고리
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [orderedCategories, setOrderedCategories] = useState(categories);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const orderedRef = useRef(categories);
+  const draggingIdRef = useRef<number | null>(null);
+  const orderBeforeDragRef = useRef<CategoryResponse[]>(categories);
+  const droppedRef = useRef(false);
+
+  useEffect(() => {
+    orderedRef.current = orderedCategories;
+  }, [orderedCategories]);
+
+  useEffect(() => {
+    if (draggingId !== null || busy) return;
+    orderedRef.current = categories;
+    setOrderedCategories(categories);
+  }, [categories, draggingId, busy]);
+
+  const canDrag = editingId === null && !busy;
 
   const validateName = (name: string, excludeId?: number): string | null => {
     if (!name) return "카테고리 이름을 입력해 주세요.";
-    if (categories.some((c) => c.id !== excludeId && c.name === name)) {
+    if (orderedCategories.some((c) => c.id !== excludeId && c.name === name)) {
       return "이미 있는 카테고리입니다.";
     }
     return null;
@@ -86,6 +121,60 @@ export function CategoryManageModal({
     setBusy(false);
   };
 
+  const handleDragStart = (e: DragEvent<HTMLElement>, id: number) => {
+    if (!canDrag) {
+      e.preventDefault();
+      return;
+    }
+    droppedRef.current = false;
+    orderBeforeDragRef.current = orderedRef.current;
+    draggingIdRef.current = id;
+    setDraggingId(id);
+    setError(null);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(id));
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLElement>, overId: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const fromId = draggingIdRef.current;
+    if (fromId === null || fromId === overId) return;
+    setOrderedCategories((prev) => {
+      const next = moveCategory(prev, fromId, overId);
+      orderedRef.current = next;
+      return next;
+    });
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    droppedRef.current = true;
+    draggingIdRef.current = null;
+    const nextIds = orderedRef.current.map((c) => c.id);
+    const prevIds = orderBeforeDragRef.current.map((c) => c.id);
+    setDraggingId(null);
+    if (nextIds.join(",") === prevIds.join(",")) return;
+    setBusy(true);
+    const ok = await onReorder(nextIds);
+    setBusy(false);
+    if (!ok) {
+      orderedRef.current = orderBeforeDragRef.current;
+      setOrderedCategories(orderBeforeDragRef.current);
+      setError("카테고리 순서를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (!droppedRef.current) {
+      orderedRef.current = orderBeforeDragRef.current;
+      setOrderedCategories(orderBeforeDragRef.current);
+    }
+    droppedRef.current = false;
+    draggingIdRef.current = null;
+    setDraggingId(null);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-[20px]"
@@ -99,12 +188,28 @@ export function CategoryManageModal({
           카테고리 관리
         </h2>
 
-        {/* 기존 카테고리 목록 (이름 변경 / 삭제) */}
-        <ul className="mt-[20px] flex max-h-[280px] flex-col gap-[8px] overflow-y-auto">
-          {categories.map((c) => (
-            <li key={c.id} className="flex items-center gap-[8px]">
+        {/* 기존 카테고리 목록 (순서 변경 / 이름 변경 / 삭제) */}
+        <ul
+          className="mt-[20px] flex max-h-[280px] flex-col gap-[8px] overflow-y-auto"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => void handleDrop(e)}
+        >
+          {orderedCategories.map((c) => (
+            <li
+              key={c.id}
+              onDragOver={(e) => handleDragOver(e, c.id)}
+              className={`flex items-center gap-[8px] ${
+                draggingId === c.id ? "opacity-40" : ""
+              }`}
+            >
               {editingId === c.id ? (
                 <>
+                  <span
+                    aria-hidden
+                    className="inline-flex h-[40px] w-[28px] shrink-0 items-center justify-center text-[16px] text-black/20"
+                  >
+                    ⋮⋮
+                  </span>
                   <input
                     autoFocus
                     value={editingName}
@@ -142,6 +247,20 @@ export function CategoryManageModal({
                 </>
               ) : (
                 <>
+                  <span
+                    role="button"
+                    tabIndex={canDrag ? 0 : -1}
+                    draggable={canDrag}
+                    aria-label={`${c.name} 순서 변경`}
+                    aria-disabled={!canDrag}
+                    onDragStart={(e) => handleDragStart(e, c.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`inline-flex h-[40px] w-[28px] shrink-0 items-center justify-center text-[16px] text-black/40 ${
+                      canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-default opacity-40"
+                    }`}
+                  >
+                    ⋮⋮
+                  </span>
                   <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-black">
                     {c.name}
                   </span>
@@ -169,7 +288,7 @@ export function CategoryManageModal({
               )}
             </li>
           ))}
-          {categories.length === 0 && (
+          {orderedCategories.length === 0 && (
             <li className="text-[14px] text-black/50">등록된 카테고리가 없습니다.</li>
           )}
         </ul>

@@ -62,6 +62,11 @@ interface AdminDataValue {
    * @returns 성공 여부 (메뉴가 남아 있으면 서버가 거부할 수 있음)
    */
   deleteCategory: (categoryId: number) => Promise<boolean>;
+  /**
+   * 카테고리 표시 순서 변경
+   * @returns 성공 여부
+   */
+  reorderCategories: (categoryIds: number[]) => Promise<boolean>;
   toggleMenuStatus: (id: string) => Promise<void>;
   addMenu: (menu: Omit<Menu, "id">) => Promise<void>;
   /** 기존 메뉴 정보 수정 */
@@ -253,6 +258,22 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       }
     },
     [refreshMenus],
+  );
+
+  const reorderCategories = useCallback(
+    async (categoryIds: number[]): Promise<boolean> => {
+      try {
+        const updated = await adminMenuService.reorderCategories(categoryIds);
+        setCategoryList(
+          [...updated].sort((a, b) => a.displayOrder - b.displayOrder),
+        );
+        return true;
+      } catch (err) {
+        console.error("카테고리 순서 변경 실패:", err);
+        return false;
+      }
+    },
+    [],
   );
 
   const toggleMenuStatus = useCallback(
@@ -662,6 +683,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      reorderCategories,
       toggleMenuStatus,
       addMenu,
       updateMenu,
@@ -686,6 +708,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      reorderCategories,
       toggleMenuStatus,
       addMenu,
       updateMenu,

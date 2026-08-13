@@ -17,6 +17,7 @@ export default function MenuManagementPage() {
     addCategory,
     updateCategory,
     deleteCategory,
+    reorderCategories,
     toggleMenuStatus,
     addMenu,
     updateMenu,
@@ -113,20 +114,25 @@ export default function MenuManagementPage() {
         {/* 본문: 메뉴 그리드 + (등록 폼) */}
         {/* 좁은 화면(태블릿 세로 등)에서는 폼이 아래로 내려가도록 세로 배치 */}
         <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-auto lg:flex-row lg:gap-[24px] lg:overflow-hidden">
-          <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-[16px] pr-[4px] md:gap-[24px] lg:overflow-auto">
-            {filtered.map((menu) => (
-              <MenuCard
-                key={menu.id}
-                menu={menu}
-                selected={editing?.id === menu.id}
-                onEdit={() => openEditPanel(menu.id)}
-                onToggleStatus={() => toggleMenuStatus(menu.id)}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <p className="text-[15px] text-black/50">이 카테고리에 등록된 메뉴가 없습니다.</p>
-            )}
-          </div>
+          {filtered.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="max-w-[12em] text-center text-[15px] text-black/50">
+                이 카테고리에 등록된 메뉴가 없습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-[16px] pr-[4px] md:gap-[24px] lg:overflow-auto">
+              {filtered.map((menu) => (
+                <MenuCard
+                  key={menu.id}
+                  menu={menu}
+                  selected={editing?.id === menu.id}
+                  onEdit={() => openEditPanel(menu.id)}
+                  onToggleStatus={() => toggleMenuStatus(menu.id)}
+                />
+              ))}
+            </div>
+          )}
 
           {panel.mode === "create" && (
             <MenuForm
@@ -190,6 +196,7 @@ export default function MenuManagementPage() {
             return ok;
           }}
           onDelete={(id) => deleteCategory(id)}
+          onReorder={reorderCategories}
         />
       )}
     </AdminShell>

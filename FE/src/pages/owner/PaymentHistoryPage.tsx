@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminShell from "../../components/AdminShell";
 import { CancelPopup } from "../../components/owner/payment/CancelPopup";
 import { ExportPopup } from "../../components/owner/payment/ExportPopup";
@@ -17,6 +18,7 @@ import { seoulDateKey, seoulDayBoundsMs } from "../../utils/serverDate";
 type PeriodFilter = "all" | "today" | "last3" | "custom";
 
 export default function PaymentHistoryPage() {
+  const navigate = useNavigate();
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
   const [period, setPeriod] = useState<PeriodFilter>("all");
@@ -107,13 +109,22 @@ export default function PaymentHistoryPage() {
       <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
         <div className="mb-[16px] flex shrink-0 items-center justify-between gap-[12px] short:mb-[10px]">
           <h1 className="text-[22px] font-bold text-black short:text-[18px]">결제 내역</h1>
-          <button
-            type="button"
-            onClick={() => setExportOpen(true)}
-            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
-          >
-            내려받기
-          </button>
+          <div className="flex shrink-0 items-center gap-[8px]">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/sales")}
+              className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
+            >
+              매출 분석
+            </button>
+            <button
+              type="button"
+              onClick={() => setExportOpen(true)}
+              className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
+            >
+              내려받기
+            </button>
+          </div>
         </div>
 
         {/* 필터 */}

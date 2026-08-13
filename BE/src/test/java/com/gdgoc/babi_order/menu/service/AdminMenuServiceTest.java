@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +85,63 @@ class AdminMenuServiceTest {
                 .isInstanceOf(MenuApiException.class)
                 .extracting("code")
                 .isEqualTo("DUPLICATE_CATEGORY_NAME");
+    }
+
+    @Test
+    void reorderCategoriesAssignsSequentialDisplayOrder() {
+        Category first = category(1L, "밥류", 1);
+        Category second = category(2L, "사이드", 2);
+        Category third = category(3L, "음료", 3);
+        given(categoryRepository.findAll()).willReturn(List.of(first, second, third));
+        given(categoryRepository.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        List<CategoryResponse> result = adminMenuService.reorderCategories(List.of(3L, 1L, 2L));
+
+        assertThat(result).extracting(CategoryResponse::getId).containsExactly(3L, 1L, 2L);
+        assertThat(result).extracting(CategoryResponse::getDisplayOrder).containsExactly(1, 2, 3);
+        assertThat(third.getDisplayOrder()).isEqualTo(1);
+        assertThat(first.getDisplayOrder()).isEqualTo(2);
+        assertThat(second.getDisplayOrder()).isEqualTo(3);
+        verify(categoryRepository).saveAll(List.of(third, first, second));
+    }
+
+    @Test
+    void reorderCategoriesRejectsDuplicateIds() {
+        assertThatThrownBy(() -> adminMenuService.reorderCategories(List.of(1L, 2L, 2L)))
+                .isInstanceOf(MenuApiException.class)
+                .extracting("code")
+                .isEqualTo("INVALID_REQUEST");
+        verify(categoryRepository, never()).findAll();
+        verify(categoryRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void reorderCategoriesRejectsUnknownId() {
+        given(categoryRepository.findAll()).willReturn(List.of(
+                category(1L, "밥류", 1),
+                category(2L, "사이드", 2)
+        ));
+
+        assertThatThrownBy(() -> adminMenuService.reorderCategories(List.of(1L, 2L, 999L)))
+                .isInstanceOf(MenuApiException.class)
+                .extracting("code")
+                .isEqualTo("CATEGORY_NOT_FOUND");
+        verify(categoryRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void reorderCategoriesRejectsMissingIds() {
+        given(categoryRepository.findAll()).willReturn(List.of(
+                category(1L, "밥류", 1),
+                category(2L, "사이드", 2),
+                category(3L, "음료", 3)
+        ));
+
+        assertThatThrownBy(() -> adminMenuService.reorderCategories(List.of(1L, 3L)))
+                .isInstanceOf(MenuApiException.class)
+                .extracting("code")
+                .isEqualTo("INVALID_REQUEST");
+        verify(categoryRepository, never()).saveAll(any());
     }
 
     @Test
@@ -145,12 +203,31 @@ class AdminMenuServiceTest {
         org.mockito.ArgumentCaptor<List<MenuOption>> captor =
                 org.mockito.ArgumentCaptor.forClass(List.class);
         verify(menuOptionRepository, org.mockito.Mockito.times(2)).saveAll(captor.capture());
-        assertThat(captor.getAllValues().get(0))
+        List<MenuOption> toppingsAndRemoves = captor.getAllValues().get(0);
+        assertThat(toppingsAndRemoves)
                 .extracting(MenuOption::getName)
                 .containsExactly(
-                        "계란후라이", "밥 추가", "고기 추가",
+                        "계란후라이", "밥 추가",
+                        "삼겹소금 추가", "삼겹양념 추가", "참치마요 추가",
                         "모짜렐라치즈", "체다치즈", "스팸",
-                        "김치 제외", "고추장 소스 제외");
+                        "김치 제외", "고추장 소스 제외")
+                .doesNotContain("고기 추가");
+        assertThat(toppingsAndRemoves)
+                .filteredOn(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD)
+                .extracting(
+                        MenuOption::getName,
+                        MenuOption::getAdditionalPrice,
+                        MenuOption::getDisplayOrder,
+                        MenuOption::getMaxQuantity)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("계란후라이", 700, 1, 3),
+                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 2, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 3, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 4, 3),
+                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 5, 3),
+                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 6, 3),
+                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 7, 3),
+                        org.assertj.core.groups.Tuple.tuple("스팸", 700, 8, 3));
         assertThat(captor.getAllValues().get(1))
                 .hasSize(3)
                 .extracting(MenuOption::getName, MenuOption::getAdditionalPrice)
@@ -158,6 +235,71 @@ class AdminMenuServiceTest {
                         org.assertj.core.groups.Tuple.tuple("싱글", 0),
                         org.assertj.core.groups.Tuple.tuple("더블", 1000),
                         org.assertj.core.groups.Tuple.tuple("점보", 2000));
+    }
+
+    @Test
+    void ensureDefaultOptionsAddsMissingNewToppingsWithoutRecreatingMeatAdd() {
+        Menu menu = menu(10L, category(1L));
+        MenuOption egg = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("계란후라이")
+                .additionalPrice(1)
+                .maxQuantity(3)
+                .displayOrder(1)
+                .build();
+        MenuOption meat = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("고기 추가")
+                .additionalPrice(1000)
+                .maxQuantity(3)
+                .displayOrder(3)
+                .build();
+        ReflectionTestUtils.setField(meat, "id", 77L);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of(
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("싱글").additionalPrice(0).maxQuantity(1).displayOrder(1).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("더블").additionalPrice(1000).maxQuantity(1).displayOrder(2).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("점보").additionalPrice(2000).maxQuantity(1).displayOrder(3).build()
+                ));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(egg, meat));
+
+        adminMenuService.ensureDefaultOptions(menu);
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(MenuOption::getName, MenuOption::getAdditionalPrice, MenuOption::getDisplayOrder)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 2),
+                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 4),
+                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 5),
+                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 6),
+                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 7),
+                        org.assertj.core.groups.Tuple.tuple("스팸", 700, 8),
+                        org.assertj.core.groups.Tuple.tuple("김치 제외", 0, 1),
+                        org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 0, 2));
+        assertThat(captor.getValue()).extracting(MenuOption::getName).doesNotContain("고기 추가");
+        assertThat(egg.getAdditionalPrice()).isEqualTo(1);
+        verify(menuOptionRepository, never()).deleteAll(any());
+        verify(menuOptionRepository, never()).delete(any());
+    }
+
+    @Test
+    void defaultToppingAddNamesExcludeMeatAddAndIncludeNewToppings() {
+        assertThat(AdminMenuService.isDefaultToppingAddName("고기 추가")).isFalse();
+        assertThat(AdminMenuService.isDefaultToppingAddName("삼겹소금 추가")).isTrue();
+        assertThat(AdminMenuService.isDefaultToppingAddName("삼겹양념 추가")).isTrue();
+        assertThat(AdminMenuService.isDefaultToppingAddName("참치마요 추가")).isTrue();
+        assertThat(AdminMenuService.isDefaultToppingAddName("밥 추가")).isTrue();
     }
 
     @Test
@@ -264,7 +406,11 @@ class AdminMenuServiceTest {
     }
 
     private Category category(Long id) {
-        Category category = Category.builder().name("컵밥").displayOrder(1).build();
+        return category(id, "컵밥", 1);
+    }
+
+    private Category category(Long id, String name, int displayOrder) {
+        Category category = Category.builder().name(name).displayOrder(displayOrder).build();
         ReflectionTestUtils.setField(category, "id", id);
         return category;
     }
