@@ -9,10 +9,14 @@ export function SalesHourlyChart({
   rows,
   loading,
   error,
+  from,
+  to,
 }: {
   rows: HourlySalesResponse[];
   loading: boolean;
   error: string | null;
+  from?: string;
+  to?: string;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -56,11 +60,18 @@ export function SalesHourlyChart({
 
   return (
     <div className="overflow-x-auto rounded-[25px] border border-black/50 bg-canvas p-[16px] md:p-[20px]">
-      {peak && peak.orderCount > 0 && (
-        <p className="mb-[8px] text-[14px] text-black/70">
-          피크 시간대: {hourLabel(peak.hour)} ({peak.orderCount.toLocaleString()}건)
-        </p>
-      )}
+      {(from && to) || (peak && peak.orderCount > 0) ? (
+        <div className="mb-[8px] text-[14px] text-black/70">
+          {from && to && (
+            <p>기간: {from} ~ {to}</p>
+          )}
+          {peak && peak.orderCount > 0 && (
+            <p>
+              피크 시간대: {hourLabel(peak.hour)} ({peak.orderCount.toLocaleString()}건)
+            </p>
+          )}
+        </div>
+      ) : null}
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-[240px] w-full min-w-[480px] text-black"

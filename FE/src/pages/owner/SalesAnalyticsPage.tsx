@@ -324,15 +324,15 @@ export default function SalesAnalyticsPage() {
   return (
     <AdminShell>
       <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
-        <div className="mb-[16px] flex shrink-0 flex-wrap items-center justify-between gap-[12px] short:mb-[10px]">
-          <h1 className="text-[22px] font-bold text-black short:text-[18px]">매출 분석</h1>
+        <div className="mb-[16px] flex shrink-0 flex-wrap items-center gap-[12px] short:mb-[10px]">
           <button
             type="button"
             onClick={() => navigate("/admin/payments")}
-            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
+            className="rounded-[10px] border border-black/30 px-[14px] py-[8px] text-[13px] font-medium text-black"
           >
-            결제 내역
+            ← 결제 내역
           </button>
+          <h1 className="text-[22px] font-bold text-black short:text-[18px]">매출 분석</h1>
         </div>
 
         <div className="mb-[16px] flex shrink-0 flex-wrap gap-[12px] md:gap-[16px]">
@@ -466,6 +466,8 @@ export default function SalesAnalyticsPage() {
                 rows={hourlyRows}
                 loading={periodLoading}
                 error={periodError}
+                from={range?.from}
+                to={range?.to}
               />
             ) : (
               <SalesPeriodTable
