@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.sales.controller;
 
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.HourlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
@@ -53,6 +54,14 @@ public class SalesController {
     @Operation(summary = "연도별 매출 조회 (전체 기간)")
     public ResponseEntity<List<YearlySalesResponse>> getYearlySales() {
         return ResponseEntity.ok(salesService.getYearlySales());
+    }
+
+    @GetMapping("/by-hour")
+    @Operation(summary = "시간대별 주문 건수 조회")
+    public ResponseEntity<List<HourlySalesResponse>> getHourlySales(
+            @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(salesService.getHourlySales(from, to));
     }
 
     @GetMapping("/by-menu")

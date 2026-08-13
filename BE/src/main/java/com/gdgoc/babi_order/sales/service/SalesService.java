@@ -1,12 +1,14 @@
 package com.gdgoc.babi_order.sales.service;
 
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.HourlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.YearlySalesResponse;
 import com.gdgoc.babi_order.sales.exception.SalesApiException;
 import com.gdgoc.babi_order.sales.repository.DailySalesRow;
+import com.gdgoc.babi_order.sales.repository.HourlySalesRow;
 import com.gdgoc.babi_order.sales.repository.MenuSalesRow;
 import com.gdgoc.babi_order.sales.repository.MonthlySalesRow;
 import com.gdgoc.babi_order.sales.repository.SalesQueryRepository;
@@ -21,6 +23,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +58,12 @@ public class SalesService {
         return salesQueryRepository.findYearlySales().stream()
                 .map(SalesService::toYearlyResponse)
                 .toList();
+    }
+
+    public List<HourlySalesResponse> getHourlySales(LocalDate from, LocalDate to) {
+        DateRange range = validateRange(from, to);
+        return padHourlyGaps(
+                salesQueryRepository.findHourlySales(range.fromInclusive(), range.toExclusive()));
     }
 
     public List<MenuSalesResponse> getMenuSales(LocalDate from, LocalDate to) {
@@ -93,6 +102,29 @@ public class SalesService {
         LocalDate weekFrom = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate weekTo = to.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
         return new DateRange(weekFrom.atStartOfDay(), weekTo.plusDays(1).atStartOfDay());
+    }
+
+    /** minHour~maxHour 사이 빈 시간을 0건으로 채운다. 데이터가 없으면 빈 목록. */
+    private static List<HourlySalesResponse> padHourlyGaps(List<HourlySalesRow> rows) {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, Long> byHour = new LinkedHashMap<>();
+        int minHour = 23;
+        int maxHour = 0;
+        for (HourlySalesRow row : rows) {
+            byHour.put(row.hour(), row.orderCount());
+            minHour = Math.min(minHour, row.hour());
+            maxHour = Math.max(maxHour, row.hour());
+        }
+        List<HourlySalesResponse> padded = new ArrayList<>(maxHour - minHour + 1);
+        for (int hour = minHour; hour <= maxHour; hour++) {
+            padded.add(HourlySalesResponse.builder()
+                    .hour(hour)
+                    .orderCount(byHour.getOrDefault(hour, 0L))
+                    .build());
+        }
+        return padded;
     }
 
     /** 일별 DONE 집계를 월요일~일요일 주로 합친다. 평균은 주 합계 기준. */

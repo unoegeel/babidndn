@@ -1,6 +1,7 @@
 import { adminApi } from "../../api/client";
 import type {
   DailySalesResponse,
+  HourlySalesResponse,
   MenuSalesResponse,
   MonthlySalesResponse,
   WeeklySalesResponse,
@@ -45,6 +46,15 @@ export const adminSalesService = {
    */
   getYearlySales(): Promise<YearlySalesResponse[]> {
     return adminApi.get<YearlySalesResponse[]>("/api/admin/sales/yearly");
+  },
+
+  /**
+   * GET /api/admin/sales/by-hour
+   */
+  getHourlySales(from: string, to: string): Promise<HourlySalesResponse[]> {
+    return adminApi.get<HourlySalesResponse[]>(
+      `/api/admin/sales/by-hour?${dateQuery(from, to)}`,
+    );
   },
 
   /**

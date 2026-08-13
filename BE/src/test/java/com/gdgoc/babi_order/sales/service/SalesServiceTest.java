@@ -1,12 +1,14 @@
 package com.gdgoc.babi_order.sales.service;
 
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.HourlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.YearlySalesResponse;
 import com.gdgoc.babi_order.sales.exception.SalesApiException;
 import com.gdgoc.babi_order.sales.repository.DailySalesRow;
+import com.gdgoc.babi_order.sales.repository.HourlySalesRow;
 import com.gdgoc.babi_order.sales.repository.MenuSalesRow;
 import com.gdgoc.babi_order.sales.repository.MonthlySalesRow;
 import com.gdgoc.babi_order.sales.repository.SalesQueryRepository;
@@ -132,6 +134,30 @@ class SalesServiceTest {
 
         assertThat(result.getFirst().getYear()).isEqualTo(2026);
         assertThat(result.getFirst().getAverageAmount()).isEqualTo(12_000L);
+    }
+
+    @Test
+    void getHourlySalesPadsMissingHoursBetweenMinAndMax() {
+        given(salesQueryRepository.findHourlySales(any(), any())).willReturn(List.of(
+                new HourlySalesRow(9, 3),
+                new HourlySalesRow(11, 7)
+        ));
+
+        List<HourlySalesResponse> result = salesService.getHourlySales(
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 7));
+
+        assertThat(result).extracting(HourlySalesResponse::getHour).containsExactly(9, 10, 11);
+        assertThat(result).extracting(HourlySalesResponse::getOrderCount).containsExactly(3L, 0L, 7L);
+    }
+
+    @Test
+    void getHourlySalesReturnsEmptyWhenNoPayments() {
+        given(salesQueryRepository.findHourlySales(any(), any())).willReturn(List.of());
+
+        List<HourlySalesResponse> result = salesService.getHourlySales(
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 7));
+
+        assertThat(result).isEmpty();
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
 import com.gdgoc.babi_order.sales.dto.response.DailySalesResponse;
+import com.gdgoc.babi_order.sales.dto.response.HourlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MenuSalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.MonthlySalesResponse;
 import com.gdgoc.babi_order.sales.dto.response.WeeklySalesResponse;
@@ -84,6 +85,25 @@ class SalesControllerTest {
                 .andExpect(jsonPath("$[0].menuName").value("삼겹소금"))
                 .andExpect(jsonPath("$[0].itemQuantity").value(120))
                 .andExpect(jsonPath("$[0].totalAmount").value(1200000));
+    }
+
+    @Test
+    void getHourlySalesReturnsAggregates() throws Exception {
+        given(salesService.getHourlySales(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 7)))
+                .willReturn(List.of(
+                        HourlySalesResponse.builder().hour(9).orderCount(3L).build(),
+                        HourlySalesResponse.builder().hour(10).orderCount(0L).build(),
+                        HourlySalesResponse.builder().hour(11).orderCount(7L).build()
+                ));
+
+        mockMvc.perform(get("/api/admin/sales/by-hour")
+                        .param("from", "2026-08-01")
+                        .param("to", "2026-08-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].hour").value(9))
+                .andExpect(jsonPath("$[0].orderCount").value(3))
+                .andExpect(jsonPath("$[1].hour").value(10))
+                .andExpect(jsonPath("$[1].orderCount").value(0));
     }
 
     @Test

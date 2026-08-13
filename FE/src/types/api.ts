@@ -196,6 +196,11 @@ export interface YearlySalesResponse {
   averageAmount: number;
 }
 
+export interface HourlySalesResponse {
+  hour: number;
+  orderCount: number;
+}
+
 export interface MenuSalesResponse {
   menuName: string;
   itemQuantity: number;

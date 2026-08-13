@@ -175,6 +175,13 @@ export function seoulSundayOf(dateStr: string): string | null {
   return seoulDateKey(bounds.startMs + 6 * DAY_MS);
 }
 
+/** 서울 달력일 기준 일 가감. last3(오늘 포함 3일)과 같은 포함 기간 계산용 */
+export function addSeoulCalendarDays(dateStr: string, days: number): string | null {
+  const bounds = seoulDayBoundsMs(dateStr);
+  if (!bounds) return null;
+  return seoulDateKey(bounds.startMs + days * DAY_MS);
+}
+
 /** 서울 달력일 기준 월 가감 (말일 overflow는 해당 월 말일로 클램프) */
 export function addSeoulCalendarMonths(dateStr: string, months: number): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;

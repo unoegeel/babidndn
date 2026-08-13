@@ -79,6 +79,26 @@ public class SalesQueryRepository {
                 .toList();
     }
 
+    public List<HourlySalesRow> findHourlySales(LocalDateTime fromInclusive, LocalDateTime toExclusive) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                        SELECT HOUR(p.approved_at) AS sales_hour,
+                               COUNT(p.id) AS order_count
+                        FROM payments p
+                        WHERE p.status = 'DONE'
+                          AND p.approved_at >= :fromInclusive
+                          AND p.approved_at < :toExclusive
+                        GROUP BY HOUR(p.approved_at)
+                        ORDER BY sales_hour ASC
+                        """)
+                .setParameter("fromInclusive", fromInclusive)
+                .setParameter("toExclusive", toExclusive)
+                .getResultList();
+        return rows.stream()
+                .map(row -> new HourlySalesRow(toInt(row[0]), toLong(row[1])))
+                .toList();
+    }
+
     public List<MonthlySalesRow> findMonthlySales() {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery("""

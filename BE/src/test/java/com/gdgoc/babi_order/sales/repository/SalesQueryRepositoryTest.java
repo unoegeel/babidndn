@@ -99,6 +99,25 @@ class SalesQueryRepositoryTest {
     }
 
     @Test
+    void hourlySalesCountsDonePaymentsByHour() {
+        Menu salt = menu("삼겹소금", 3500);
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 8, 13, 9, 10), 1000, "h9a");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 8, 12, 9, 50), 1000, "h9b");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 8, 13, 11, 0), 1000, "h11");
+        persistPaidOrder(salt, 1, PaymentStatus.CANCELED, LocalDateTime.of(2026, 8, 13, 10, 0), 1000, "skip");
+        persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2026, 8, 10, 8, 0), 1000, "out");
+        entityManager.flush();
+
+        List<HourlySalesRow> rows = salesQueryRepository.findHourlySales(
+                LocalDateTime.of(2026, 8, 12, 0, 0),
+                LocalDateTime.of(2026, 8, 14, 0, 0)
+        );
+
+        assertThat(rows).extracting(HourlySalesRow::hour).containsExactly(9, 11);
+        assertThat(rows).extracting(HourlySalesRow::orderCount).containsExactly(2L, 1L);
+    }
+
+    @Test
     void monthlyAndYearlySalesGroupDonePaymentsOnly() {
         Menu salt = menu("삼겹소금", 3500);
         persistPaidOrder(salt, 1, PaymentStatus.DONE, LocalDateTime.of(2025, 12, 31, 10, 0), 1000, "y2025");

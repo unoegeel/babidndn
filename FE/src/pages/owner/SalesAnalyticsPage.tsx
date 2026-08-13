@@ -5,6 +5,7 @@ import {
   SalesMenuTable,
   type MenuSortKey,
 } from "../../components/owner/sales/SalesMenuTable";
+import { SalesHourlyChart } from "../../components/owner/sales/SalesHourlyChart";
 import {
   SalesPeriodTable,
   type PeriodSortKey,
@@ -12,9 +13,10 @@ import {
 } from "../../components/owner/sales/SalesPeriodTable";
 import { ApiError } from "../../api/client";
 import { adminSalesService } from "../../services/admin/salesService";
-import type { MenuSalesResponse } from "../../types/api";
+import type { HourlySalesResponse, MenuSalesResponse } from "../../types/api";
 import { rangeFromDateInputs } from "../../utils/paymentExport";
 import {
+  addSeoulCalendarDays,
   addSeoulCalendarMonths,
   formatSeoulDateWithWeekday,
   seoulDateKey,
@@ -23,9 +25,10 @@ import {
   seoulSundayOf,
 } from "../../utils/serverDate";
 
-type SalesGrain = "daily" | "weekly" | "monthly" | "yearly";
+type SalesGrain = "daily" | "weekly" | "monthly" | "yearly" | "hourly";
 type DailyPreset = "today" | "last3" | "custom";
 type WeeklyPreset = "thisWeek" | "lastMonth" | "custom";
+type HourlyPreset = "week" | "month" | "month3" | "month6";
 
 type DateRange = { from: string; to: string };
 
@@ -34,6 +37,14 @@ const GRAINS: Array<{ id: SalesGrain; label: string }> = [
   { id: "weekly", label: "주별" },
   { id: "monthly", label: "월별" },
   { id: "yearly", label: "연도별" },
+  { id: "hourly", label: "시간대별" },
+];
+
+const HOURLY_PRESETS: Array<{ id: HourlyPreset; label: string; months?: number; days?: number }> = [
+  { id: "week", label: "1주", days: 6 },
+  { id: "month", label: "1달", months: 1 },
+  { id: "month3", label: "3달", months: 3 },
+  { id: "month6", label: "6달", months: 6 },
 ];
 
 function thisWeekRange(): DateRange | null {
@@ -87,6 +98,19 @@ function resolveWeeklyRange(
   return { from, to };
 }
 
+/** 오늘 포함. 1주=7일(today-6~today), 1/3/6달은 달력월. */
+function resolveHourlyRange(preset: HourlyPreset): DateRange | null {
+  const today = seoulDateKey();
+  const spec = HOURLY_PRESETS.find((item) => item.id === preset);
+  if (!spec) return null;
+  const from =
+    spec.days !== undefined
+      ? addSeoulCalendarDays(today, -spec.days)
+      : addSeoulCalendarMonths(today, -(spec.months ?? 1));
+  if (!from) return null;
+  return { from, to: today };
+}
+
 function grainTitle(grain: SalesGrain): string {
   switch (grain) {
     case "daily":
@@ -97,6 +121,8 @@ function grainTitle(grain: SalesGrain): string {
       return "월별";
     case "yearly":
       return "연도별";
+    case "hourly":
+      return "시간대별";
   }
 }
 
@@ -110,6 +136,8 @@ function periodHeader(grain: SalesGrain): string {
       return "월";
     case "yearly":
       return "연도";
+    case "hourly":
+      return "시간";
   }
 }
 
@@ -124,11 +152,13 @@ export default function SalesAnalyticsPage() {
   const [grain, setGrain] = useState<SalesGrain>("daily");
   const [dailyPreset, setDailyPreset] = useState<DailyPreset>("last3");
   const [weeklyPreset, setWeeklyPreset] = useState<WeeklyPreset>("thisWeek");
+  const [hourlyPreset, setHourlyPreset] = useState<HourlyPreset>("week");
   const [customStart, setCustomStart] = useState(() => seoulDateKey());
   const [customEnd, setCustomEnd] = useState(() => seoulDateKey());
   const [weeklyStart, setWeeklyStart] = useState(() => seoulMondayOf(seoulDateKey()) ?? seoulDateKey());
   const [weeklyEnd, setWeeklyEnd] = useState(() => seoulSundayOf(seoulDateKey()) ?? seoulDateKey());
   const [periodRows, setPeriodRows] = useState<SalesPeriodRow[]>([]);
+  const [hourlyRows, setHourlyRows] = useState<HourlySalesResponse[]>([]);
   const [menuRows, setMenuRows] = useState<MenuSalesResponse[]>([]);
   const [periodLoading, setPeriodLoading] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
@@ -151,14 +181,18 @@ export default function SalesAnalyticsPage() {
     if (grain === "weekly") {
       return resolveWeeklyRange(weeklyPreset, weeklyStart, weeklyEnd);
     }
+    if (grain === "hourly") {
+      return resolveHourlyRange(hourlyPreset);
+    }
     return null;
-  }, [grain, dailyPreset, weeklyPreset, customStart, customEnd, weeklyStart, weeklyEnd]);
+  }, [grain, dailyPreset, weeklyPreset, hourlyPreset, customStart, customEnd, weeklyStart, weeklyEnd]);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
-    const needsRange = grain === "daily" || grain === "weekly";
+    const needsRange = grain === "daily" || grain === "weekly" || grain === "hourly";
     if (needsRange && !range) {
       setPeriodRows([]);
+      setHourlyRows([]);
       setMenuRows([]);
       setPeriodError("기간을 올바르게 설정해 주세요.");
       setMenuError("기간을 올바르게 설정해 주세요.");
@@ -199,7 +233,7 @@ export default function SalesAnalyticsPage() {
             totalAmount: row.totalAmount,
             averageAmount: row.averageAmount,
           }));
-        } else {
+        } else if (grain === "yearly") {
           const data = await adminSalesService.getYearlySales();
           rows = data.map((row) => ({
             periodKey: String(row.year),
@@ -208,13 +242,21 @@ export default function SalesAnalyticsPage() {
             totalAmount: row.totalAmount,
             averageAmount: row.averageAmount,
           }));
+        } else if (grain === "hourly" && range) {
+          const data = await adminSalesService.getHourlySales(range.from, range.to);
+          if (requestIdRef.current !== requestId) return;
+          setHourlyRows(data);
+          setPeriodRows([]);
+          return;
         }
         if (requestIdRef.current !== requestId) return;
+        setHourlyRows([]);
         setPeriodRows(rows);
       } catch (err) {
         if (requestIdRef.current !== requestId) return;
         console.error("기간 매출 조회 실패:", err);
         setPeriodRows([]);
+        setHourlyRows([]);
         setPeriodError(
           err instanceof ApiError && err.message
             ? err.message
@@ -226,6 +268,12 @@ export default function SalesAnalyticsPage() {
     };
 
     const loadMenu = async () => {
+      if (grain === "hourly") {
+        setMenuRows([]);
+        setMenuLoading(false);
+        setMenuError(null);
+        return;
+      }
       setMenuLoading(true);
       setMenuError(null);
       try {
@@ -398,23 +446,47 @@ export default function SalesAnalyticsPage() {
               </div>
             )}
 
-            <SalesPeriodTable
-              rows={periodRows}
-              loading={periodLoading}
-              error={periodError}
-              periodHeader={periodHeader(grain)}
-              sortKey={periodSort.key}
-              sortDir={periodSort.dir}
-              onSort={(key) =>
-                setPeriodSort((prev) =>
-                  prev.key === key
-                    ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-                    : { key, dir: "asc" },
-                )
-              }
-            />
+            {grain === "hourly" && (
+              <div className="flex flex-wrap items-center gap-[12px] md:gap-[16px]">
+                {HOURLY_PRESETS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setHourlyPreset(item.id)}
+                    className={pillClass(hourlyPreset === item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {grain === "hourly" ? (
+              <SalesHourlyChart
+                rows={hourlyRows}
+                loading={periodLoading}
+                error={periodError}
+              />
+            ) : (
+              <SalesPeriodTable
+                rows={periodRows}
+                loading={periodLoading}
+                error={periodError}
+                periodHeader={periodHeader(grain)}
+                sortKey={periodSort.key}
+                sortDir={periodSort.dir}
+                onSort={(key) =>
+                  setPeriodSort((prev) =>
+                    prev.key === key
+                      ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+                      : { key, dir: "asc" },
+                  )
+                }
+              />
+            )}
           </section>
 
+          {grain !== "hourly" && (
           <section className="flex flex-col gap-[12px]">
             <h2 className="text-[18px] font-bold text-black">메뉴별 매출 분석</h2>
             <SalesMenuTable
@@ -432,6 +504,7 @@ export default function SalesAnalyticsPage() {
               }
             />
           </section>
+          )}
         </div>
       </div>
     </AdminShell>
