@@ -1,83 +1,18 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, NotificationItem, NotificationType } from "../types/user";
-import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../services/user/orderService";
-import { seoulDateKey } from "../utils/serverDate";
+import { orderService } from "../services/user/orderService";
+import type { OrderDetailResponse } from "../types/api";
 import { claimReadyCall, clearReadyBannerDismiss } from "../utils/readyCall";
+import { useOrderPolling } from "../hooks/useOrderPolling";
+import { useCartState } from "../hooks/useCartState";
+import { useConfettiPlay } from "../hooks/useConfettiPlay";
+import { useUserNotifications } from "../hooks/useUserNotifications";
 
 const ORDERS_STORAGE_KEY = "babi_user_orders";
-const NOTIFS_STORAGE_KEY = "babi_user_notifications";
-/** 마지막으로 알림을 유지한 서울 달력일 (YYYY-MM-DD). 날짜가 바뀌면 전체 삭제 */
-const NOTIFS_DAY_KEY = "babi_user_notifications_day";
-const SEOUL = "Asia/Seoul";
-
-/** 다음 서울 자정까지 남은 ms */
-function msUntilNextSeoulMidnight(nowMs: number = Date.now()): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: SEOUL,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(nowMs));
-
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
-  const h = get("hour");
-  const min = get("minute");
-  const s = get("second");
-
-  // 서울 벽시계 → 다음 날 00:00 까지 남은 초
-  const secondsToday = h * 3600 + min * 60 + s;
-  const secondsInDay = 24 * 3600;
-  let remainMs = (secondsInDay - secondsToday) * 1000;
-  if (remainMs <= 0) remainMs = 1000;
-  // 날짜 경계 직후 한 번 더 돌도록 약간의 버퍼
-  return remainMs + 200;
-}
-
-function notificationCreatedAtMs(n: NotificationItem): number | null {
-  if (typeof n.createdAtMs === "number" && Number.isFinite(n.createdAtMs)) {
-    return n.createdAtMs;
-  }
-  // 구버전: id 앞부분이 Date.now()
-  const ts = Number(String(n.id).split("-")[0]);
-  if (Number.isFinite(ts) && ts > 1e12) {
-    return ts;
-  }
-  return null;
-}
-
-/**
- * 서울 자정 기준 알림 정리.
- * - 달력일이 바뀌면 알림을 전부 삭제
- * - 같은 날이어도 오늘이 아닌 생성 시각 알림은 제거
- */
-function pruneOldNotifications(list: NotificationItem[]): NotificationItem[] {
-  const todayKey = seoulDateKey();
-  try {
-    const storedDay = localStorage.getItem(NOTIFS_DAY_KEY);
-    if (storedDay !== todayKey) {
-      localStorage.setItem(NOTIFS_DAY_KEY, todayKey);
-      return [];
-    }
-  } catch {
-    // localStorage 실패 시에도 일자 필터는 적용
-  }
-
-  return list.filter((n) => {
-    const ms = notificationCreatedAtMs(n);
-    if (ms == null) return false;
-    return seoulDateKey(ms) === todayKey;
-  });
-}
 
 interface UserDataContextType {
   cart: CartItem[];
   orders: Order[];
-  currentOrder: Order | null;
-  latestOrderId: string | null;
   activeOrders: Order[];
   notifications: NotificationItem[];
   /** 최근 READY 호출/재호출 시그널 (동일 updatedAt 중복 없음) */
@@ -95,7 +30,6 @@ interface UserDataContextType {
   createOrder: (paymentMethod?: string) => Promise<OrderDetailResponse>;
   getOrderById: (orderId: string) => Order | null;
   saveOrderToState: (order: Order) => void;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   cartTotal: number;
   addNotification: (type: NotificationType, title: string, message: string, orderId: string) => void;
   markAsRead: (id: string) => void;
@@ -117,93 +51,39 @@ function readStoredOrders(): Order[] {
   }
 }
 
-function readStoredNotifications(): NotificationItem[] {
-  try {
-    const raw = localStorage.getItem(NOTIFS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as NotificationItem[];
-    if (!Array.isArray(parsed)) return [];
-    return pruneOldNotifications(parsed);
-  } catch {
-    return [];
-  }
-}
-
 function isActiveStatus(status: OrderStatus): boolean {
   return status === "PREPARING" || status === "READY";
 }
 
 export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const {
+    cart,
+    cartTotal,
+    addToCart,
+    updateCartQuantity,
+    removeFromCart,
+    clearCart,
+    restoreCart,
+  } = useCartState();
+  const { confettiPlay, startConfetti, stopConfetti, finishConfetti } = useConfettiPlay();
+  const {
+    notifications,
+    addNotification,
+    markAsRead,
+    markNotificationsReadByOrder,
+    removeNotification,
+  } = useUserNotifications();
   const [orders, setOrders] = useState<Order[]>(() => readStoredOrders());
-  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [latestOrderId, setLatestOrderId] = useState<string | null>(() => {
-    const stored = readStoredOrders();
-    return stored.length > 0 ? stored[stored.length - 1].orderId : null;
-  });
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => readStoredNotifications());
   const [readyCallSignal, setReadyCallSignal] = useState<{
     orderId: string;
     updatedAt: string;
     isRecall: boolean;
   } | null>(null);
-  const [confettiPlay, setConfettiPlay] = useState<{ playKey: string } | null>(null);
-  const confettiOnDoneRef = useRef<(() => void) | null>(null);
-
-  const startConfetti = useCallback((playKey: string, onDone?: () => void) => {
-    confettiOnDoneRef.current = onDone ?? null;
-    setConfettiPlay({ playKey });
-  }, []);
-
-  const stopConfetti = useCallback(() => {
-    confettiOnDoneRef.current = null;
-    setConfettiPlay(null);
-  }, []);
-
-  const finishConfetti = useCallback(() => {
-    const onDone = confettiOnDoneRef.current;
-    confettiOnDoneRef.current = null;
-    setConfettiPlay(null);
-    onDone?.();
-  }, []);
 
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
   const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
   /** 주문별 마지막으로 관측한 updatedAt — READY 재호출 구분 */
   const lastUpdatedAtRef = useRef<Record<string, string>>({});
-
-  // 서울 00시 기준 알림 전체 삭제 (자정 타이머 + 1분 폴링 + 탭 복귀)
-  useEffect(() => {
-    const prune = () => {
-      setNotifications((prev) => {
-        const next = pruneOldNotifications(prev);
-        return next.length === prev.length ? prev : next;
-      });
-    };
-
-    prune();
-
-    let midnightTimer = 0;
-    const scheduleMidnight = () => {
-      window.clearTimeout(midnightTimer);
-      midnightTimer = window.setTimeout(() => {
-        prune();
-        scheduleMidnight();
-      }, msUntilNextSeoulMidnight());
-    };
-    scheduleMidnight();
-
-    const intervalId = window.setInterval(prune, 60_000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") prune();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearTimeout(midnightTimer);
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []);
 
   useEffect(() => {
     try {
@@ -212,138 +92,6 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // ignore
     }
   }, [orders]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(NOTIFS_STORAGE_KEY, JSON.stringify(pruneOldNotifications(notifications).slice(0, 50)));
-    } catch {
-      // ignore
-    }
-  }, [notifications]);
-
-  const addNotification = useCallback(
-    (type: NotificationType, title: string, message: string, orderId: string) => {
-      const now = new Date();
-      const timeString = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-      const newNotification: NotificationItem = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type,
-        title,
-        message,
-        orderId,
-        createdAt: timeString,
-        createdAtMs: now.getTime(),
-        read: false,
-      };
-      setNotifications((prev) => {
-        // 같은 주문·같은 유형 알림은 한 번만
-        if (prev.some((n) => n.orderId === orderId && n.type === type)) {
-          return prev;
-        }
-        return pruneOldNotifications([newNotification, ...prev]).slice(0, 50);
-      });
-    },
-    [],
-  );
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
-  const markNotificationsReadByOrder = useCallback((orderId: string, type?: NotificationType) => {
-    setNotifications((prev) =>
-      prev.map((n) => {
-        if (n.orderId !== orderId) return n;
-        if (type && n.type !== type) return n;
-        return n.read ? n : { ...n, read: true };
-      }),
-    );
-  }, []);
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  const generateCartItemId = (menuId: number, options: MenuOption[]): string => {
-    const sortedOptionIds = [...options].map((o) => o.id).sort((a, b) => a - b);
-    return `${menuId}-${sortedOptionIds.join("-")}`;
-  };
-
-  const addToCart = (menu: MenuDetail, selectedOptions: MenuOption[], quantity: number) => {
-    const cartItemId = generateCartItemId(menu.id, selectedOptions);
-
-    setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex((item) => item.cartItemId === cartItemId);
-      const optionsPrice = selectedOptions.reduce((sum, opt) => sum + opt.additionalPrice, 0);
-      const singleItemPrice = menu.basePrice + optionsPrice;
-
-      if (existingItemIndex > -1) {
-        const updatedCart = [...prevCart];
-        const existingItem = updatedCart[existingItemIndex];
-        const newQuantity = existingItem.quantity + quantity;
-
-        updatedCart[existingItemIndex] = {
-          ...existingItem,
-          quantity: newQuantity,
-          totalPrice: singleItemPrice * newQuantity,
-        };
-        return updatedCart;
-      }
-
-      const newItem: CartItem = {
-        cartItemId,
-        menuId: menu.id,
-        menuName: menu.name,
-        basePrice: menu.basePrice,
-        imageUrl: menu.imageUrl,
-        selectedOptions,
-        quantity,
-        totalPrice: singleItemPrice * quantity,
-      };
-      return [...prevCart, newItem];
-    });
-  };
-
-  const updateCartQuantity = (cartItemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCart(cartItemId);
-      return;
-    }
-
-    setCart((prevCart) =>
-      prevCart.map((item) => {
-        if (item.cartItemId === cartItemId) {
-          const optionsPrice = item.selectedOptions.reduce((sum, opt) => sum + opt.additionalPrice, 0);
-          const singleItemPrice = item.basePrice + optionsPrice;
-          return {
-            ...item,
-            quantity: newQuantity,
-            totalPrice: singleItemPrice * newQuantity,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const removeFromCart = (cartItemId: string) => {
-    setCart((prevCart) => prevCart.filter((item) => item.cartItemId !== cartItemId));
-  };
-
-  const clearCart = () => {
-    setCart([]);
-  };
-
-  const restoreCart = (items: CartItem[]) => {
-    setCart(items);
-  };
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.totalPrice, 0);
-  }, [cart]);
 
   const createOrder = async (): Promise<OrderDetailResponse> => {
     return orderService.createOrder(cart);
@@ -357,46 +105,11 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return [...prevOrders, orderObj];
     });
-    setCurrentOrder(orderObj);
-    setLatestOrderId(orderObj.orderId);
   }, []);
 
-  const getOrderById = (orderId: string): Order | null => {
-    const found = orders.find((o) => o.orderId === orderId);
-    if (found) return found;
-    if (currentOrder && currentOrder.orderId === orderId) return currentOrder;
-    return null;
-  };
-
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    const update = (prevOrders: Order[]) =>
-      prevOrders.map((o) => {
-        if (o.orderId === orderId) {
-          let count = o.waitingCount;
-          let time = o.waitingTime;
-          if (status === "READY" || status === "COMPLETED") {
-            count = 0;
-            time = 0;
-          }
-          return { ...o, status, waitingCount: count, waitingTime: time };
-        }
-        return o;
-      });
-
-    setOrders(update);
-    if (currentOrder && currentOrder.orderId === orderId) {
-      setCurrentOrder((prev) => {
-        if (!prev) return null;
-        let count = prev.waitingCount;
-        let time = prev.waitingTime;
-        if (status === "READY" || status === "COMPLETED") {
-          count = 0;
-          time = 0;
-        }
-        return { ...prev, status, waitingCount: count, waitingTime: time };
-      });
-    }
-  };
+  const getOrderById = useCallback((orderId: string): Order | null => {
+    return orders.find((o) => o.orderId === orderId) ?? null;
+  }, [orders]);
 
   const activeOrders = useMemo(
     () => orders.filter((o) => isActiveStatus(o.status)),
@@ -404,115 +117,96 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 
   /** 조리중·준비완료 주문은 COMPLETED/CANCELED 될 때까지 폴링 */
-  const pollableOrderIdsKey = useMemo(
+  const pollableOrderIds = useMemo(
     () =>
       orders
         .filter((o) => o.status === "PREPARING" || o.status === "READY")
         .map((o) => o.orderId)
-        .sort()
-        .join(","),
+        .sort(),
     [orders],
   );
 
-  // 진행 중 주문 전체를 백그라운드에서 폴링 — READY 이후에도 픽업완료 반영
-  useEffect(() => {
-    const pollableIds = pollableOrderIdsKey ? pollableOrderIdsKey.split(",") : [];
-    if (pollableIds.length === 0) {
-      return;
-    }
+  const handleBackgroundOrderUpdate = useCallback(
+    (updated: Order) => {
+      const id = updated.orderId;
+      saveOrderToState(updated);
 
-    let cancelled = false;
+      if (!notifiedRef.current[id]) {
+        notifiedRef.current[id] = { preparing: false, ready: false, canceled: false };
+      }
+      const flags = notifiedRef.current[id];
+      const nextUpdatedAt = updated.updatedAt ?? "";
+      const prevUpdatedAt = lastUpdatedAtRef.current[id] ?? "";
 
-    const poll = async () => {
-      await Promise.all(
-        pollableIds.map(async (id) => {
-          try {
-            const res = await orderService.getOrder(id);
-            if (cancelled) return;
-            const updated = mapOrderDetailToOrder(res);
-            saveOrderToState(updated);
+      if (updated.status === "PREPARING" && !flags.preparing) {
+        addNotification(
+          "PREPARING",
+          "조리 시작",
+          `${updated.pickupNumber}번 주문을 조리하고 있습니다.`,
+          updated.orderId,
+        );
+        flags.preparing = true;
+      }
 
-            if (!notifiedRef.current[id]) {
-              notifiedRef.current[id] = { preparing: false, ready: false, canceled: false };
-            }
-            const flags = notifiedRef.current[id];
-            const nextUpdatedAt = updated.updatedAt ?? "";
-            const prevUpdatedAt = lastUpdatedAtRef.current[id] ?? "";
-
-            if (updated.status === "PREPARING" && !flags.preparing) {
-              addNotification(
-                "PREPARING",
-                "조리 시작",
-                `${updated.pickupNumber}번 주문을 조리하고 있습니다.`,
-                updated.orderId,
-              );
-              flags.preparing = true;
-            }
-
-            if (updated.status === "READY" || updated.status === "COMPLETED") {
-              if (!flags.ready) {
-                addNotification(
-                  "READY",
-                  "준비 완료",
-                  `${updated.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
-                  updated.orderId,
-                );
-                flags.ready = true;
-                // 최초 READY updatedAt 기록(claim) — 이후 같은 시각 중복·재호출 오인 방지
-                if (updated.status === "READY" && nextUpdatedAt) {
-                  claimReadyCall(id, nextUpdatedAt);
-                }
-              } else if (
-                updated.status === "READY" &&
-                nextUpdatedAt &&
-                prevUpdatedAt &&
-                prevUpdatedAt !== nextUpdatedAt &&
-                claimReadyCall(id, nextUpdatedAt)
-              ) {
-                // 이미 READY인데 updatedAt이 바뀜 → 관리자 재호출
-                clearReadyBannerDismiss(id);
-                setReadyCallSignal({ orderId: id, updatedAt: nextUpdatedAt, isRecall: true });
-              }
-            }
-
-            if (nextUpdatedAt) {
-              lastUpdatedAtRef.current[id] = nextUpdatedAt;
-            }
-
-            if (updated.status === "CANCELED" && !flags.canceled) {
-              addNotification(
-                "CANCELED",
-                "주문 취소",
-                `${updated.pickupNumber}번 주문이 취소되었습니다.`,
-                updated.orderId,
-              );
-              flags.canceled = true;
-            }
-          } catch (err) {
-            console.error(`진행 중 주문 폴링 실패 (id=${id}):`, err);
+      if (updated.status === "READY" || updated.status === "COMPLETED") {
+        if (!flags.ready) {
+          addNotification(
+            "READY",
+            "준비 완료",
+            `${updated.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
+            updated.orderId,
+          );
+          flags.ready = true;
+          // 최초 READY updatedAt 기록(claim) — 이후 같은 시각 중복·재호출 오인 방지
+          if (updated.status === "READY" && nextUpdatedAt) {
+            claimReadyCall(id, nextUpdatedAt);
           }
-        }),
-      );
-    };
+        } else if (
+          updated.status === "READY" &&
+          nextUpdatedAt &&
+          prevUpdatedAt &&
+          prevUpdatedAt !== nextUpdatedAt &&
+          claimReadyCall(id, nextUpdatedAt)
+        ) {
+          // 이미 READY인데 updatedAt이 바뀜 → 관리자 재호출
+          clearReadyBannerDismiss(id);
+          setReadyCallSignal({ orderId: id, updatedAt: nextUpdatedAt, isRecall: true });
+        }
+      }
 
-    void poll();
-    const intervalId = setInterval(() => {
-      void poll();
-    }, 3000);
+      if (nextUpdatedAt) {
+        lastUpdatedAtRef.current[id] = nextUpdatedAt;
+      }
 
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [pollableOrderIdsKey, saveOrderToState, addNotification]);
+      if (updated.status === "CANCELED" && !flags.canceled) {
+        addNotification(
+          "CANCELED",
+          "주문 취소",
+          `${updated.pickupNumber}번 주문이 취소되었습니다.`,
+          updated.orderId,
+        );
+        flags.canceled = true;
+      }
+    },
+    [saveOrderToState, addNotification],
+  );
+
+  // 진행 중 주문 전체를 백그라운드에서 폴링 — READY 이후에도 픽업완료 반영
+  useOrderPolling({
+    orderIds: pollableOrderIds,
+    intervalMs: 3000,
+    enabled: pollableOrderIds.length > 0,
+    onOrderUpdate: handleBackgroundOrderUpdate,
+    onError: (id, err) => {
+      console.error(`진행 중 주문 폴링 실패 (id=${id}):`, err);
+    },
+  });
 
   return (
     <UserDataContext.Provider
       value={{
         cart,
         orders,
-        currentOrder,
-        latestOrderId,
         activeOrders,
         notifications,
         readyCallSignal,
@@ -528,7 +222,6 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createOrder,
         getOrderById,
         saveOrderToState,
-        updateOrderStatus,
         cartTotal,
         addNotification,
         markAsRead,

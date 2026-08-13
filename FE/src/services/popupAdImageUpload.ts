@@ -1,5 +1,5 @@
-import { adminPopupAdService } from "../services/popupAdService";
-import { uploadWithPresignedUrl, validateImageFile } from "./presignedImageUpload";
+import { uploadWithPresignedUrl, validateImageFile } from "../utils/presignedImageUpload";
+import { adminPopupAdService } from "./popupAdService";
 
 export function validatePopupAdImageFile(file: File): string | null {
   return validateImageFile(file);

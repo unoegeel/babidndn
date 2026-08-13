@@ -98,14 +98,6 @@ export function rangeFromDateInputs(
   return { startMs: startBounds.startMs, endMs: endBounds.endMs };
 }
 
-/** @deprecated rangeFromDateInputs 사용 */
-export function rangeFromDatetimeLocal(
-  startLocal: string,
-  endLocal: string,
-): { startMs: number; endMs: number } | null {
-  return rangeFromDateInputs(startLocal, endLocal);
-}
-
 /** 내보내기 기본 기간: 서울 기준 최근 7일(오늘 포함) */
 export function defaultExportRangeLocal(): { start: string; end: string } {
   const end = seoulDateKey();

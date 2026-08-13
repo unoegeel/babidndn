@@ -5,15 +5,6 @@ import { subscribeOrderEvents } from "../../services/admin/orderService";
 import type { Order, OrderItem } from "../../types/admin";
 import { printKitchenTicket } from "../../utils/kitchenTicketAutoPrint";
 
-declare global {
-  interface Window {
-    Android?: {
-      printKitchenTicket: (orderJson: string) => void;
-      printCustomerReceipt?: (receiptJson: string) => void;
-    };
-  }
-}
-
 /** 주문 목록 폴링 주기 (ms) — SSE 수신 실패 대비 안전망 */
 const POLL_INTERVAL = 10_000;
 

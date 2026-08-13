@@ -60,8 +60,8 @@ export interface Order {
   called: boolean;
 }
 
-/** 결제 상태 */
-export type PaymentStatus = "결제완료" | "취소됨" | "미결제";
+/** 결제 상태 (화면 표시 문자열 — formatPaymentStatusLabel 과 동기화) */
+export type PaymentStatus = "결제완료" | "결제취소" | "부분취소" | "미결제";
 
 export interface Payment {
   id: string;

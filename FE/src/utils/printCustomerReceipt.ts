@@ -1,14 +1,5 @@
 import type { ReceiptViewModel } from "../types/receipt";
 
-declare global {
-  interface Window {
-    Android?: {
-      printKitchenTicket: (orderJson: string) => void;
-      printCustomerReceipt?: (receiptJson: string) => void;
-    };
-  }
-}
-
 /**
  * 고객용 실물 영수증 출력.
  *

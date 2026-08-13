@@ -1,5 +1,6 @@
 /**
- * Payment.status (BE PaymentStatus) → 영수증 UI 표시용 한국어.
+ * Payment.status (BE PaymentStatus) → 화면 표시용 한국어.
+ * 전자영수증·관리자 결제내역 공통 진입점.
  * 실제 enum: DONE | CANCELED | PARTIAL_CANCELED
  */
 const PAYMENT_STATUS_LABELS: Record<string, string> = {

@@ -1,5 +1,5 @@
-import { adminMenuService } from "../services/admin/menuService";
-import { uploadWithPresignedUrl, validateImageFile } from "./presignedImageUpload";
+import { uploadWithPresignedUrl, validateImageFile } from "../../utils/presignedImageUpload";
+import { adminMenuService } from "./menuService";
 
 export function validateMenuImageFile(file: File): string | null {
   return validateImageFile(file);

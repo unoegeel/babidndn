@@ -1,5 +1,5 @@
 /** 브라우저 UI(상·하단 바)를 제외한 실제 가시 높이를 --app-height 로 동기화 */
-export function syncAppHeight() {
+function syncAppHeight() {
   const height = window.visualViewport?.height ?? window.innerHeight;
   document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
 }
