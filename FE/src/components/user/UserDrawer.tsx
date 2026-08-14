@@ -105,7 +105,7 @@ export function UserDrawer({
           <button
             type="button"
             onClick={() => onNavigate("/user/contact")}
-            className="w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="w-full rounded-xl px-2 py-2.5 text-left text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             서비스 문의하기 →
           </button>
