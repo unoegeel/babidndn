@@ -95,16 +95,19 @@ export function UserDrawer({
         </nav>
 
         <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
-          <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
-          <p className="mt-1 px-2 text-[11px] leading-normal text-gray-400">
-            이용 중 불편한 점이 있나요?
-          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate("/user/refund-policy")}
+            className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            환불 정책
+          </button>
           <button
             type="button"
             onClick={() => onNavigate("/user/contact")}
-            className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            문의하기 →
+            서비스 문의하기 →
           </button>
           <div className="mt-4 px-2">
             <p className="text-[11px] font-bold text-gray-900">바비오더</p>

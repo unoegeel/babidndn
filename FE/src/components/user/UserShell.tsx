@@ -62,6 +62,8 @@ export const UserShell: React.FC = () => {
   const isGuidePage = pathname === "/user/guide" || pathname === "/user/guide/";
   const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
+  const isRefundPolicyPage =
+    pathname === "/user/refund-policy" || pathname === "/user/refund-policy/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isReceiptPage = pathname.endsWith("/receipt") || pathname.endsWith("/receipt/");
   const isStatusPage =
@@ -134,6 +136,7 @@ export const UserShell: React.FC = () => {
   if (isReviewPage) headerTitle = "리뷰";
   if (isGuidePage) headerTitle = "사용 가이드";
   if (isContactPage) headerTitle = "서비스 문의";
+  if (isRefundPolicyPage) headerTitle = "환불 정책";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
   if (isReceiptPage) headerTitle = "전자영수증";
 
