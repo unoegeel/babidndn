@@ -69,6 +69,10 @@ export interface OrderStatusUpdateRequest {
   status: ApiOrderStatus;
 }
 
+export interface WaitingCountResponse {
+  waitingCount: number;
+}
+
 /* ── 관리자 (Admin) ── */
 
 export interface AdminLoginRequest {
@@ -96,6 +100,10 @@ export interface CategoryResponse {
 export interface CategoryUpsertRequest {
   name: string;
   displayOrder: number;
+}
+
+export interface CategoryOrderUpdateRequest {
+  categoryIds: number[];
 }
 
 export interface MenuUpsertRequest {
@@ -161,4 +169,44 @@ export interface PaymentResponse {
 
 export interface PaymentCancelRequest {
   cancelReason: string;
+}
+
+export interface DailySalesResponse {
+  date: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface WeeklySalesResponse {
+  weekStart: string;
+  weekEnd: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface MonthlySalesResponse {
+  yearMonth: string;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface YearlySalesResponse {
+  year: number;
+  paymentCount: number;
+  totalAmount: number;
+  averageAmount: number;
+}
+
+export interface HourlySalesResponse {
+  hour: number;
+  orderCount: number;
+}
+
+export interface MenuSalesResponse {
+  menuName: string;
+  itemQuantity: number;
+  totalAmount: number;
 }

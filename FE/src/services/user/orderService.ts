@@ -4,57 +4,28 @@ import {
   getOrderApiBaseUrl,
   rememberOrderApiBaseUrl,
 } from "../../api/client";
+import type {
+  OrderCreateRequest,
+  OrderDetailResponse,
+  OrderItemOptionRequest,
+  OrderItemRequest,
+  PaymentConfirmResponse,
+  WaitingCountResponse,
+} from "../../types/api";
+import type { CartItem, Order, MenuOption, GroupType } from "../../types/user";
 import { formatServerDateTimeDash } from "../../utils/serverDate";
-import type { CartItem, OrderStatus, Order, MenuOption, GroupType } from "../../types/user";
 
-// --- DTO Types ---
-
-export interface OrderItemOptionRequest {
-  menuOptionId: number;
-  quantity: number;
-}
-
-export interface OrderItemRequest {
-  menuId: number;
-  quantity: number;
-  options?: OrderItemOptionRequest[];
-}
-
-export interface OrderCreateRequest {
-  items: OrderItemRequest[];
-}
-
-export interface OrderItemOptionResponse {
-  id: number;
-  menuOptionId: number;
-  groupType: string;
-  name: string;
-  additionalPrice: number;
-  quantity: number;
-}
-
-export interface OrderItemResponse {
-  id: number;
-  menuId: number;
-  menuName: string;
-  menuPrice: number;
-  quantity: number;
-  lineAmount: number;
-  options: OrderItemOptionResponse[];
-}
-
-export interface OrderDetailResponse {
-  id: number;
-  tossOrderId: string;
-  pickupNumber: number;
-  status: OrderStatus;
-  totalAmount: number;
-  paymentStatus: string; // "UNPAID" | "DONE"
-  createdAt: string;
-  updatedAt: string;
-  items: OrderItemResponse[];
-  /** 진행 중이며 대기번호가 더 빠른 주문 수 (서버 계산) */
-  waitingAheadCount?: number;
+/**
+ * 결제 승인 요청.
+ * types/api.PaymentConfirmRequest 와 동일하되, BE가 받는 internalOrderId 를 포함한다.
+ * (이번 STEP에서는 Confirm Request 통합을 보류하고 service 전용으로 유지)
+ */
+export interface PaymentConfirmRequest {
+  paymentKey: string;
+  orderId: string;
+  amount: number;
+  /** 주문 생성 시 받은 백엔드 PK — 결제 승인 시 동일 DB 조회 보장 */
+  internalOrderId?: number;
 }
 
 export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
@@ -113,32 +84,6 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
   };
 }
 
-export interface PaymentConfirmRequest {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-  /** 주문 생성 시 받은 백엔드 PK — 결제 승인 시 동일 DB 조회 보장 */
-  internalOrderId?: number;
-}
-
-export interface PaymentConfirmResponse {
-  id: number;
-  paymentKey: string;
-  orderId: number;
-  tossOrderId: string;
-  amount: number;
-  status: string; // "DONE"
-  approvedAt: string;
-}
-
-export interface PaymentFailResponse {
-  code: string;
-  message: string;
-  orderId?: string;
-}
-
-// --- Order Service ---
-
 export const orderService = {
   /**
    * 주문 생성 (POST /api/orders)
@@ -156,7 +101,7 @@ export const orderService = {
         ([menuOptionId, quantity]) => ({
           menuOptionId,
           quantity,
-        })
+        }),
       );
 
       return {
@@ -178,6 +123,14 @@ export const orderService = {
     return api.get<OrderDetailResponse>(`/api/orders/${id}`, {
       baseUrl: getOrderApiBaseUrl(),
     });
+  },
+
+  /**
+   * 매장 전체 대기 인원 (GET /api/orders/waiting-count)
+   * 주문 전 메뉴 화면용. 개인 waitingAheadCount 와 분리.
+   */
+  async getWaitingCount(): Promise<WaitingCountResponse> {
+    return api.get<WaitingCountResponse>("/api/orders/waiting-count");
   },
 
   /**

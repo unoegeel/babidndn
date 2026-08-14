@@ -155,9 +155,9 @@ export const OrderReceiptPage: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="w-full cursor-pointer py-2 text-center text-[11px] font-semibold text-gray-500"
+          className="mt-4 w-full cursor-pointer py-2 text-center text-[11px] font-semibold text-gray-500"
         >
-          주문현황으로 돌아가기
+          주문 현황으로 돌아가기
         </button>
       </div>
     </div>

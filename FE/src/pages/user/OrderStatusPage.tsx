@@ -1,35 +1,29 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
-import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
-import type { Order, OrderStatus } from "../../types/user";
+import type { OrderStatus } from "../../types/user";
 
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, addNotification, readyCallSignal, startConfetti } =
-    useUserData();
+  const { getOrderById, readyCallSignal, startConfetti } = useUserData();
 
-  const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
-  const [loading, setLoading] = useState<boolean>(!order);
-  const [error, setError] = useState<string | null>(null);
+  const order = orderId ? getOrderById(orderId) : null;
 
-  const saveOrderToStateRef = useRef(saveOrderToState);
-  const addNotificationRef = useRef(addNotification);
   const navigateRef = useRef(navigate);
   const startConfettiRef = useRef(startConfetti);
-  /** null = 아직 서버/폴링 상태를 한 번도 받지 않음 (이미 READY인 진입은 confetti 금지) */
+  /** null = 아직 Context 상태를 한 번도 관측하지 않음 (이미 READY인 진입은 confetti 금지) */
   const prevStatusRef = useRef<OrderStatus | null>(null);
   const readyConfettiFiredRef = useRef(false);
-  /** Strict Mode 리마운트 시 폴링/상태 초기화 중복 방지 */
+  /** Strict Mode 리마운트 시 세션 초기화 중복 방지 */
   const pollSessionRef = useRef<string | null>(null);
+  /** READY/COMPLETED 네비게이션 중복 방지 */
+  const navigatedToCompleteRef = useRef(false);
 
   useEffect(() => {
-    saveOrderToStateRef.current = saveOrderToState;
-    addNotificationRef.current = addNotification;
     navigateRef.current = navigate;
     startConfettiRef.current = startConfetti;
   });
@@ -42,12 +36,6 @@ export const OrderStatusPage: React.FC = () => {
     startConfettiRef.current(readyCallSignal.updatedAt);
   }, [readyCallSignal, orderId]);
 
-  const alertSentRef = useRef<{ preparing: boolean; ready: boolean; canceled: boolean }>({
-    preparing: false,
-    ready: false,
-    canceled: false,
-  });
-
   useEffect(() => {
     if (!orderId) {
       alert("주문 정보를 찾을 수 없습니다.");
@@ -55,142 +43,69 @@ export const OrderStatusPage: React.FC = () => {
       return;
     }
 
-    const isNewPollSession = pollSessionRef.current !== orderId;
-    if (isNewPollSession) {
+    const isNewSession = pollSessionRef.current !== orderId;
+    if (isNewSession) {
       pollSessionRef.current = orderId;
-      alertSentRef.current = { preparing: false, ready: false, canceled: false };
       prevStatusRef.current = null;
       readyConfettiFiredRef.current = false;
+      navigatedToCompleteRef.current = false;
     }
 
     void linkPushSubscriptionToOrder(orderId);
-
-    let isMounted = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-    const isFetchingRef = { current: false };
-
-    const noteReadyTransition = (nextStatus: OrderStatus): boolean => {
-      const prev = prevStatusRef.current;
-      const isReadyLike = nextStatus === "READY" || nextStatus === "COMPLETED";
-      let shouldCelebrate = false;
-
-      if (prev !== null && prev !== "READY" && prev !== "COMPLETED" && isReadyLike) {
-        if (!readyConfettiFiredRef.current) {
-          readyConfettiFiredRef.current = true;
-          shouldCelebrate = true;
-        }
-      } else if (prev !== null && !isReadyLike && (prev === "READY" || prev === "COMPLETED")) {
-        readyConfettiFiredRef.current = false;
-      }
-
-      prevStatusRef.current = nextStatus;
-      return shouldCelebrate;
-    };
-
-    const goToComplete = () => {
-      navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
-    };
-
-    const fetchOrderDetails = async () => {
-      if (isFetchingRef.current) return;
-      isFetchingRef.current = true;
-
-      try {
-        const res = await orderService.getOrder(orderId);
-        if (!isMounted) return;
-
-        const updatedOrder = mapOrderDetailToOrder(res);
-        const shouldCelebrate = noteReadyTransition(updatedOrder.status);
-        // Confetti는 UserShell에 있어 페이지 전환과 독립 — 완료 UI와 동시에 시작
-        if (shouldCelebrate) {
-          let canShow = true;
-          if (updatedOrder.updatedAt) {
-            claimReadyCall(orderId, updatedOrder.updatedAt);
-            canShow = claimReadyConfetti(orderId, updatedOrder.updatedAt);
-          }
-          if (canShow) {
-            const playKey = updatedOrder.updatedAt || `${orderId}-ready`;
-            startConfettiRef.current(playKey);
-          }
-        }
-        setOrder(updatedOrder);
-        saveOrderToStateRef.current(updatedOrder);
-        setLoading(false);
-
-        if (updatedOrder.status === "PREPARING" && !alertSentRef.current.preparing) {
-          addNotificationRef.current(
-            "PREPARING",
-            "조리 시작",
-            `${updatedOrder.pickupNumber}번 주문을 조리하고 있습니다.`,
-            updatedOrder.orderId
-          );
-          alertSentRef.current.preparing = true;
-        }
-
-        if (updatedOrder.status === "READY" || updatedOrder.status === "COMPLETED") {
-          if (!alertSentRef.current.ready) {
-            addNotificationRef.current(
-              "READY",
-              "준비 완료",
-              `${updatedOrder.pickupNumber}번 주문이 준비되었습니다. 카운터에서 픽업해 주세요.`,
-              updatedOrder.orderId
-            );
-            alertSentRef.current.ready = true;
-          }
-
-          if (intervalId) clearInterval(intervalId);
-
-          // Confetti 종료를 기다리지 않고 완료 UI 즉시 표시
-          goToComplete();
-          return;
-        }
-
-        if (updatedOrder.status === "CANCELED") {
-          if (!alertSentRef.current.canceled) {
-            addNotificationRef.current(
-              "CANCELED",
-              "주문 취소",
-              `${updatedOrder.pickupNumber}번 주문이 취소되었습니다.`,
-              updatedOrder.orderId
-            );
-            alertSentRef.current.canceled = true;
-          }
-          if (intervalId) clearInterval(intervalId);
-          return;
-        }
-      } catch (err: unknown) {
-        console.error("주문 정보 조회 실패:", err);
-        if (isMounted) {
-          const message = err instanceof Error ? err.message : "주문 정보를 불러오지 못했습니다.";
-          setError(message);
-          setLoading(false);
-        }
-      } finally {
-        isFetchingRef.current = false;
-      }
-    };
-
-    fetchOrderDetails();
-    intervalId = setInterval(fetchOrderDetails, 2000);
-
-    return () => {
-      isMounted = false;
-      if (intervalId) clearInterval(intervalId);
-    };
   }, [orderId]);
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-6 bg-white">
-        <p className="text-gray-500 font-semibold text-xs">주문 상태 정보를 조회하고 있습니다...</p>
-      </div>
-    );
+  const noteReadyTransition = useCallback((nextStatus: OrderStatus): boolean => {
+    const prev = prevStatusRef.current;
+    const isReadyLike = nextStatus === "READY" || nextStatus === "COMPLETED";
+    let shouldCelebrate = false;
+
+    if (prev !== null && prev !== "READY" && prev !== "COMPLETED" && isReadyLike) {
+      if (!readyConfettiFiredRef.current) {
+        readyConfettiFiredRef.current = true;
+        shouldCelebrate = true;
+      }
+    } else if (prev !== null && !isReadyLike && (prev === "READY" || prev === "COMPLETED")) {
+      readyConfettiFiredRef.current = false;
+    }
+
+    prevStatusRef.current = nextStatus;
+    return shouldCelebrate;
+  }, []);
+
+  // Context 주문 갱신 → READY UX (알림은 Context polling이 담당)
+  useEffect(() => {
+    if (!orderId || !order) return;
+
+    const shouldCelebrate = noteReadyTransition(order.status);
+    if (shouldCelebrate) {
+      let canShow = true;
+      if (order.updatedAt) {
+        claimReadyCall(orderId, order.updatedAt);
+        canShow = claimReadyConfetti(orderId, order.updatedAt);
+      }
+      if (canShow) {
+        const playKey = order.updatedAt || `${orderId}-ready`;
+        startConfettiRef.current(playKey);
+      }
+    }
+
+    if (
+      (order.status === "READY" || order.status === "COMPLETED") &&
+      !navigatedToCompleteRef.current
+    ) {
+      navigatedToCompleteRef.current = true;
+      navigateRef.current(`/user/orders/${orderId}/complete`, { replace: true });
+    }
+  }, [order, orderId, noteReadyTransition]);
+
+  if (!orderId) {
+    return null;
   }
 
-  if (error || !order) {
+  if (!order) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white text-center">
-        <p className="text-gray-800 font-bold text-xs mb-4">{error || "주문 정보를 찾을 수 없습니다."}</p>
+        <p className="text-gray-800 font-bold text-xs mb-4">주문 정보를 찾을 수 없습니다.</p>
         <button
           onClick={() => navigate("/user", { replace: true })}
           className="bg-black text-white py-2.5 px-5 rounded-xl font-bold text-xs cursor-pointer"
@@ -237,159 +152,130 @@ export const OrderStatusPage: React.FC = () => {
         </p>
       </div>
 
-      {isCanceled ? (
-        <div className="bg-white border-b border-gray-100 p-4 shrink-0">
-          <div className="space-y-2 rounded-2xl border border-red-100 bg-red-50 p-5 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h3 className="text-sm font-bold text-red-600">결제가 취소되었습니다</h3>
-            <p className="text-[11px] font-semibold leading-relaxed text-red-500/80">
-              매장에서 주문을 취소했습니다.
-              <br />
-              문의사항은 카운터에 말씀해 주세요.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/user", { replace: true })}
-              className="mt-2 cursor-pointer rounded-xl bg-black px-5 py-2.5 text-xs font-bold text-white"
-            >
-              메뉴판으로 돌아가기
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* 주문 상태바 — 기존 2블록 (p-6), 위 블록과 합치지 않음 */
-        <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
-          <div className="absolute left-[16%] right-[16%] top-[38%] h-[3px] bg-gray-200 z-0"></div>
-          <div
-            className="absolute left-[16%] top-[38%] h-[3px] bg-[#009E39] z-0 transition-[width] duration-700"
-            style={{ width: stepIndex === 0 ? "0%" : stepIndex === 1 ? "34%" : "68%" }}
-          ></div>
-
-          <div className="flex flex-col items-center z-10 shrink-0">
-            <div
-              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                stepIndex >= 0
-                  ? "bg-[#009E39] border-[#009E39] text-white"
-                  : "bg-white border-gray-300 text-gray-400"
-              }`}
-            >
-              ✓
-            </div>
-            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 0 ? "text-[#009E39]" : "text-gray-400"}`}>
-              주문 완료
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center z-10 shrink-0">
-            <div
-              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                stepIndex >= 1
-                  ? "bg-[#009E39] border-[#009E39] text-white"
-                  : "bg-white border-gray-300 text-gray-400"
-              }`}
-            >
-              {stepIndex === 1 ? (
-                <span className="block h-1.5 w-1.5 rounded-full bg-white animate-ping"></span>
-              ) : stepIndex > 1 ? (
-                "✓"
-              ) : (
-                "2"
-              )}
-            </div>
-            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 1 ? "text-[#009E39]" : "text-gray-400"}`}>
-              조리 중
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center z-10 shrink-0">
-            <div
-              className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
-                stepIndex >= 2
-                  ? "bg-[#009E39] border-[#009E39] text-white"
-                  : "bg-white border-gray-300 text-gray-400"
-              }`}
-            >
-              {stepIndex >= 2 ? "✓" : "\u00A0"}
-            </div>
-            <span className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${stepIndex >= 2 ? "text-[#009E39]" : "text-gray-400"}`}>
-              준비 완료
-            </span>
-          </div>
-        </div>
-      )}
-
-      {!isCanceled && (
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-              <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">내 앞 대기</span>
-              <span className="text-xl font-bold text-gray-800 leading-[1.1]">
-                {order.waitingCount > 0 ? `${order.waitingCount}명` : "없음"}
-              </span>
-            </div>
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
-              <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">예상 대기 시간</span>
-              <span className="text-xl font-bold text-gray-800 leading-[1.1]">
-                {order.status === "READY" || order.status === "COMPLETED"
-                  ? "조리 완료"
-                  : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="px-4 space-y-3">
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-sm text-[11px]">
-          <div className="flex justify-between items-center text-gray-500 font-semibold">
-            <span>주문 시간</span>
-            <span className="font-semibold text-gray-800">{order.createdAt}</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3.5 shadow-sm">
-          <h3 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-2">주문 내역</h3>
-          <div className="space-y-3.5 pl-1.5">
-            {order.items.map((item) => {
-              const optionString = formatSelectedOptions(item.selectedOptions);
-              return (
-                <div key={item.cartItemId} className="text-xs space-y-0.5">
-                  <div className="flex items-center justify-between gap-2 text-gray-800 font-bold">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span>•</span>
-                      <span className="truncate">{item.menuName}</span>
-                    </div>
-                    <span className="shrink-0 tabular-nums">
-                      {item.totalPrice.toLocaleString()}원
-                    </span>
-                  </div>
-                  {optionString && (
-                    <p className="text-[11px] text-gray-400 pl-3 leading-normal font-medium">
-                      {optionString}
-                    </p>
+      {/* 진행 단계 — 기존 mt-6 / mx-4 / p-5 / space-y-6 */}
+      <div className="mt-6 mx-4 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 shrink-0">
+        <div className="space-y-6 relative before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100">
+          {[
+            { title: "주문 접수", desc: "주문이 정상적으로 전달되었습니다." },
+            { title: "조리 중", desc: "사장님이 음식을 준비하고 있습니다." },
+            { title: "픽업 가능", desc: "카운터에서 픽업번호를 말씀해주세요." },
+          ].map((step, idx) => {
+            const isDone = !isCanceled && stepIndex > idx;
+            const isCurrent = !isCanceled && stepIndex === idx;
+            return (
+              <div key={idx} className="flex gap-4 relative z-10">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-4 border-white shadow-sm ${
+                    isDone || isCurrent ? "bg-black text-white" : "bg-gray-100 text-gray-400"
+                  }`}
+                >
+                  {isDone ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="3"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : (
+                    <span className="text-[10px] font-bold">{idx + 1}</span>
                   )}
                 </div>
-              );
-            })}
-          </div>
+                <div className="pt-1">
+                  <h4
+                    className={`text-xs font-bold ${
+                      isDone || isCurrent ? "text-gray-900" : "text-gray-400"
+                    }`}
+                  >
+                    {step.title}
+                  </h4>
+                  <p
+                    className={`text-[11px] mt-0.5 ${
+                      isDone || isCurrent ? "text-gray-500" : "text-gray-300"
+                    }`}
+                  >
+                    {step.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
-
-        <button
-          type="button"
-          onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
-          className="w-full cursor-pointer rounded-2xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
-        >
-          전자영수증
-        </button>
       </div>
 
+      {/* 대기 인원 / 예상시간 — 기존 mt-4 / mx-4 / p-4 */}
       {!isCanceled && (
-        <div className="text-center py-5 text-gray-400">
-          <p className="text-[11px] font-medium leading-snug">※ 실시간으로 업데이트됩니다.</p>
+        <div className="mt-4 mx-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 shrink-0">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-gray-700">내 앞 대기</span>
+            <span className="text-xs font-black text-gray-900">
+              {order.status === "READY" || order.status === "COMPLETED"
+                ? "없음"
+                : order.waitingCount > 0
+                  ? `${order.waitingCount}명`
+                  : "없음"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-gray-700">예상 대기시간</span>
+            <span className="text-xs font-black text-gray-900">
+              {order.status === "READY" || order.status === "COMPLETED"
+                ? "곧 호출"
+                : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 주문 상세 — 기존 mt-4 / mx-4 */}
+      <div className="mt-4 mx-4 bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 shrink-0">
+        <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+          <h3 className="font-bold text-gray-800 text-xs">주문 상세</h3>
+          <span className="text-[10px] text-gray-400 font-medium">
+            {order.createdAt.includes(" ")
+              ? order.createdAt.split(" ")[1]
+              : order.createdAt}
+          </span>
+        </div>
+        <div className="p-4 space-y-4">
+          {order.items.map((item) => {
+            const optionString = formatSelectedOptions(item.selectedOptions);
+            return (
+              <div key={item.cartItemId} className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="font-bold text-gray-900 text-xs">{item.menuName}</span>
+                    <span className="text-[10px] font-bold text-gray-400">x{item.quantity}</span>
+                  </div>
+                  {optionString && (
+                    <p className="text-[10px] text-gray-400 font-medium leading-snug">{optionString}</p>
+                  )}
+                </div>
+                <span className="font-bold text-gray-700 text-xs shrink-0">
+                  {item.totalPrice.toLocaleString()}원
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-4 py-4 bg-gray-50 flex justify-between items-center">
+          <span className="font-bold text-gray-500 text-xs">총 결제금액</span>
+          <span className="font-black text-gray-900 text-sm">
+            {order.totalPrice.toLocaleString()}원
+          </span>
+        </div>
+      </div>
+
+      {!isCanceled && (order.status === "READY" || order.status === "COMPLETED") && (
+        <div className="mt-4 mx-4 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
+            className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
+          >
+            전자영수증
+          </button>
         </div>
       )}
     </div>

@@ -11,6 +11,7 @@ import com.gdgoc.babi_order.order.dto.request.OrderItemOptionRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderItemRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
+import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.entity.OrderItem;
 import com.gdgoc.babi_order.order.entity.OrderItemOption;
@@ -139,6 +140,17 @@ public class OrderService {
                 .map(order -> OrderSummaryResponse.from(order, toPaymentStatusName(
                         paymentStatusByOrderId.get(order.getId()))))
                 .toList();
+    }
+
+    /**
+     * 매장 전체 대기 인원: 결제 완료(DONE)이고 PREPARING 또는 READY인 주문 수.
+     * 주문 전 메뉴 화면용. 개인 주문의 waitingAheadCount 와는 별개다.
+     */
+    public WaitingCountResponse getWaitingCount() {
+        long waitingCount = orderRepository.countByStatusInAndPaid(
+                List.of(OrderStatus.PREPARING, OrderStatus.READY),
+                PaymentStatus.DONE);
+        return WaitingCountResponse.builder().waitingCount(waitingCount).build();
     }
 
     public OrderDetailResponse getOrder(Long orderId) {

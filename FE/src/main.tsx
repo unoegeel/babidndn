@@ -11,6 +11,7 @@ import SignupPage from "./pages/owner/SignupPage";
 import OrdersDashboardPage from "./pages/owner/OrdersDashboardPage";
 import MenuManagementPage from "./pages/owner/MenuManagementPage";
 import PaymentHistoryPage from "./pages/owner/PaymentHistoryPage";
+import SalesAnalyticsPage from "./pages/owner/SalesAnalyticsPage";
 import SettingsPage from "./pages/owner/SettingsPage";
 import StoreManagementPage from "./pages/owner/StoreManagementPage";
 import StoreReviewsPage from "./pages/owner/StoreReviewsPage";
@@ -28,6 +29,7 @@ import OrderHistoryPage from "./pages/user/OrderHistoryPage";
 import ReviewPage from "./pages/user/ReviewPage";
 import NoticesPage from "./pages/user/NoticesPage";
 import ContactPage from "./pages/user/ContactPage";
+import RefundPolicyPage from "./pages/user/RefundPolicyPage";
 import UserGuidePage from "./pages/user/UserGuidePage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
@@ -75,6 +77,7 @@ const router = createBrowserRouter([
           { path: "orders", element: <OrdersDashboardPage /> },
           { path: "menus", element: <MenuManagementPage /> },
           { path: "payments", element: <PaymentHistoryPage /> },
+          { path: "sales", element: <SalesAnalyticsPage /> },
           { path: "store", element: <StoreManagementPage /> },
           { path: "store/reviews", element: <StoreReviewsPage /> },
           { path: "settings", element: <SettingsPage /> },
@@ -98,6 +101,7 @@ const router = createBrowserRouter([
           { path: "reviews", element: <ReviewPage /> },
           { path: "guide", element: <UserGuidePage /> },
           { path: "contact", element: <ContactPage /> },
+          { path: "refund-policy", element: <RefundPolicyPage /> },
           { path: "orders/:orderId", element: <OrderStatusPage /> },
           { path: "orders/:orderId/complete", element: <OrderCompletePage /> },
           { path: "orders/:orderId/receipt", element: <OrderReceiptPage /> },

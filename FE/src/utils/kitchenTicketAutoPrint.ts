@@ -1,14 +1,5 @@
 import type { OrderDetailResponse } from "../types/api";
 
-declare global {
-  interface Window {
-    Android?: {
-      printKitchenTicket: (orderJson: string) => void;
-      printCustomerReceipt?: (receiptJson: string) => void;
-    };
-  }
-}
-
 export type KitchenTicketPrintMode = "new" | "reprint";
 
 /** OrderDetailResponse + 티켓 헤더(신규 주문 / 재출력) */

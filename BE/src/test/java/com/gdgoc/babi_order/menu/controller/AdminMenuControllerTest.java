@@ -3,12 +3,15 @@ package com.gdgoc.babi_order.menu.controller;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
 import com.gdgoc.babi_order.admin.security.AdminAuthenticationEntryPoint;
+import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.menu.dto.response.CategoryResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
+import com.gdgoc.babi_order.menu.exception.MenuApiException;
 import com.gdgoc.babi_order.menu.exception.MenuExceptionHandler;
 import com.gdgoc.babi_order.menu.service.AdminMenuService;
 import com.gdgoc.babi_order.menu.service.MenuImageService;
 import com.gdgoc.babi_order.menu.service.MenuService;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -26,6 +29,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -35,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         SecurityConfig.class,
         CorsProperties.class,
         MenuExceptionHandler.class,
+        ApiExceptionHandler.class,
         AdminAuthenticationEntryPoint.class
 })
 @WithMockUser(roles = "ADMIN")
@@ -71,6 +76,101 @@ class AdminMenuControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/admin/categories/1"))
                 .andExpect(jsonPath("$.name").value("컵밥"));
+    }
+
+    @Test
+    void reorderCategoriesReturnsUpdatedOrder() throws Exception {
+        given(adminMenuService.reorderCategories(List.of(3L, 1L, 2L))).willReturn(List.of(
+                CategoryResponse.builder().id(3L).name("음료").displayOrder(1).build(),
+                CategoryResponse.builder().id(1L).name("밥류").displayOrder(2).build(),
+                CategoryResponse.builder().id(2L).name("사이드").displayOrder(3).build()
+        ));
+
+        mockMvc.perform(put("/api/admin/categories/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryIds": [3, 1, 2]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3))
+                .andExpect(jsonPath("$[0].displayOrder").value(1))
+                .andExpect(jsonPath("$[1].id").value(1))
+                .andExpect(jsonPath("$[2].id").value(2));
+    }
+
+    @Test
+    void reorderCategoriesRejectsEmptyList() throws Exception {
+        mockMvc.perform(put("/api/admin/categories/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryIds": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void reorderCategoriesRejectsDuplicateIds() throws Exception {
+        given(adminMenuService.reorderCategories(List.of(1L, 2L, 2L)))
+                .willThrow(new MenuApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_REQUEST",
+                        "카테고리 ID 목록에 중복된 값이 있습니다. id=2"
+                ));
+
+        mockMvc.perform(put("/api/admin/categories/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryIds": [1, 2, 2]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void reorderCategoriesRejectsUnknownId() throws Exception {
+        given(adminMenuService.reorderCategories(List.of(1L, 2L, 999L)))
+                .willThrow(new MenuApiException(
+                        HttpStatus.NOT_FOUND,
+                        "CATEGORY_NOT_FOUND",
+                        "카테고리를 찾을 수 없습니다. id=999"
+                ));
+
+        mockMvc.perform(put("/api/admin/categories/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryIds": [1, 2, 999]
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
+    }
+
+    @Test
+    void reorderCategoriesRejectsMissingIds() throws Exception {
+        given(adminMenuService.reorderCategories(List.of(1L, 3L)))
+                .willThrow(new MenuApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_REQUEST",
+                        "모든 카테고리 ID를 한 번씩 포함해야 합니다."
+                ));
+
+        mockMvc.perform(put("/api/admin/categories/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryIds": [1, 3]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
     @Test

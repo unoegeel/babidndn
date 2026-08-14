@@ -8,7 +8,7 @@ import {
 import {
   uploadPopupAdImageFile,
   validatePopupAdImageFile,
-} from "../../utils/popupAdImageUpload";
+} from "../../services/popupAdImageUpload";
 import { serverInstantMs } from "../../utils/serverDate";
 
 /** datetime-local 값 ↔ API LocalDateTime 문자열 */

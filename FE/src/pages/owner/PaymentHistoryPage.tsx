@@ -1,32 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminShell from "../../components/AdminShell";
-import { ReceiptTemplate } from "../../components/user/ReceiptTemplate";
+import { CancelPopup } from "../../components/owner/payment/CancelPopup";
+import { ExportPopup } from "../../components/owner/payment/ExportPopup";
+import { PaymentRow } from "../../components/owner/payment/PaymentRow";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
-import type { OrderDetailResponse } from "../../types/api";
-import type { ReceiptViewModel } from "../../types/receipt";
-import { buildReceiptViewModel } from "../../utils/buildReceiptViewModel";
-import {
-  downloadReceiptPdf,
-  downloadReceiptPng,
-} from "../../utils/downloadReceipt";
-import { formatOrderItemOptionLabels } from "../../utils/orderItemOptions";
 import {
   buildPaymentExportText,
-  defaultExportRangeLocal,
   downloadPaymentExport,
   formatPaymentMenusForExport,
   rangeFromDateInputs,
   type PaymentExportFormat,
 } from "../../utils/paymentExport";
-import { handlePrintCustomerReceipt } from "../../utils/printCustomerReceipt";
 import { seoulDateKey, seoulDayBoundsMs } from "../../utils/serverDate";
-
-const CANCEL_REASONS = ["고객 요청", "메뉴 품절", "매장 사정", "중복 결제", "기타"];
 
 type PeriodFilter = "all" | "today" | "last3" | "custom";
 
 export default function PaymentHistoryPage() {
+  const navigate = useNavigate();
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
   const [keyword, setKeyword] = useState("");
   const [period, setPeriod] = useState<PeriodFilter>("all");
@@ -117,13 +109,22 @@ export default function PaymentHistoryPage() {
       <div className="flex h-full min-h-0 flex-col p-[16px] md:p-[24px] short:p-[12px]">
         <div className="mb-[16px] flex shrink-0 items-center justify-between gap-[12px] short:mb-[10px]">
           <h1 className="text-[22px] font-bold text-black short:text-[18px]">결제 내역</h1>
-          <button
-            type="button"
-            onClick={() => setExportOpen(true)}
-            className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
-          >
-            내려받기
-          </button>
+          <div className="flex shrink-0 items-center gap-[8px]">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/sales")}
+              className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
+            >
+              매출 분석
+            </button>
+            <button
+              type="button"
+              onClick={() => setExportOpen(true)}
+              className="h-[40px] shrink-0 rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[14px] font-medium text-black short:h-[36px] short:text-[13px]"
+            >
+              내려받기
+            </button>
+          </div>
         </div>
 
         {/* 필터 */}
@@ -253,475 +254,6 @@ export default function PaymentHistoryPage() {
   );
 }
 
-function ExportPopup({
-  onClose,
-  onConfirm,
-}: {
-  onClose: () => void;
-  onConfirm: (startLocal: string, endLocal: string, format: PaymentExportFormat) => void;
-}) {
-  const defaults = defaultExportRangeLocal();
-  const [startAt, setStartAt] = useState(defaults.start);
-  const [endAt, setEndAt] = useState(defaults.end);
-  const [format, setFormat] = useState<PaymentExportFormat>("csv");
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/10 p-[20px]"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[460px] rounded-[25px] border border-black/50 bg-canvas p-[24px] shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[22px] font-medium text-black">
-          결제 내역 내려받기
-        </h2>
-        <p className="mt-[8px] text-[14px] text-black/55">
-          선택한 기간의 결제 내역을 CSV 또는 TXT로 저장합니다.
-        </p>
-
-        <div className="mt-[20px] flex gap-[10px]">
-          <label className="flex min-w-0 flex-1 flex-col gap-[6px] text-[13px] text-black/70">
-            시작
-            <input
-              type="date"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-              className="h-[40px] w-full rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
-            />
-          </label>
-          <label className="flex min-w-0 flex-1 flex-col gap-[6px] text-[13px] text-black/70">
-            종료
-            <input
-              type="date"
-              value={endAt}
-              onChange={(e) => setEndAt(e.target.value)}
-              className="h-[40px] w-full rounded-[10px] border border-black/40 bg-white px-[12px] text-[14px] text-black outline-none focus:border-black"
-            />
-          </label>
-        </div>
-
-        <p className="mt-[16px] text-[13px] font-medium text-black/70">파일 형식</p>
-        <div className="mt-[8px] flex gap-[10px]">
-          <button
-            type="button"
-            onClick={() => setFormat("csv")}
-            className={`h-[40px] flex-1 rounded-[10px] border text-[14px] font-medium ${
-              format === "csv"
-                ? "border-black bg-black text-canvas"
-                : "border-black/40 bg-canvas text-black"
-            }`}
-          >
-            CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormat("txt")}
-            className={`h-[40px] flex-1 rounded-[10px] border text-[14px] font-medium ${
-              format === "txt"
-                ? "border-black bg-black text-canvas"
-                : "border-black/40 bg-canvas text-black"
-            }`}
-          >
-            TXT
-          </button>
-        </div>
-
-        <div className="mt-[24px] flex gap-[12px]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-[48px] w-[120px] rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(startAt, endAt, format)}
-            className="h-[48px] flex-1 rounded-[10px] bg-black text-[15px] font-medium text-canvas"
-          >
-            내려받기
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PaymentRow({
-  payment,
-  expanded,
-  detail,
-  onToggle,
-  onCancel,
-}: {
-  payment: Payment;
-  expanded: boolean;
-  detail: OrderDetailResponse | undefined;
-  onToggle: () => void;
-  onCancel: () => void;
-}) {
-  const stop = (e: MouseEvent) => e.stopPropagation();
-
-  return (
-    <>
-      <tr
-        className="cursor-pointer border-b border-black/15 hover:bg-black/[0.03]"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <Td>{payment.paidAt}</Td>
-        <Td>{payment.orderNumber}</Td>
-        <Td>{payment.method}</Td>
-        <Td>{payment.amount.toLocaleString()}원</Td>
-        <Td>
-          <span
-            className="font-medium"
-            style={{
-              color:
-                payment.status === "결제완료"
-                  ? "#22c55e"
-                  : payment.status === "취소됨"
-                    ? "#ef4444"
-                    : "rgba(0,0,0,0.5)",
-            }}
-          >
-            {payment.status}
-          </span>
-        </Td>
-        <Td>
-          <span className="inline-flex items-center gap-[6px]">
-            {payment.summary}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className={`shrink-0 text-black/40 transition-transform ${expanded ? "rotate-180" : ""}`}
-              aria-hidden
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </span>
-        </Td>
-        <Td>
-          {payment.status === "결제완료" ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                onCancel();
-              }}
-              className="h-[40px] w-[110px] rounded-[10px] border border-danger bg-canvas text-[15px] font-medium text-danger"
-            >
-              결제 취소
-            </button>
-          ) : (
-            <span className="text-black/50">-</span>
-          )}
-        </Td>
-      </tr>
-      {expanded && (
-        <tr className="border-b border-black/15 bg-panel/60">
-          <td colSpan={7} className="px-[24px] py-[18px] text-left">
-            <PaymentDetailPanel payment={payment} detail={detail} />
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-function PaymentDetailPanel({
-  payment,
-  detail,
-}: {
-  payment: Payment;
-  detail: OrderDetailResponse | undefined;
-}) {
-  const { getPaymentByOrderId } = useAdminData();
-  const [receiptOpen, setReceiptOpen] = useState(false);
-
-  const paymentApi =
-    payment.orderId !== undefined
-      ? getPaymentByOrderId(payment.orderId)
-      : undefined;
-
-  const receipt = useMemo(() => {
-    if (!detail) return null;
-    return buildReceiptViewModel(detail, paymentApi ?? null);
-  }, [detail, paymentApi]);
-
-  return (
-    <div className="space-y-[20px]">
-      <div className="grid gap-[16px] md:grid-cols-[minmax(0,220px)_1fr]">
-        <dl className="space-y-[8px] text-[14px] text-black">
-          <div>
-            <dt className="text-black/50">결제 시간</dt>
-            <dd className="font-medium">{payment.paidAt}</dd>
-          </div>
-          <div>
-            <dt className="text-black/50">주문번호</dt>
-            <dd className="font-medium">{payment.orderNumber}</dd>
-          </div>
-          <div>
-            <dt className="text-black/50">결제 수단</dt>
-            <dd className="font-medium">{payment.method}</dd>
-          </div>
-          <div>
-            <dt className="text-black/50">결제 금액</dt>
-            <dd className="font-medium">{payment.amount.toLocaleString()}원</dd>
-          </div>
-          <div>
-            <dt className="text-black/50">상태</dt>
-            <dd className="font-medium">{payment.status}</dd>
-          </div>
-          <div className="pt-[4px]">
-            <button
-              type="button"
-              disabled={!receipt}
-              onClick={(e) => {
-                e.stopPropagation();
-                setReceiptOpen(true);
-              }}
-              className="h-[40px] w-full rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              전자영수증
-            </button>
-            {!receipt && (
-              <p className="mt-[6px] text-[12px] text-black/45">
-                주문 상세가 없어 전자영수증을 열 수 없습니다.
-              </p>
-            )}
-          </div>
-        </dl>
-
-        <div>
-          <p className="mb-[8px] text-[14px] font-medium text-black">주문 메뉴</p>
-          {!detail || detail.items.length === 0 ? (
-            <p className="text-[14px] text-black/50">주문 상세를 불러올 수 없습니다.</p>
-          ) : (
-            <ul className="space-y-[10px]">
-              {detail.items.map((item) => {
-                const options = formatOrderItemOptionLabels(item.options);
-                return (
-                  <li
-                    key={item.id}
-                    className="rounded-[10px] bg-canvas px-[14px] py-[10px] text-[14px] text-black"
-                  >
-                    <p className="font-medium">
-                      {item.menuName}
-                      {item.quantity > 1 && (
-                        <span className="ml-[6px] font-bold">x {item.quantity}</span>
-                      )}
-                      <span className="ml-[8px] text-black/50">
-                        {item.lineAmount.toLocaleString()}원
-                      </span>
-                    </p>
-                    {options.length > 0 && (
-                      <ul className="mt-[4px] list-disc pl-[18px] text-[13px] text-black/70">
-                        {options.map((opt) => (
-                          <li key={opt}>{opt}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {receiptOpen && receipt && (
-        <ReceiptPopup receipt={receipt} onClose={() => setReceiptOpen(false)} />
-      )}
-    </div>
-  );
-}
-
-function ReceiptPopup({
-  receipt,
-  onClose,
-}: {
-  receipt: ReceiptViewModel;
-  onClose: () => void;
-}) {
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const [downloading, setDownloading] = useState<"png" | "pdf" | null>(null);
-
-  const runDownload = async (kind: "png" | "pdf") => {
-    if (!receiptRef.current || downloading) return;
-    setDownloading(kind);
-    try {
-      const meta = {
-        pickupNumber: receipt.pickupNumber,
-        orderedAt: receipt.orderedAt,
-      };
-      if (kind === "png") {
-        await downloadReceiptPng(receiptRef.current, meta);
-      } else {
-        await downloadReceiptPdf(receiptRef.current, meta);
-      }
-    } catch (err) {
-      console.error("영수증 다운로드 실패:", err);
-      alert("영수증 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/10 p-[20px]"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[min(920px,calc(100vh-40px))] w-full max-w-[400px] flex-col overflow-hidden rounded-[25px] border border-black/50 bg-canvas shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-black/15 px-[20px] py-[16px]">
-          <h2 className="text-[18px] font-medium text-black">전자영수증</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-[36px] rounded-[10px] border border-black/40 bg-canvas px-[12px] text-[13px] font-medium text-black"
-          >
-            닫기
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto bg-panel/40 px-[16px] py-[16px]">
-          <div className="mx-auto max-w-[320px] overflow-hidden rounded-[12px] border border-black/15 bg-white shadow-sm">
-            <ReceiptTemplate ref={receiptRef} receipt={receipt} />
-          </div>
-        </div>
-
-        <div className="shrink-0 space-y-[10px] border-t border-black/15 bg-canvas px-[16px] py-[16px]">
-          <button
-            type="button"
-            onClick={() => handlePrintCustomerReceipt(receipt)}
-            className="h-[48px] w-full rounded-[10px] bg-black text-[15px] font-medium text-canvas"
-          >
-            영수증 출력
-          </button>
-          <div className="grid grid-cols-2 gap-[10px]">
-            <button
-              type="button"
-              disabled={!!downloading}
-              onClick={() => void runDownload("png")}
-              className="h-[44px] rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:opacity-40"
-            >
-              {downloading === "png" ? "저장 중..." : "PNG 저장"}
-            </button>
-            <button
-              type="button"
-              disabled={!!downloading}
-              onClick={() => void runDownload("pdf")}
-              className="h-[44px] rounded-[10px] border border-black/50 bg-canvas text-[14px] font-medium text-black disabled:opacity-40"
-            >
-              {downloading === "pdf" ? "저장 중..." : "PDF 저장"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Th({ children }: { children: string }) {
   return <th className="px-[16px] py-[20px] text-center">{children}</th>;
-}
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-[16px] py-[18px] text-center text-black">{children}</td>;
-}
-
-function CancelPopup({
-  payment,
-  onClose,
-  onConfirm,
-}: {
-  payment: Payment;
-  onClose: () => void;
-  onConfirm: (reason: string) => void | Promise<void>;
-}) {
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/10 p-[20px] md:justify-end md:p-[48px]"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[460px] rounded-[25px] border border-black/50 bg-canvas p-[24px] shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-[26px] font-medium tracking-wide text-black">
-          정말 취소하시겠습니까?
-        </h2>
-
-        <p className="mt-[24px] text-[15px] font-medium text-black">
-          취소할 주문
-        </p>
-        <p className="mt-[8px] text-[22px] font-medium text-black">
-          주문번호 {payment.orderNumber} ({payment.amount.toLocaleString()}원)
-        </p>
-
-        <p className="mt-[24px] text-[15px] font-medium text-black">
-          취소 사유 선택 <span style={{ color: "#ef4444" }}>(필수)</span>
-        </p>
-        <select
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-[10px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[15px] outline-none focus:border-black"
-        >
-          <option value="">취소 사유를 선택하세요.</option>
-          {CANCEL_REASONS.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-
-        <div
-          className="mt-[20px] flex h-[48px] items-center gap-[10px] rounded-[10px] px-[16px]"
-          style={{
-            backgroundColor: "rgba(217,119,6,0.5)",
-            border: "1px solid rgba(239,68,68,0.75)",
-          }}
-        >
-          <span style={{ color: "#ef4444" }}>⚠</span>
-          <span className="text-[15px]" style={{ color: "#ef4444" }}>
-            취소 완료 후 복구할 수 없습니다.
-          </span>
-        </div>
-
-        <div className="mt-[20px] flex gap-[16px]">
-          <button
-            onClick={onClose}
-            className="h-[48px] w-[130px] rounded-[10px] border border-black/50 bg-canvas text-[15px] font-medium text-black"
-          >
-            닫기
-          </button>
-          <button
-            onClick={async () => {
-              if (submitting) return;
-              setSubmitting(true);
-              await onConfirm(reason);
-              setSubmitting(false);
-            }}
-            disabled={!reason || submitting}
-            className="h-[48px] flex-1 rounded-[10px] text-[15px] font-medium text-canvas disabled:opacity-40"
-            style={{ backgroundColor: "#ef4444" }}
-          >
-            {submitting ? "취소 처리 중..." : "취소 처리"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }

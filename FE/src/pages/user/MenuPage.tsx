@@ -6,6 +6,7 @@ import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
 import MenuThumb from "../../components/user/MenuThumb";
 import MarqueeText from "../../components/user/MarqueeText";
+import { WaitingStatusBar } from "../../components/user/WaitingStatusBar";
 
 const SWIPE_THRESHOLD_PX = 56;
 
@@ -221,6 +222,8 @@ export const MenuPage: React.FC = () => {
           );
         })}
       </div>
+
+      <WaitingStatusBar />
 
       {/* 메뉴 카드 목록 영역 — 좌우 스와이프로 카테고리 전환 */}
       <div

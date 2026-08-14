@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
-import { orderService, mapOrderDetailToOrder, type OrderDetailResponse } from "../../services/user/orderService";
+import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
+import type { OrderDetailResponse } from "../../types/api";
 import { useUserData } from "../../store/UserDataContext";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 

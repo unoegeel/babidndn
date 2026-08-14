@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,10 +45,12 @@ public class AdminMenuService {
     private static final List<DefaultOption> DEFAULT_TOPPINGS = List.of(
             new DefaultOption("계란후라이", 700, 1, false),
             new DefaultOption("밥 추가", 1000, 2, false),
-            new DefaultOption("고기 추가", 1000, 3, false),
-            new DefaultOption("모짜렐라치즈", 1000, 4, false),
-            new DefaultOption("체다치즈", 500, 5, false),
-            new DefaultOption("스팸", 700, 6, false)
+            new DefaultOption("삼겹소금 추가", 1200, 3, false),
+            new DefaultOption("삼겹양념 추가", 1200, 4, false),
+            new DefaultOption("참치마요 추가", 1200, 5, false),
+            new DefaultOption("모짜렐라치즈", 1000, 6, false),
+            new DefaultOption("체다치즈", 500, 7, false),
+            new DefaultOption("스팸", 700, 8, false)
     );
     private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
             new DefaultOption("김치 제외", 0, 1, false),
@@ -98,6 +101,24 @@ public class AdminMenuService {
             );
         }
         categoryRepository.delete(category);
+    }
+
+    @Transactional
+    public List<CategoryResponse> reorderCategories(List<Long> categoryIds) {
+        validateCategoryOrderIds(categoryIds);
+        List<Category> existing = categoryRepository.findAll();
+        validateCategoryOrderPermutation(categoryIds, existing);
+
+        Map<Long, Category> byId = existing.stream()
+                .collect(Collectors.toMap(Category::getId, Function.identity()));
+        List<Category> ordered = new ArrayList<>(categoryIds.size());
+        for (int i = 0; i < categoryIds.size(); i++) {
+            Category category = byId.get(categoryIds.get(i));
+            category.update(category.getName(), i + 1);
+            ordered.add(category);
+        }
+        categoryRepository.saveAll(ordered);
+        return ordered.stream().map(CategoryResponse::from).toList();
     }
 
     @Transactional
@@ -357,6 +378,41 @@ public class AdminMenuService {
                         "MENU_OPTION_NOT_FOUND",
                         "메뉴 옵션을 찾을 수 없습니다. id=" + optionId
                 ));
+    }
+
+    private void validateCategoryOrderIds(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw invalidRequest("카테고리 ID 목록은 필수입니다.");
+        }
+        Set<Long> unique = new HashSet<>();
+        for (Long categoryId : categoryIds) {
+            if (categoryId == null) {
+                throw invalidRequest("카테고리 ID 목록에 null이 포함되어 있습니다.");
+            }
+            if (!unique.add(categoryId)) {
+                throw invalidRequest("카테고리 ID 목록에 중복된 값이 있습니다. id=" + categoryId);
+            }
+        }
+    }
+
+    private void validateCategoryOrderPermutation(List<Long> categoryIds, List<Category> existing) {
+        Set<Long> existingIds = existing.stream().map(Category::getId).collect(Collectors.toSet());
+        for (Long categoryId : categoryIds) {
+            if (!existingIds.contains(categoryId)) {
+                throw new MenuApiException(
+                        HttpStatus.NOT_FOUND,
+                        "CATEGORY_NOT_FOUND",
+                        "카테고리를 찾을 수 없습니다. id=" + categoryId
+                );
+            }
+        }
+        if (existingIds.size() != categoryIds.size()) {
+            throw invalidRequest("모든 카테고리 ID를 한 번씩 포함해야 합니다.");
+        }
+    }
+
+    private MenuApiException invalidRequest(String message) {
+        return new MenuApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", message);
     }
 
     private void validateCategoryNameAvailable(String name, Long categoryId) {

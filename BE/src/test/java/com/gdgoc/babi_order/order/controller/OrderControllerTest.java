@@ -6,6 +6,7 @@ import com.gdgoc.babi_order.config.SecurityConfig;
 import com.gdgoc.babi_order.menu.exception.MenuNotFoundException;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
+import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
 import com.gdgoc.babi_order.order.exception.OrderExceptionHandler;
 import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
 import com.gdgoc.babi_order.order.service.OrderService;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -119,6 +121,28 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].pickupNumber").value(1));
+    }
+
+    @Test
+    void getWaitingCountReturnsCount() throws Exception {
+        given(orderService.getWaitingCount())
+                .willReturn(WaitingCountResponse.builder().waitingCount(2L).build());
+
+        mockMvc.perform(get("/api/orders/waiting-count"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.waitingCount").value(2));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void getWaitingCountAllowsAnonymous() throws Exception {
+        given(orderService.getWaitingCount())
+                .willReturn(WaitingCountResponse.builder().waitingCount(0L).build());
+
+        mockMvc.perform(get("/api/orders/waiting-count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.waitingCount").value(0));
     }
 
     @Test

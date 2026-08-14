@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Menu, MenuCategory, Order, Payment } from "../types/admin";
+import type { Menu, MenuCategory, Order, Payment, PaymentStatus } from "../types/admin";
 import type {
   CategoryResponse,
   OrderDetailResponse,
@@ -25,7 +25,18 @@ import {
   serverInstantMs,
 } from "../utils/serverDate";
 import { formatOrderItemOptionLabels } from "../utils/orderItemOptions";
+import { formatPaymentStatusLabel } from "../utils/formatPaymentStatusLabel";
 import { syncKitchenTicketAutoPrint } from "../utils/kitchenTicketAutoPrint";
+
+/** API Payment.status → admin 결제 ViewModel 표시 상태 */
+function toAdminPaymentStatus(apiStatus: string): PaymentStatus {
+  const label = formatPaymentStatusLabel(apiStatus);
+  if (label === "결제완료" || label === "결제취소" || label === "부분취소") {
+    return label;
+  }
+  // formatter 폴백(확인불가 등) — 기존 non-canceled → 결제완료 와 동일하게 처리
+  return "결제완료";
+}
 
 interface AdminDataValue {
   categories: MenuCategory[];
@@ -51,6 +62,11 @@ interface AdminDataValue {
    * @returns 성공 여부 (메뉴가 남아 있으면 서버가 거부할 수 있음)
    */
   deleteCategory: (categoryId: number) => Promise<boolean>;
+  /**
+   * 카테고리 표시 순서 변경
+   * @returns 성공 여부
+   */
+  reorderCategories: (categoryIds: number[]) => Promise<boolean>;
   toggleMenuStatus: (id: string) => Promise<void>;
   addMenu: (menu: Omit<Menu, "id">) => Promise<void>;
   /** 기존 메뉴 정보 수정 */
@@ -242,6 +258,22 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       }
     },
     [refreshMenus],
+  );
+
+  const reorderCategories = useCallback(
+    async (categoryIds: number[]): Promise<boolean> => {
+      try {
+        const updated = await adminMenuService.reorderCategories(categoryIds);
+        setCategoryList(
+          [...updated].sort((a, b) => a.displayOrder - b.displayOrder),
+        );
+        return true;
+      } catch (err) {
+        console.error("카테고리 순서 변경 실패:", err);
+        return false;
+      }
+    },
+    [],
   );
 
   const toggleMenuStatus = useCallback(
@@ -595,8 +627,6 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           };
         }
 
-        const canceled =
-          payment.status === "CANCELED" || payment.status === "PARTIAL_CANCELED";
         const approvedRaw = payment.approvedAt ?? payment.createdAt;
         const approvedMs = serverInstantMs(approvedRaw);
         return {
@@ -606,7 +636,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           orderNumber: summary.pickupNumber,
           method: payment.methodLabel?.trim() || "토스페이먼츠",
           amount: payment.amount,
-          status: canceled ? ("취소됨" as const) : ("결제완료" as const),
+          status: toAdminPaymentStatus(payment.status),
           summary: summarize(detail),
           orderId: summary.id,
           paymentKey: payment.paymentKey,
@@ -653,6 +683,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      reorderCategories,
       toggleMenuStatus,
       addMenu,
       updateMenu,
@@ -677,6 +708,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      reorderCategories,
       toggleMenuStatus,
       addMenu,
       updateMenu,

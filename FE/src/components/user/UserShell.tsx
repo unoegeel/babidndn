@@ -6,9 +6,12 @@ import {
   requestPermissionAndSubscribe,
 } from "../../utils/webPush";
 import ReadyOrderBanner from "./ReadyOrderBanner";
-import SwipeableNotificationItem from "./SwipeableNotificationItem";
+import { NotificationPanel } from "./NotificationPanel";
+import { UserDrawer } from "./UserDrawer";
+import { UserHeader } from "./UserHeader";
 import UserPopupAd from "./UserPopupAd";
 import ReadyConfetti from "./ReadyConfetti";
+
 
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 const DRAWER_CLOSE_MS = 240;
@@ -59,6 +62,8 @@ export const UserShell: React.FC = () => {
   const isGuidePage = pathname === "/user/guide" || pathname === "/user/guide/";
   const isNoticesPage = pathname === "/user/notices" || pathname === "/user/notices/";
   const isContactPage = pathname === "/user/contact" || pathname === "/user/contact/";
+  const isRefundPolicyPage =
+    pathname === "/user/refund-policy" || pathname === "/user/refund-policy/";
   const isCompletePage = pathname.endsWith("/complete") || pathname.endsWith("/complete/");
   const isReceiptPage = pathname.endsWith("/receipt") || pathname.endsWith("/receipt/");
   const isStatusPage =
@@ -131,6 +136,7 @@ export const UserShell: React.FC = () => {
   if (isReviewPage) headerTitle = "리뷰";
   if (isGuidePage) headerTitle = "사용 가이드";
   if (isContactPage) headerTitle = "서비스 문의";
+  if (isRefundPolicyPage) headerTitle = "환불 정책";
   if (isStatusPage || isCompletePage) headerTitle = "주문 현황";
   if (isReceiptPage) headerTitle = "전자영수증";
 
@@ -251,98 +257,22 @@ export const UserShell: React.FC = () => {
         className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden border border-gray-100 bg-white sm:h-[min(850px,var(--app-height))] sm:rounded-3xl sm:shadow-lg"
       >
         {showHeader && (
-          <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
-            {/* 왼쪽 영역 */}
-            <div className="w-10 flex items-center">
-              {isMenuPage ? (
-                // 햄버거 메뉴 아이콘
-                <button
-                  onClick={() => {
-                    setIsNotifOpen(false);
-                    openDrawer();
-                  }}
-                  className="text-gray-700 focus:outline-none p-1 cursor-pointer"
-                  aria-label="메뉴"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              ) : (
-                // 뒤로가기 버튼
-                <button
-                  onClick={() => navigate(-1)}
-                  className="text-gray-700 focus:outline-none p-1 cursor-pointer"
-                  aria-label="뒤로가기"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* 타이틀 — 메뉴 페이지의 바비든든 클릭 시 목록 스크롤 최상단 */}
-            {isMenuPage ? (
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new Event("user-menu-scroll-top"))}
-                className="flex-1 text-center text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
-                aria-label="메뉴 맨 위로"
-              >
-                {headerTitle}
-              </button>
-            ) : (
-              <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{headerTitle}</h1>
-            )}
-
-            {/* 오른쪽 영역 */}
-            <div className="w-10 flex items-center justify-end">
-              {isMenuPage && (
-                // 알림 종 아이콘
-                <button
-                  onClick={() => setIsNotifOpen((prev) => !prev)}
-                  className="text-gray-700 relative p-1 focus:outline-none cursor-pointer"
-                  aria-label="알림"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-                    />
-                  </svg>
-                  {/* 빨간 알림 뱃지 */}
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {isStatusPage && (
-                // 홈으로 가기 버튼
-                <button
-                  onClick={() => navigate("/user")}
-                  className="text-gray-700 focus:outline-none p-1 cursor-pointer"
-                  aria-label="홈"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    />
-                  </svg>
-                </button>
-              )}
-
-              {isCartPage && totalCartItems > 0 && (
-                <div className="w-6 h-6"></div>
-              )}
-            </div>
-          </header>
+          <UserHeader
+            title={headerTitle}
+            isMenuPage={isMenuPage}
+            isStatusPage={isStatusPage}
+            isCartPage={isCartPage}
+            unreadCount={unreadCount}
+            cartItemCount={totalCartItems}
+            onOpenDrawer={() => {
+              setIsNotifOpen(false);
+              openDrawer();
+            }}
+            onToggleNotifications={() => setIsNotifOpen((prev) => !prev)}
+            onBack={() => navigate(-1)}
+            onHome={() => navigate("/user")}
+            onMenuTitleClick={() => window.dispatchEvent(new Event("user-menu-scroll-top"))}
+          />
         )}
 
         {/* 메인 콘텐츠 영역 — confetti는 pathname key 밖에 두어 페이지 전환 시에도 유지 */}
@@ -366,167 +296,29 @@ export const UserShell: React.FC = () => {
         {/* 메뉴 첫 화면: 매장 팝업 광고 (알림 권한 안내 이후) */}
         <UserPopupAd visible={isMenuPage && allowPopupAds} />
 
-        {/* 1. 사이드 메뉴 드로어 오버레이 및 패널 */}
-        {isDrawerOpen && (
-          <div className="absolute inset-0 z-50 flex">
-            {/* 오버레이 클릭 시 닫기 */}
-            <div
-              className={`absolute inset-0 bg-black/40 transition-opacity duration-[240ms] ${
-                isDrawerClosing ? "opacity-0" : "animate-fade-in"
-              }`}
-              onClick={closeDrawer}
-            ></div>
+        <UserDrawer
+          isOpen={isDrawerOpen}
+          isClosing={isDrawerClosing}
+          cartItemCount={totalCartItems}
+          onClose={closeDrawer}
+          onNavigate={(path) => {
+            navigate(path);
+            closeDrawer();
+          }}
+          onRequestNotification={() => {
+            void handleRequestNotification();
+            closeDrawer();
+          }}
+        />
 
-            {/* 단순한 흰색 패널 */}
-            <aside
-              className={`absolute inset-y-0 left-0 bg-white w-64 shadow-2xl flex flex-col p-5 z-50 border-r border-gray-100 ${
-                isDrawerClosing ? "animate-slide-left-out" : "animate-slide-right"
-              }`}
-            >
-              <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-                <span className="text-base font-bold text-gray-900">바비든든</span>
-                <button
-                  onClick={closeDrawer}
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none p-1 cursor-pointer"
-                  aria-label="메뉴 닫기"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <nav className="flex-1 py-4 space-y-2 overflow-y-auto">
-                <button
-                  onClick={() => {
-                    navigate("/user");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  메뉴 보기
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/user/cart");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  장바구니
-                  {totalCartItems > 0 && (
-                    <span className="ml-2 text-[11px] font-semibold text-[#C59B62]">{totalCartItems}</span>
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/user/orders");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  최근 주문 내역
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/user/notices");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  공지사항
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/user/reviews");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  리뷰
-                </button>
-                <button
-                  onClick={() => {
-                    navigate("/user/guide");
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer border-t border-gray-100 mt-4 pt-4"
-                >
-                  사용 가이드
-                </button>
-                <button
-                  onClick={() => {
-                    handleRequestNotification();
-                    closeDrawer();
-                  }}
-                  className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  브라우저 알림 설정
-                </button>
-              </nav>
-
-              <div className="mt-auto shrink-0 border-t border-gray-200 pt-4">
-                <p className="px-2 text-[11px] font-bold text-gray-800">서비스 문의</p>
-                <p className="mt-1 px-2 text-[11px] leading-normal text-gray-400">
-                  이용 중 불편한 점이 있나요?
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate("/user/contact");
-                    closeDrawer();
-                  }}
-                  className="mt-2 w-full rounded-xl px-2 py-2.5 text-left text-[11px] font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  문의하기 →
-                </button>
-                <div className="mt-4 px-2">
-                  <p className="text-[11px] font-bold text-gray-900">바비오더</p>
-                  <p className="mt-0.5 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
-                </div>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {/* 2. 앱 내부 알림 팝오버 패널 */}
         {isNotifOpen && (
-          <>
-            {/* 오버레이 클릭 시 닫히도록 바깥 백드롭 영역 지정 */}
-            <div className="absolute inset-0 z-40 bg-transparent" onClick={() => setIsNotifOpen(false)}></div>
-            <div className="absolute top-14 right-4 bg-white border border-gray-100 rounded-2xl w-[320px] max-h-[350px] shadow-xl z-50 flex flex-col p-4 overflow-y-auto animate-fade-in space-y-3">
-              <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                <span className="text-xs font-bold text-gray-800">알림</span>
-                <button
-                  onClick={() => setIsNotifOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 focus:outline-none text-[11px] font-semibold"
-                >
-                  닫기
-                </button>
-              </div>
-
-              {notifications.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 text-[11px] font-medium">
-                  새로운 알림이 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-medium text-gray-400 px-0.5">
-                    ← 삭제 · 읽음 →
-                  </p>
-                  {notifications.map((notif) => (
-                    <SwipeableNotificationItem
-                      key={notif.id}
-                      notif={notif}
-                      onOpen={() => handleNotifClick(notif.id, notif.orderId, notif.type)}
-                      onMarkRead={() => markAsRead(notif.id)}
-                      onDelete={() => removeNotification(notif.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
+          <NotificationPanel
+            notifications={notifications}
+            onClose={() => setIsNotifOpen(false)}
+            onOpen={handleNotifClick}
+            onMarkRead={markAsRead}
+            onDelete={removeNotification}
+          />
         )}
         {/* 3. 알림 권한 안내 팝업 (유저 페이지 첫 진입) */}
         {showNotifPrompt && (

@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.payment.exception;
 
 import com.gdgoc.babi_order.common.exception.ErrorResponse;
+import com.gdgoc.babi_order.common.exception.ValidationErrorHelper;
 import com.gdgoc.babi_order.payment.controller.PaymentController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,15 +25,7 @@ public class PaymentExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException exception) {
-        String message = exception.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(error -> error.getDefaultMessage())
-                .orElse("요청 값이 올바르지 않습니다.");
-        return ResponseEntity.badRequest().body(ErrorResponse.of(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_REQUEST",
-                message
-        ));
+        return ResponseEntity.badRequest().body(ValidationErrorHelper.from(exception));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

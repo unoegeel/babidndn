@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
-import { orderService, type OrderDetailResponse } from "../../services/user/orderService";
+import { orderService } from "../../services/user/orderService";
+import type { OrderDetailResponse } from "../../types/api";
 
 export const PaymentFailPage: React.FC = () => {
   const [searchParams] = useSearchParams();

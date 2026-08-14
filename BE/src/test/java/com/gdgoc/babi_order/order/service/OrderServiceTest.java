@@ -12,6 +12,7 @@ import com.gdgoc.babi_order.order.dto.request.OrderItemOptionRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderItemRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
+import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.exception.OrderApiException;
@@ -291,6 +292,17 @@ class OrderServiceTest {
         assertThat(result)
                 .extracting(OrderSummaryResponse::getId, OrderSummaryResponse::getPaymentStatus)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(1L, "DONE"));
+    }
+
+    @Test
+    void getWaitingCountCountsPaidPreparingAndReadyOrders() {
+        given(orderRepository.countByStatusInAndPaid(
+                List.of(OrderStatus.PREPARING, OrderStatus.READY),
+                PaymentStatus.DONE)).willReturn(2L);
+
+        WaitingCountResponse result = orderService.getWaitingCount();
+
+        assertThat(result.getWaitingCount()).isEqualTo(2L);
     }
 
     @Test

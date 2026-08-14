@@ -63,6 +63,28 @@ export function buildPaymentExportText(
   return lines.join("\r\n") + "\r\n";
 }
 
+/** UTF-8 bytes → standard base64 (한글 포함 문자열용. btoa(raw) 금지) */
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function downloadBlob(body: string, mime: string, filename: string) {
+  const blob = new Blob([body], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function downloadPaymentExport(
   content: string,
   format: PaymentExportFormat,
@@ -71,15 +93,18 @@ export function downloadPaymentExport(
   const bom = "\uFEFF";
   const mime =
     format === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
-  const blob = new Blob([bom + content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${fileStem}.${format}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  const filename = `${fileStem}.${format}`;
+  const body = bom + content;
+  const downloadFile = window.Android?.downloadFile;
+  if (typeof downloadFile === "function") {
+    try {
+      downloadFile.call(window.Android, filename, mime, utf8ToBase64(body));
+      return;
+    } catch {
+      // native 호출 실패 시에만 웹 다운로드로 되돌림
+    }
+  }
+  downloadBlob(body, mime, filename);
 }
 
 /** date(YYYY-MM-DD) 또는 datetime-local → 서울 달력일 포함 시작/종료(ms) */
@@ -96,14 +121,6 @@ export function rangeFromDateInputs(
   if (!startBounds || !endBounds) return null;
   if (endBounds.endMs < startBounds.startMs) return null;
   return { startMs: startBounds.startMs, endMs: endBounds.endMs };
-}
-
-/** @deprecated rangeFromDateInputs 사용 */
-export function rangeFromDatetimeLocal(
-  startLocal: string,
-  endLocal: string,
-): { startMs: number; endMs: number } | null {
-  return rangeFromDateInputs(startLocal, endLocal);
 }
 
 /** 내보내기 기본 기간: 서울 기준 최근 7일(오늘 포함) */
