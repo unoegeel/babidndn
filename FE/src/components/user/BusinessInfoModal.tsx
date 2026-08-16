@@ -5,7 +5,7 @@ type BusinessInfoModalProps = {
 
 const FIELDS: { label: string; value: string }[] = [
   { label: "상호명", value: "바비든든" },
-  { label: "대표자명", value: "" },
+  { label: "대표자명", value: "조은영" },
   { label: "사업자등록번호", value: "553-03-03083" },
   { label: "사업장 주소", value: "경기 용인시 처인구 모현읍 외대로 81 후생관 1층" },
   { label: "전화번호", value: "010-4261-0980" },
