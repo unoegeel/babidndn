@@ -268,3 +268,27 @@ label {
 @utility animate-fade-in {
   animation: fade-in 0.2s ease-out both;
 }
+
+@keyframes preparing-ripple {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@utility animate-preparing-ripple {
+  transform-origin: center;
+  animation: preparing-ripple 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-preparing-ripple {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}

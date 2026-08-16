@@ -160,32 +160,50 @@ export const OrderStatusPage: React.FC = () => {
         </div>
 
         <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
-          <div
-            className={`absolute left-[16%] right-[16%] top-[38%] h-[3px] z-0 ${
-              isCanceled ? "bg-gray-100" : isReadyLike ? "bg-[#009E39]" : "bg-gray-200"
-            }`}
-          ></div>
-
-          {progressSteps.map((step) => (
-            <div key={step.title} className="flex flex-col items-center z-10 shrink-0">
-              <div
-                className={`w-6.5 h-6.5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${
-                  step.active
-                    ? "bg-[#009E39] border-[#009E39] text-white"
-                    : "bg-white border-gray-200 text-gray-300"
-                }`}
-              >
-                {step.active ? "✓" : ""}
-              </div>
-              <span
-                className={`text-[11px] font-semibold mt-2 whitespace-nowrap ${
-                  step.active ? "text-[#009E39]" : "text-gray-300"
-                }`}
-              >
-                {step.title}
-              </span>
+          {isCanceled ? (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 h-[3px] bg-gray-100"></div>
+          ) : isReadyLike ? (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 h-[3px] bg-[#009E39]"></div>
+          ) : (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 flex h-[3px]">
+              <div className="h-full flex-1 bg-[#009E39]"></div>
+              <div className="h-full flex-1 bg-gray-200"></div>
             </div>
-          ))}
+          )}
+
+          {progressSteps.map((step) => {
+            const isPreparingCooking =
+              !isCanceled && !isReadyLike && step.title === "조리 중";
+            return (
+              <div key={step.title} className="z-10 flex shrink-0 flex-col items-center">
+                <div
+                  className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-[10px] font-bold ${
+                    step.active
+                      ? "border-[#009E39] bg-[#009E39] text-white"
+                      : "border-gray-200 bg-white text-gray-300"
+                  }`}
+                >
+                  {isPreparingCooking ? (
+                    <span
+                      className="block h-2 w-2 rounded-full bg-white animate-preparing-ripple"
+                      aria-hidden
+                    />
+                  ) : step.active ? (
+                    "✓"
+                  ) : (
+                    ""
+                  )}
+                </div>
+                <span
+                  className={`mt-2 whitespace-nowrap text-[11px] font-semibold ${
+                    step.active ? "text-[#009E39]" : "text-gray-300"
+                  }`}
+                >
+                  {step.title}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {!isCanceled && (
