@@ -9,6 +9,7 @@ import ReadyOrderBanner from "./ReadyOrderBanner";
 import { NotificationPanel } from "./NotificationPanel";
 import { UserDrawer } from "./UserDrawer";
 import { UserHeader } from "./UserHeader";
+import { BusinessInfoModal } from "./BusinessInfoModal";
 import UserPopupAd from "./UserPopupAd";
 import ReadyConfetti from "./ReadyConfetti";
 
@@ -43,6 +44,7 @@ export const UserShell: React.FC = () => {
   const [isDrawerClosing, setIsDrawerClosing] = useState(false);
   const drawerCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isBusinessInfoOpen, setIsBusinessInfoOpen] = useState(false);
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
   /** 알림 권한 팝업이 끝난 뒤에만 매장 팝업 광고 표시 */
@@ -146,6 +148,7 @@ export const UserShell: React.FC = () => {
       if (e.key !== "Escape") return;
       setIsNotifOpen(false);
       setShowNotifPrompt(false);
+      setIsBusinessInfoOpen(false);
       setIsDrawerOpen((open) => {
         if (!open) return open;
         setIsDrawerClosing(true);
@@ -309,6 +312,15 @@ export const UserShell: React.FC = () => {
             void handleRequestNotification();
             closeDrawer();
           }}
+          onOpenBusinessInfo={() => {
+            closeDrawer();
+            setIsBusinessInfoOpen(true);
+          }}
+        />
+
+        <BusinessInfoModal
+          open={isBusinessInfoOpen}
+          onClose={() => setIsBusinessInfoOpen(false)}
         />
 
         {isNotifOpen && (
