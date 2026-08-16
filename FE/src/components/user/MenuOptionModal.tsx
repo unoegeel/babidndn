@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { MenuDetail, MenuOption } from "../../types/user";
+import { isHiddenToppingAdd, toppingAddDisplayRank } from "../../utils/optionSort";
 
 interface MenuOptionModalProps {
   menuDetail: MenuDetail;
@@ -38,7 +39,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const [selectedSizeId, setSelectedSizeId] = useState<number | undefined>(initialSizeId);
 
   // TOPPING_ADD 및 TOPPING_REMOVE, null 옵션들에 대한 수량/선택 상태 관리 (평면 구조 유지)
-  const otherOptions = menuDetail.options.filter((o) => o.groupType !== "SIZE");
+  // '고기 추가'는 더 이상 판매하지 않아 표시·선택 대상에서 제외한다.
+  const otherOptions = menuDetail.options.filter(
+    (o) => o.groupType !== "SIZE" && !(o.groupType === "TOPPING_ADD" && isHiddenToppingAdd(o.name)),
+  );
   const [selectedOtherOptions, setSelectedOtherOptions] = useState<Record<number, number>>(() => {
     const initialSelected: Record<number, number> = {};
     otherOptions.forEach((opt) => {
@@ -192,7 +196,14 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     }, 300);
   };
 
-  const toppingAddOptions = otherOptions.filter((o) => o.groupType === "TOPPING_ADD");
+  const toppingAddOptions = otherOptions
+    .filter((o) => o.groupType === "TOPPING_ADD")
+    .slice()
+    .sort((a, b) => {
+      const rankDiff = toppingAddDisplayRank(a.name) - toppingAddDisplayRank(b.name);
+      if (rankDiff !== 0) return rankDiff;
+      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+    });
   const toppingRemoveOptions = otherOptions.filter((o) => o.groupType === "TOPPING_REMOVE");
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
