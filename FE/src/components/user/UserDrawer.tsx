@@ -5,6 +5,7 @@ type UserDrawerProps = {
   onClose: () => void;
   onNavigate: (path: string) => void;
   onRequestNotification: () => void;
+  onOpenBusinessInfo: () => void;
 };
 
 export function UserDrawer({
@@ -14,6 +15,7 @@ export function UserDrawer({
   onClose,
   onNavigate,
   onRequestNotification,
+  onOpenBusinessInfo,
 }: UserDrawerProps) {
   if (!isOpen) return null;
 
@@ -110,7 +112,14 @@ export function UserDrawer({
             서비스 문의하기 →
           </button>
           <div className="mt-4 px-2">
-            <p className="text-[11px] font-bold text-gray-900">바비오더</p>
+            <button
+              type="button"
+              onClick={onOpenBusinessInfo}
+              aria-label="사업장 정보"
+              className="-mx-2 rounded-xl px-2 py-0.5 text-left text-[11px] font-bold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              바비오더
+            </button>
             <p className="mt-0.5 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
           </div>
         </div>

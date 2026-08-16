@@ -9,7 +9,7 @@ import type { OrderStatus } from "../../types/user";
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, readyCallSignal, startConfetti } = useUserData();
+  const { getOrderById, readyCallSignal, startConfetti, stopConfetti } = useUserData();
 
   const order = orderId ? getOrderById(orderId) : null;
 
@@ -116,168 +116,184 @@ export const OrderStatusPage: React.FC = () => {
     );
   }
 
-  let statusMessage = "주문이 접수되었습니다. 잠시만 기다려 주세요!";
-  let stepIndex = 0;
   const isCanceled = order.status === "CANCELED";
+  const isReadyLike = order.status === "READY" || order.status === "COMPLETED";
+  const statusMessage = isCanceled
+    ? "주문이 취소되었습니다."
+    : isReadyLike
+      ? "음식을 픽업해주세요."
+      : "음식이 준비되고 있습니다.";
+  const waitingAheadLabel = isReadyLike
+    ? "없음"
+    : order.waitingCount > 0
+      ? `${order.waitingCount}명`
+      : "없음";
+  const waitingTimeLabel = isReadyLike
+    ? "조리 완료"
+    : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`;
 
-  if (isCanceled) {
-    statusMessage = "주문이 취소되었습니다.";
-    stepIndex = -1;
-  } else if (order.status === "PREPARING") {
-    statusMessage = "맛있게 조리 중입니다. 잠시만 기다려 주세요!";
-    stepIndex = 1;
-  } else if (order.status === "READY" || order.status === "COMPLETED") {
-    statusMessage = "음식이 준비되었습니다. 카운터에서 픽업해주세요!";
-    stepIndex = 2;
-  }
+  const progressSteps = [
+    { title: "주문 완료", active: !isCanceled },
+    { title: "조리 중", active: !isCanceled },
+    { title: "준비 완료", active: !isCanceled && isReadyLike },
+  ];
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/30 pb-6 overflow-y-auto">
-      {/* 대기번호 / 안내 문구 — 기존 1블록 (p-6) */}
-      <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
-        <h2
-          className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
-            isCanceled ? "text-gray-300 line-through" : "text-gray-900"
-          }`}
-        >
-          {order.pickupNumber}
-        </h2>
-        <p
-          className={`min-h-[2.5rem] text-xs font-semibold leading-snug ${
-            isCanceled ? "text-red-500" : "text-gray-700"
-          }`}
-        >
-          {statusMessage}
-        </p>
-      </div>
+    <div className="relative flex-1 flex flex-col bg-gray-50/30 overflow-hidden h-full">
+      <div className="flex-1 overflow-y-auto pb-6">
+        <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
+          <h2
+            className={`text-6xl font-extrabold leading-[1.05] tracking-tight ${
+              isCanceled ? "text-gray-300 line-through" : "text-gray-900"
+            }`}
+          >
+            {order.pickupNumber}
+          </h2>
+          <p
+            className={`min-h-[2.5rem] text-xs font-semibold leading-snug ${
+              isCanceled ? "text-red-500" : "text-gray-700"
+            }`}
+          >
+            {statusMessage}
+          </p>
+        </div>
 
-      {/* 진행 단계 — 기존 mt-6 / mx-4 / p-5 / space-y-6 */}
-      <div className="mt-6 mx-4 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 shrink-0">
-        <div className="space-y-6 relative before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100">
-          {[
-            { title: "주문 접수", desc: "주문이 정상적으로 전달되었습니다." },
-            { title: "조리 중", desc: "사장님이 음식을 준비하고 있습니다." },
-            { title: "픽업 가능", desc: "카운터에서 픽업번호를 말씀해주세요." },
-          ].map((step, idx) => {
-            const isDone = !isCanceled && stepIndex > idx;
-            const isCurrent = !isCanceled && stepIndex === idx;
+        <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
+          {isCanceled ? (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 h-[3px] bg-gray-100"></div>
+          ) : isReadyLike ? (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 h-[3px] bg-[#009E39]"></div>
+          ) : (
+            <div className="absolute left-[16%] right-[16%] top-[38%] z-0 flex h-[3px]">
+              <div className="h-full flex-1 bg-[#009E39]"></div>
+              <div className="h-full flex-1 bg-gray-200"></div>
+            </div>
+          )}
+
+          {progressSteps.map((step) => {
+            const isPreparingCooking =
+              !isCanceled && !isReadyLike && step.title === "조리 중";
             return (
-              <div key={idx} className="flex gap-4 relative z-10">
+              <div key={step.title} className="z-10 flex shrink-0 flex-col items-center">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-4 border-white shadow-sm ${
-                    isDone || isCurrent ? "bg-black text-white" : "bg-gray-100 text-gray-400"
+                  className={`flex h-6.5 w-6.5 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 text-[10px] font-bold ${
+                    step.active
+                      ? "border-[#009E39] bg-[#009E39] text-white"
+                      : "border-gray-200 bg-white text-gray-300"
                   }`}
                 >
-                  {isDone ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="3"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                  {isPreparingCooking ? (
+                    <span
+                      className="block h-2 w-2 rounded-full bg-white animate-preparing-ripple"
+                      aria-hidden
+                    />
+                  ) : step.active ? (
+                    "✓"
                   ) : (
-                    <span className="text-[10px] font-bold">{idx + 1}</span>
+                    ""
                   )}
                 </div>
-                <div className="pt-1">
-                  <h4
-                    className={`text-xs font-bold ${
-                      isDone || isCurrent ? "text-gray-900" : "text-gray-400"
-                    }`}
-                  >
-                    {step.title}
-                  </h4>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      isDone || isCurrent ? "text-gray-500" : "text-gray-300"
-                    }`}
-                  >
-                    {step.desc}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 대기 인원 / 예상시간 — 기존 mt-4 / mx-4 / p-4 */}
-      {!isCanceled && (
-        <div className="mt-4 mx-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 shrink-0">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-bold text-gray-700">내 앞 대기</span>
-            <span className="text-xs font-black text-gray-900">
-              {order.status === "READY" || order.status === "COMPLETED"
-                ? "없음"
-                : order.waitingCount > 0
-                  ? `${order.waitingCount}명`
-                  : "없음"}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-gray-700">예상 대기시간</span>
-            <span className="text-xs font-black text-gray-900">
-              {order.status === "READY" || order.status === "COMPLETED"
-                ? "곧 호출"
-                : `약 ${order.waitingCount > 0 ? order.waitingTime : 1}분`}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* 주문 상세 — 기존 mt-4 / mx-4 */}
-      <div className="mt-4 mx-4 bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 shrink-0">
-        <div className="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-          <h3 className="font-bold text-gray-800 text-xs">주문 상세</h3>
-          <span className="text-[10px] text-gray-400 font-medium">
-            {order.createdAt.includes(" ")
-              ? order.createdAt.split(" ")[1]
-              : order.createdAt}
-          </span>
-        </div>
-        <div className="p-4 space-y-4">
-          {order.items.map((item) => {
-            const optionString = formatSelectedOptions(item.selectedOptions);
-            return (
-              <div key={item.cartItemId} className="flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="font-bold text-gray-900 text-xs">{item.menuName}</span>
-                    <span className="text-[10px] font-bold text-gray-400">x{item.quantity}</span>
-                  </div>
-                  {optionString && (
-                    <p className="text-[10px] text-gray-400 font-medium leading-snug">{optionString}</p>
-                  )}
-                </div>
-                <span className="font-bold text-gray-700 text-xs shrink-0">
-                  {item.totalPrice.toLocaleString()}원
+                <span
+                  className={`mt-2 whitespace-nowrap text-[11px] font-semibold ${
+                    step.active ? "text-[#009E39]" : "text-gray-300"
+                  }`}
+                >
+                  {step.title}
                 </span>
               </div>
             );
           })}
         </div>
-        <div className="px-4 py-4 bg-gray-50 flex justify-between items-center">
-          <span className="font-bold text-gray-500 text-xs">총 결제금액</span>
-          <span className="font-black text-gray-900 text-sm">
-            {order.totalPrice.toLocaleString()}원
-          </span>
+
+        {!isCanceled && (
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">
+                  내 앞 대기
+                </span>
+                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
+                  {waitingAheadLabel}
+                </span>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 text-center shadow-sm">
+                <span className="text-[11px] font-medium text-gray-400 block mb-1 leading-snug">
+                  대기 시간
+                </span>
+                <span className="text-xl font-bold text-gray-800 leading-[1.1]">
+                  {waitingTimeLabel}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="px-4 space-y-3">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3 shadow-sm text-[11px]">
+            <div className="flex justify-between items-center text-gray-500 font-medium">
+              <span>주문 시간</span>
+              <span className="font-semibold text-gray-800">{order.createdAt}</span>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3.5 shadow-sm">
+            <h3 className="text-xs font-bold text-gray-900 border-b border-gray-100 pb-2">주문 내역</h3>
+            <div className="space-y-3.5 pl-1.5">
+              {order.items.map((item) => {
+                const optionString = formatSelectedOptions(item.selectedOptions);
+                return (
+                  <div key={item.cartItemId} className="text-xs space-y-0.5">
+                    <div className="flex items-center justify-between gap-2 text-gray-800 font-bold">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span>•</span>
+                        <span className="truncate">{item.menuName}</span>
+                      </div>
+                      <span className="shrink-0 tabular-nums">
+                        {item.totalPrice.toLocaleString()}원
+                      </span>
+                    </div>
+                    {optionString && (
+                      <p className="text-[11px] text-gray-400 pl-3 leading-normal font-medium">
+                        {optionString}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {!isCanceled && isReadyLike && (
+            <button
+              type="button"
+              onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
+              className="w-full cursor-pointer rounded-2xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
+            >
+              전자영수증
+            </button>
+          )}
         </div>
       </div>
 
-      {!isCanceled && (order.status === "READY" || order.status === "COMPLETED") && (
-        <div className="mt-4 mx-4 shrink-0">
-          <button
-            type="button"
-            onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}
-            className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white py-3.5 text-xs font-bold text-gray-800 shadow-sm"
-          >
-            전자영수증
-          </button>
+      <div
+        className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-lg flex flex-col gap-3 z-40"
+        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            stopConfetti();
+            navigate("/user");
+          }}
+          className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-4 text-center text-sm font-bold text-white shadow-md transition-colors hover:bg-[#C59B62]"
+        >
+          처음 화면으로 이동
+        </button>
+        <div className="text-center text-gray-400">
+          <p className="text-[11px] font-medium leading-snug">※ 실시간으로 업데이트됩니다.</p>
         </div>
-      )}
+      </div>
     </div>
   );
 };
