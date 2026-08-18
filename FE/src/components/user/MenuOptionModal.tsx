@@ -3,7 +3,7 @@ import type { MenuDetail, MenuOption } from "../../types/user";
 import type { SavedMenuResponse } from "../../types/api";
 import { isHiddenToppingAdd, toppingAddDisplayRank } from "../../utils/optionSort";
 import { savedMenuService } from "../../services/user/savedMenuService";
-import { isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
+import { getLatestMatchingSavedMenu, isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
 import { ApiError } from "../../api/client";
 import { SaveMenuPopup } from "./SaveMenuPopup";
 import { USER_PRIMARY_BUTTON_COLOR, userPrimaryButtonClassName } from "./userPrimaryButton";
@@ -40,6 +40,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const [savedMenus, setSavedMenus] = useState<SavedMenuResponse[]>([]);
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveSubmitting, setSaveSubmitting] = useState(false);
+  const [saveDeleting, setSaveDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,9 +234,33 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const selectedForSave = collectSelectedOptions();
   const combinationSaved = isCombinationSaved(menuDetail.id, selectedForSave, savedMenus);
+  const heartBusy = saveSubmitting || saveDeleting;
 
-  const handleOpenSave = () => {
-    if (isClosing) return;
+  const handleHeartClick = () => {
+    if (isClosing || heartBusy) return;
+
+    if (combinationSaved) {
+      const target = getLatestMatchingSavedMenu(menuDetail.id, selectedForSave, savedMenus);
+      if (!target) return;
+
+      void (async () => {
+        setSaveDeleting(true);
+        try {
+          await savedMenuService.remove(target.id);
+          setSavedMenus((prev) => prev.filter((item) => item.id !== target.id));
+        } catch (err) {
+          alert(
+            err instanceof ApiError && err.message
+              ? err.message
+              : "나만의 메뉴 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+          );
+        } finally {
+          setSaveDeleting(false);
+        }
+      })();
+      return;
+    }
+
     setSaveError(null);
     setSaveOpen(true);
   };
@@ -552,13 +577,16 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {mode === "cart" && (
               <button
                 type="button"
-                onClick={handleOpenSave}
-                aria-label={combinationSaved ? "나만의 메뉴에 저장됨" : "나만의 메뉴로 등록"}
-                className="flex h-12 w-12 shrink-0 items-center justify-center cursor-pointer focus:outline-none"
+                onClick={handleHeartClick}
+                disabled={heartBusy}
+                aria-label={
+                  combinationSaved ? "나만의 메뉴에서 제거" : "나만의 메뉴로 등록"
+                }
+                className="flex h-12 w-10 shrink-0 items-center justify-center cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {combinationSaved ? (
                   <svg
@@ -589,7 +617,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             )}
             <button
               onClick={handleSubmit}
-              className={`${mode === "cart" ? "flex-1" : "w-full"} cursor-pointer rounded-xl py-3.5 text-center text-sm font-bold ${userPrimaryButtonClassName}`}
+              className={`${mode === "cart" ? "min-w-0 flex-1" : "w-full"} cursor-pointer rounded-xl py-3.5 text-center text-sm font-bold ${userPrimaryButtonClassName}`}
             >
               {mode === "retune" ? "저장" : `장바구니 담기 · ${totalPrice.toLocaleString()} 원`}
             </button>

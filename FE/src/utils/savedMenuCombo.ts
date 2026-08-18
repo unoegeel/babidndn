@@ -1,5 +1,5 @@
 import type { MenuOption } from "../types/user";
-import type { SavedMenuOptionResponse } from "../types/api";
+import type { SavedMenuOptionResponse, SavedMenuResponse } from "../types/api";
 
 export interface OptionQuantity {
   menuOptionId: number;
@@ -45,13 +45,32 @@ export function comboKeyFromSavedOptions(
   );
 }
 
+export function findMatchingSavedMenus(
+  menuId: number,
+  selectedOptions: MenuOption[],
+  savedMenus: SavedMenuResponse[],
+): SavedMenuResponse[] {
+  const current = comboKeyFromMenuOptions(menuId, selectedOptions);
+  return savedMenus.filter(
+    (saved) => comboKeyFromSavedOptions(saved.menuId, saved.options) === current,
+  );
+}
+
+/** GET 목록이 createdAt desc 이므로 첫 항목이 가장 최근 등록분이다. */
+export function getLatestMatchingSavedMenu(
+  menuId: number,
+  selectedOptions: MenuOption[],
+  savedMenus: SavedMenuResponse[],
+): SavedMenuResponse | null {
+  return findMatchingSavedMenus(menuId, selectedOptions, savedMenus)[0] ?? null;
+}
+
 export function isCombinationSaved(
   menuId: number,
   selectedOptions: MenuOption[],
-  savedMenus: { menuId: number | null; options: SavedMenuOptionResponse[] }[],
+  savedMenus: SavedMenuResponse[],
 ): boolean {
-  const current = comboKeyFromMenuOptions(menuId, selectedOptions);
-  return savedMenus.some((saved) => comboKeyFromSavedOptions(saved.menuId, saved.options) === current);
+  return findMatchingSavedMenus(menuId, selectedOptions, savedMenus).length > 0;
 }
 
 export function savedOptionsToRequest(
