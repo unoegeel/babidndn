@@ -217,3 +217,44 @@ export interface MenuSalesResponse {
   itemQuantity: number;
   totalAmount: number;
 }
+
+/* ── 나만의 메뉴 (SavedMenu) ── */
+
+export type SavedMenuStatus = "AVAILABLE" | "SOLDOUT" | "DISCONTINUED" | "OPTIONS_STALE";
+
+export interface SavedMenuOptionRequest {
+  menuOptionId: number;
+  quantity: number;
+}
+
+export interface SavedMenuCreateRequest {
+  menuId: number;
+  customName: string;
+  options: SavedMenuOptionRequest[];
+}
+
+export interface SavedMenuUpdateRequest {
+  customName: string;
+  options: SavedMenuOptionRequest[];
+}
+
+export interface SavedMenuOptionResponse {
+  id: number;
+  menuOptionId: number | null;
+  groupType: string | null;
+  name: string;
+  additionalPrice: number;
+  quantity: number;
+  displayOrder: number;
+}
+
+export interface SavedMenuResponse {
+  id: number;
+  customName: string;
+  menuId: number | null;
+  menuName: string;
+  menuImageUrl: string | null;
+  menuPrice: number;
+  status: SavedMenuStatus;
+  options: SavedMenuOptionResponse[];
+}

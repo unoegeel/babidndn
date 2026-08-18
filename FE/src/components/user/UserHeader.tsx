@@ -6,6 +6,7 @@ type UserHeaderProps = {
   unreadCount: number;
   cartItemCount: number;
   onOpenDrawer: () => void;
+  onOpenMyMenu: () => void;
   onToggleNotifications: () => void;
   onBack: () => void;
   onHome: () => void;
@@ -20,6 +21,7 @@ export function UserHeader({
   unreadCount,
   cartItemCount,
   onOpenDrawer,
+  onOpenMyMenu,
   onToggleNotifications,
   onBack,
   onHome,
@@ -69,14 +71,28 @@ export function UserHeader({
       )}
 
       {/* 오른쪽 영역 */}
-      <div className="w-10 flex items-center justify-end">
+      <div className="flex min-w-10 items-center justify-end gap-1">
         {isMenuPage && (
-          // 알림 종 아이콘
-          <button
-            onClick={onToggleNotifications}
-            className="text-gray-700 relative p-1 focus:outline-none cursor-pointer"
-            aria-label="알림"
-          >
+          <>
+            <button
+              type="button"
+              onClick={onOpenMyMenu}
+              className="relative p-1 text-gray-700 focus:outline-none cursor-pointer"
+              aria-label="나만의 메뉴"
+            >
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={onToggleNotifications}
+              className="text-gray-700 relative p-1 focus:outline-none cursor-pointer"
+              aria-label="알림"
+            >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -91,6 +107,7 @@ export function UserHeader({
               </span>
             )}
           </button>
+          </>
         )}
 
         {isStatusPage && (

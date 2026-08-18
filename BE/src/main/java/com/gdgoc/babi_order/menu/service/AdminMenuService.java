@@ -19,6 +19,8 @@ import com.gdgoc.babi_order.menu.repository.MenuOptionRepository;
 import com.gdgoc.babi_order.menu.repository.MenuRepository;
 import com.gdgoc.babi_order.order.repository.OrderItemOptionRepository;
 import com.gdgoc.babi_order.order.repository.OrderItemRepository;
+import com.gdgoc.babi_order.savedmenu.repository.SavedMenuOptionRepository;
+import com.gdgoc.babi_order.savedmenu.repository.SavedMenuRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -67,6 +69,8 @@ public class AdminMenuService {
     private final MenuOptionRepository menuOptionRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemOptionRepository orderItemOptionRepository;
+    private final SavedMenuRepository savedMenuRepository;
+    private final SavedMenuOptionRepository savedMenuOptionRepository;
 
     public List<CategoryResponse> getCategories() {
         return categoryRepository.findAllByOrderByDisplayOrderAscIdAsc().stream()
@@ -197,6 +201,8 @@ public class AdminMenuService {
         Menu menu = findMenu(menuId);
         orderItemOptionRepository.detachMenuOptionsByMenu(menuId);
         orderItemRepository.detachMenu(menuId);
+        savedMenuOptionRepository.detachMenuOptionsByMenu(menuId);
+        savedMenuRepository.detachMenu(menuId);
         menuOptionRepository.deleteAllByMenuId(menuId);
         menuRepository.delete(menu);
     }
@@ -243,6 +249,7 @@ public class AdminMenuService {
         MenuOption option = findOption(optionId);
         validateOptionBelongsToMenu(menuId, option);
         orderItemOptionRepository.detachMenuOption(optionId);
+        savedMenuOptionRepository.detachMenuOption(optionId);
         menuOptionRepository.delete(option);
     }
 
@@ -264,6 +271,7 @@ public class AdminMenuService {
             if (!currentToppings.isEmpty()) {
                 List<Long> optionIds = currentToppings.stream().map(MenuOption::getId).toList();
                 orderItemOptionRepository.detachMenuOptions(optionIds);
+                savedMenuOptionRepository.detachMenuOptions(optionIds);
                 menuOptionRepository.deleteAll(currentToppings);
             }
             return;
@@ -371,6 +379,7 @@ public class AdminMenuService {
         if (!toDelete.isEmpty()) {
             List<Long> optionIds = toDelete.stream().map(MenuOption::getId).toList();
             orderItemOptionRepository.detachMenuOptions(optionIds);
+            savedMenuOptionRepository.detachMenuOptions(optionIds);
             menuOptionRepository.deleteAll(toDelete);
         }
     }

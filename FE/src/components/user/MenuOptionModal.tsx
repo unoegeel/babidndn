@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { MenuDetail, MenuOption } from "../../types/user";
+import type { SavedMenuResponse } from "../../types/api";
 import { isHiddenToppingAdd, toppingAddDisplayRank } from "../../utils/optionSort";
+import { savedMenuService } from "../../services/user/savedMenuService";
+import { isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
+import { ApiError } from "../../api/client";
+import { SaveMenuPopup } from "./SaveMenuPopup";
 
 interface MenuOptionModalProps {
   menuDetail: MenuDetail;
+  mode?: "cart" | "retune";
   onClose: () => void;
   onAddToCart: (selectedOptions: MenuOption[], quantity: number) => void;
 }
@@ -23,12 +29,17 @@ function toppingNameFontClass(name: string, withQtyControls: boolean): string {
 
 export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   menuDetail,
+  mode = "cart",
   onClose,
   onAddToCart,
 }) => {
   const [quantity, setQuantity] = useState(1);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [savedMenus, setSavedMenus] = useState<SavedMenuResponse[]>([]);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveSubmitting, setSaveSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,6 +75,22 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== "cart") return;
+    let cancelled = false;
+    void savedMenuService
+      .list()
+      .then((menus) => {
+        if (!cancelled) setSavedMenus(menus);
+      })
+      .catch(() => {
+        if (!cancelled) setSavedMenus([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, menuDetail.id]);
 
   const requestClose = (afterClose?: () => void) => {
     if (isClosing) return;
@@ -170,15 +197,12 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const totalPrice = singlePrice * quantity;
 
-  const handleSubmit = () => {
-    if (isClosing) return;
+  const collectSelectedOptions = (): MenuOption[] => {
     const finalOptions: MenuOption[] = [];
-
     if (selectedSizeId !== undefined) {
       const sizeOpt = sizeOptions.find((o) => o.id === selectedSizeId);
       if (sizeOpt) finalOptions.push(sizeOpt);
     }
-
     otherOptions.forEach((opt) => {
       const qty = selectedOtherOptions[opt.id] || 0;
       if (qty > 0) {
@@ -187,6 +211,16 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         }
       }
     });
+    return finalOptions;
+  };
+
+  const handleSubmit = () => {
+    if (isClosing) return;
+    const finalOptions = collectSelectedOptions();
+    if (mode === "retune") {
+      onAddToCart(finalOptions, 1);
+      return;
+    }
 
     // 닫힘 애니메이션 후 담기 — 부모 onAddToCart가 모달을 언마운트함
     setIsClosing(true);
@@ -194,6 +228,37 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     closeTimerRef.current = setTimeout(() => {
       onAddToCart(finalOptions, quantity);
     }, 300);
+  };
+
+  const selectedForSave = collectSelectedOptions();
+  const combinationSaved = isCombinationSaved(menuDetail.id, selectedForSave, savedMenus);
+
+  const handleOpenSave = () => {
+    if (isClosing) return;
+    setSaveError(null);
+    setSaveOpen(true);
+  };
+
+  const handleSaveSubmit = async (customName: string) => {
+    setSaveSubmitting(true);
+    setSaveError(null);
+    try {
+      const created = await savedMenuService.create({
+        menuId: menuDetail.id,
+        customName,
+        options: toOptionQuantities(selectedForSave),
+      });
+      setSavedMenus((prev) => [created, ...prev]);
+      setSaveOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof ApiError && err.message
+          ? err.message
+          : "나만의 메뉴 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+      setSaveError(message);
+    } finally {
+      setSaveSubmitting(false);
+    }
   };
 
   const toppingAddOptions = otherOptions
@@ -214,7 +279,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         className={`absolute inset-0 bg-black/40 transition-opacity duration-[280ms] ${
           isClosing ? "opacity-0" : "animate-fade-in"
         }`}
-        onClick={() => requestClose()}
+        onClick={() => {
+          if (!saveOpen) requestClose();
+        }}
         aria-hidden
       />
 
@@ -484,14 +551,57 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             ) : null}
           </div>
 
-          <button
-            onClick={handleSubmit}
-            className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-3.5 text-center text-sm font-bold text-white transition-colors hover:bg-[#C59B62]"
-          >
-            장바구니 담기 · {totalPrice.toLocaleString()} 원
-          </button>
+          <div className="flex items-center gap-2">
+            {mode === "cart" && (
+              <button
+                type="button"
+                onClick={handleOpenSave}
+                aria-label={combinationSaved ? "나만의 메뉴에 저장됨" : "나만의 메뉴로 등록"}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border cursor-pointer transition-colors ${
+                  combinationSaved
+                    ? "border-[#D8B47E] bg-[#D8B47E] text-white"
+                    : "border-black bg-white text-black"
+                }`}
+              >
+                {combinationSaved ? (
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                ) : (
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                    />
+                  </svg>
+                )}
+              </button>
+            )}
+            <button
+              onClick={handleSubmit}
+              className={`${mode === "cart" ? "flex-1" : "w-full"} cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-3.5 text-center text-sm font-bold text-white transition-colors hover:bg-[#C59B62]`}
+            >
+              {mode === "retune" ? "저장" : `장바구니 담기 · ${totalPrice.toLocaleString()} 원`}
+            </button>
+          </div>
         </div>
       </div>
+      {saveOpen && (
+        <SaveMenuPopup
+          menuDetail={menuDetail}
+          selectedOptions={selectedForSave}
+          submitting={saveSubmitting}
+          error={saveError}
+          onClose={() => {
+            if (!saveSubmitting) {
+              setSaveOpen(false);
+              setSaveError(null);
+            }
+          }}
+          onSubmit={(customName) => void handleSaveSubmit(customName)}
+        />
+      )}
     </div>
   );
 };
