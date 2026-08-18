@@ -6,6 +6,7 @@ import com.gdgoc.babi_order.admin.security.AdminAuthenticationEntryPoint;
 import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.menu.dto.response.CategoryResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
+import com.gdgoc.babi_order.menu.dto.response.MenuSummaryResponse;
 import com.gdgoc.babi_order.menu.exception.MenuApiException;
 import com.gdgoc.babi_order.menu.exception.MenuExceptionHandler;
 import com.gdgoc.babi_order.menu.service.AdminMenuService;
@@ -171,6 +172,102 @@ class AdminMenuControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void reorderMenusReturnsUpdatedOrder() throws Exception {
+        given(adminMenuService.reorderMenus(any())).willReturn(List.of(
+                MenuSummaryResponse.builder().id(3L).name("제육").displayOrder(1).build(),
+                MenuSummaryResponse.builder().id(1L).name("삼겹소금").displayOrder(2).build(),
+                MenuSummaryResponse.builder().id(2L).name("참치마요").displayOrder(3).build()
+        ));
+
+        mockMvc.perform(put("/api/admin/menus/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryId": 1,
+                                  "menuIds": [3, 1, 2]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3))
+                .andExpect(jsonPath("$[0].displayOrder").value(1))
+                .andExpect(jsonPath("$[1].id").value(1))
+                .andExpect(jsonPath("$[2].id").value(2));
+    }
+
+    @Test
+    void reorderMenusRejectsEmptyList() throws Exception {
+        mockMvc.perform(put("/api/admin/menus/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryId": 1,
+                                  "menuIds": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void reorderMenusRejectsDuplicateIds() throws Exception {
+        given(adminMenuService.reorderMenus(any()))
+                .willThrow(new MenuApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_REQUEST",
+                        "메뉴 ID 목록에 중복된 값이 있습니다. id=2"
+                ));
+
+        mockMvc.perform(put("/api/admin/menus/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryId": 1,
+                                  "menuIds": [1, 2, 2]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void reorderMenusRejectsUnknownMenuId() throws Exception {
+        given(adminMenuService.reorderMenus(any()))
+                .willThrow(new com.gdgoc.babi_order.menu.exception.MenuNotFoundException(999L));
+
+        mockMvc.perform(put("/api/admin/menus/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryId": 1,
+                                  "menuIds": [1, 2, 999]
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("MENU_NOT_FOUND"));
+    }
+
+    @Test
+    void reorderMenusRejectsUnknownCategoryId() throws Exception {
+        given(adminMenuService.reorderMenus(any()))
+                .willThrow(new MenuApiException(
+                        HttpStatus.NOT_FOUND,
+                        "CATEGORY_NOT_FOUND",
+                        "카테고리를 찾을 수 없습니다. id=999"
+                ));
+
+        mockMvc.perform(put("/api/admin/menus/order")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "categoryId": 999,
+                                  "menuIds": [1, 2]
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
     }
 
     @Test

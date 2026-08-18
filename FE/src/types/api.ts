@@ -107,6 +107,11 @@ export interface CategoryOrderUpdateRequest {
   categoryIds: number[];
 }
 
+export interface MenuOrderUpdateRequest {
+  categoryId: number;
+  menuIds: number[];
+}
+
 export interface MenuUpsertRequest {
   categoryId: number;
   name: string;

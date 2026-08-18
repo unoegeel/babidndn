@@ -20,4 +20,7 @@ public interface MenuRepository extends JpaRepository<Menu, Long> {
     boolean existsByCategoryIdAndName(Long categoryId, String name);
 
     boolean existsByCategoryIdAndNameAndIdNot(Long categoryId, String name, Long id);
+
+    @EntityGraph(attributePaths = "category")
+    List<Menu> findAllByCategoryIdOrderByDisplayOrderAscIdAsc(Long categoryId);
 }

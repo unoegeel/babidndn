@@ -1,12 +1,13 @@
 import { adminApi } from "../../api/client";
-import type { MenuCategory, MenuDetail, MenuOption, SaleStatus } from "../../types/user";
 import type {
   CategoryOrderUpdateRequest,
   CategoryResponse,
   CategoryUpsertRequest,
+  MenuOrderUpdateRequest,
   MenuOptionUpsertRequest,
   MenuUpsertRequest,
 } from "../../types/api";
+import type { MenuCategory, MenuDetail, MenuOption, MenuSummary, SaleStatus } from "../../types/user";
 
 export interface MenuImageUploadUrlResponse {
   uploadUrl: string;
@@ -59,6 +60,15 @@ export const adminMenuService = {
   reorderCategories(categoryIds: number[]): Promise<CategoryResponse[]> {
     const body: CategoryOrderUpdateRequest = { categoryIds };
     return adminApi.put<CategoryResponse[]>("/api/admin/categories/order", body);
+  },
+
+  /**
+   * 카테고리 내 메뉴 표시 순서 변경
+   * PUT /api/admin/menus/order
+   */
+  reorderMenus(categoryId: number, menuIds: number[]): Promise<MenuSummary[]> {
+    const body: MenuOrderUpdateRequest = { categoryId, menuIds };
+    return adminApi.put<MenuSummary[]>("/api/admin/menus/order", body);
   },
 
   /**

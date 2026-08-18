@@ -67,6 +67,11 @@ interface AdminDataValue {
    * @returns 성공 여부
    */
   reorderCategories: (categoryIds: number[]) => Promise<boolean>;
+  /**
+   * 카테고리 내 메뉴 표시 순서 변경
+   * @returns 성공 여부
+   */
+  reorderMenus: (categoryId: number, menuIds: number[]) => Promise<boolean>;
   toggleMenuStatus: (id: string) => Promise<void>;
   addMenu: (menu: Omit<Menu, "id">) => Promise<void>;
   /** 기존 메뉴 정보 수정 */
@@ -270,6 +275,29 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         return true;
       } catch (err) {
         console.error("카테고리 순서 변경 실패:", err);
+        return false;
+      }
+    },
+    [],
+  );
+
+  const reorderMenus = useCallback(
+    async (categoryId: number, menuIds: number[]): Promise<boolean> => {
+      try {
+        const updated = await adminMenuService.reorderMenus(categoryId, menuIds);
+        const displayOrderById = new Map(updated.map((m) => [String(m.id), m.displayOrder]));
+        setMenus((prev) =>
+          prev.map((m) => {
+            const nextOrder = displayOrderById.get(m.id);
+            if (nextOrder !== undefined && m.categoryId === categoryId) {
+              return { ...m, displayOrder: nextOrder };
+            }
+            return m;
+          }),
+        );
+        return true;
+      } catch (err) {
+        console.error("메뉴 순서 변경 실패:", err);
         return false;
       }
     },
@@ -684,6 +712,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       updateCategory,
       deleteCategory,
       reorderCategories,
+      reorderMenus,
       toggleMenuStatus,
       addMenu,
       updateMenu,
@@ -709,6 +738,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       updateCategory,
       deleteCategory,
       reorderCategories,
+      reorderMenus,
       toggleMenuStatus,
       addMenu,
       updateMenu,
