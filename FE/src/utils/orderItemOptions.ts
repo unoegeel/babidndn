@@ -1,5 +1,5 @@
 import type { OrderItemOptionResponse } from "../types/api";
-import { optionGroupRank } from "./optionSort";
+import { optionGroupRank, toppingAddDisplayRank } from "./optionSort";
 
 /** 사이즈 → 토핑 추가 → 토핑 제외 순으로 정렬 */
 export function sortOrderItemOptions(
@@ -9,6 +9,10 @@ export function sortOrderItemOptions(
     const ga = optionGroupRank(a.groupType);
     const gb = optionGroupRank(b.groupType);
     if (ga !== gb) return ga - gb;
+    if (a.groupType === "TOPPING_ADD" && b.groupType === "TOPPING_ADD") {
+      const rankDiff = toppingAddDisplayRank(a.name) - toppingAddDisplayRank(b.name);
+      if (rankDiff !== 0) return rankDiff;
+    }
     return a.id - b.id;
   });
 }
