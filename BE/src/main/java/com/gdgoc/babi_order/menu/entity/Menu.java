@@ -101,6 +101,9 @@ public class Menu {
 
     @PrePersist
     protected void onCreate() {
+        if (this.badge == null) {
+            this.badge = MenuBadge.NONE;
+        }
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;

@@ -43,7 +43,11 @@ public class MenuSummaryResponse {
                 .imageUrl(menu.getImageUrl())
                 .displayOrder(menu.getDisplayOrder())
                 .saleStatus(menu.getSaleStatus().name())
-                .badge(menu.getBadge().name())
+                .badge(badgeName(menu))
                 .build();
+    }
+
+    private static String badgeName(Menu menu) {
+        return menu.getBadge() == null ? "NONE" : menu.getBadge().name();
     }
 }

@@ -60,12 +60,16 @@ public class MenuDetailResponse {
                 .imageUrl(menu.getImageUrl())
                 .displayOrder(menu.getDisplayOrder())
                 .saleStatus(menu.getSaleStatus().name())
-                .badge(menu.getBadge().name())
+                .badge(badgeName(menu))
                 .toppingEnabled(options.stream().anyMatch(option ->
                         option.getGroupType() == com.gdgoc.babi_order.menu.entity.OptionGroupType.TOPPING_ADD
                                 || option.getGroupType()
                                 == com.gdgoc.babi_order.menu.entity.OptionGroupType.TOPPING_REMOVE))
                 .options(options.stream().map(MenuOptionResponse::from).toList())
                 .build();
+    }
+
+    private static String badgeName(Menu menu) {
+        return menu.getBadge() == null ? "NONE" : menu.getBadge().name();
     }
 }

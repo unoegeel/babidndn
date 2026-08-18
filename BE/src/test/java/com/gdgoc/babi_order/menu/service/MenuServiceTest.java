@@ -152,6 +152,59 @@ class MenuServiceTest {
     }
 
     @Test
+    void getMenuReportsToppingEnabledWhenOnlyToppingRemovesExist() {
+        Category category = category(2L, "면", 2);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("참치불닭비빔우동")
+                .basePrice(5500)
+                .displayOrder(3)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 11L);
+        MenuOption sauce = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("불닭소스 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(false)
+                .displayOrder(1)
+                .build();
+        MenuOption seaweed = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("김가루 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(false)
+                .displayOrder(2)
+                .build();
+        MenuOption greenOnion = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("파 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(false)
+                .displayOrder(3)
+                .build();
+        ReflectionTestUtils.setField(sauce, "id", 101L);
+        ReflectionTestUtils.setField(seaweed, "id", 102L);
+        ReflectionTestUtils.setField(greenOnion, "id", 103L);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(sauce, seaweed, greenOnion));
+
+        MenuDetailResponse result = menuService.getMenu(11L);
+
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())
+                .containsExactly("불닭소스 제외", "김가루 제외", "파 제외");
+    }
+
+    @Test
     void getMenuThrowsExceptionWhenMenuDoesNotExist() {
         given(menuRepository.findWithCategoryById(999L)).willReturn(Optional.empty());
 
