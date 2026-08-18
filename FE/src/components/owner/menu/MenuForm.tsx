@@ -209,7 +209,7 @@ export function MenuForm({
             [
               { value: "NONE" as const, label: "없음" },
               { value: "POPULAR" as const, label: "인기" },
-              { value: "BEST" as const, label: "베스트" },
+              { value: "BEST" as const, label: "NEW" },
               { value: "RECOMMENDED" as const, label: "추천" },
             ] as const
           ).map((option) => (

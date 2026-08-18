@@ -18,7 +18,7 @@ const isNoTakeoutMenu = (menuName: string) =>
 const MENU_BADGE_LABELS: Record<MenuBadge, string> = {
   NONE: "",
   POPULAR: "인기",
-  BEST: "베스트",
+  BEST: "NEW",
   RECOMMENDED: "추천",
 };
 
