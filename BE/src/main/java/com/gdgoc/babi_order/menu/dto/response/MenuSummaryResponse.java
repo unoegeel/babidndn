@@ -31,6 +31,9 @@ public class MenuSummaryResponse {
     @Schema(description = "판매 상태", example = "AVAILABLE")
     private String saleStatus;
 
+    @Schema(description = "메뉴 배지", example = "NONE")
+    private String badge;
+
     public static MenuSummaryResponse from(Menu menu) {
         return MenuSummaryResponse.builder()
                 .id(menu.getId())
@@ -40,6 +43,7 @@ public class MenuSummaryResponse {
                 .imageUrl(menu.getImageUrl())
                 .displayOrder(menu.getDisplayOrder())
                 .saleStatus(menu.getSaleStatus().name())
+                .badge(menu.getBadge().name())
                 .build();
     }
 }

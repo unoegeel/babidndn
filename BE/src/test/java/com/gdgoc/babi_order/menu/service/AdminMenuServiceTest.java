@@ -9,6 +9,7 @@ import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuSummaryResponse;
 import com.gdgoc.babi_order.menu.entity.Category;
 import com.gdgoc.babi_order.menu.entity.Menu;
+import com.gdgoc.babi_order.menu.entity.MenuBadge;
 import com.gdgoc.babi_order.menu.entity.MenuOption;
 import com.gdgoc.babi_order.menu.entity.OptionGroupType;
 import com.gdgoc.babi_order.menu.entity.SaleStatus;
@@ -149,9 +150,9 @@ class AdminMenuServiceTest {
     @Test
     void reorderMenusAssignsSequentialDisplayOrder() {
         Category category = category(1L, "컵밥", 1);
-        Menu first = menu(1L, category, "삼겹소금", 1);
-        Menu second = menu(2L, category, "참치마요", 2);
-        Menu third = menu(3L, category, "제육", 3);
+        Menu first = menu(1L, category, "삼겹소금", 1, MenuBadge.POPULAR);
+        Menu second = menu(2L, category, "참치마요", 2, MenuBadge.NONE);
+        Menu third = menu(3L, category, "제육", 3, MenuBadge.BEST);
         given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
         given(menuRepository.findAllByCategoryIdOrderByDisplayOrderAscIdAsc(1L))
                 .willReturn(List.of(first, second, third));
@@ -165,6 +166,9 @@ class AdminMenuServiceTest {
         assertThat(third.getDisplayOrder()).isEqualTo(1);
         assertThat(first.getDisplayOrder()).isEqualTo(2);
         assertThat(second.getDisplayOrder()).isEqualTo(3);
+        assertThat(first.getBadge()).isEqualTo(MenuBadge.POPULAR);
+        assertThat(second.getBadge()).isEqualTo(MenuBadge.NONE);
+        assertThat(third.getBadge()).isEqualTo(MenuBadge.BEST);
         verify(menuRepository).saveAll(List.of(third, first, second));
     }
 
@@ -274,6 +278,67 @@ class AdminMenuServiceTest {
     }
 
     @Test
+    void createMenuPersistsBadge() {
+        Category category = category(1L);
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(1L, "인기메뉴")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 10L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(any(), any()))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of());
+
+        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
+                1L, "인기메뉴", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.POPULAR));
+
+        assertThat(result.getBadge()).isEqualTo("POPULAR");
+    }
+
+    @Test
+    void updateMenuChangesBadge() {
+        Category category = category(1L);
+        Menu menu = menu(10L, category, "삼겹소금", 1, MenuBadge.POPULAR);
+        given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(1L, "삼겹소금", 10L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(any(), any()))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of());
+
+        MenuDetailResponse popularToBest = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "삼겹소금", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.BEST));
+        assertThat(popularToBest.getBadge()).isEqualTo("BEST");
+
+        MenuDetailResponse bestToRecommended = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "삼겹소금", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.RECOMMENDED));
+        assertThat(bestToRecommended.getBadge()).isEqualTo("RECOMMENDED");
+
+        MenuDetailResponse recommendedToNone = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "삼겹소금", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+        assertThat(recommendedToNone.getBadge()).isEqualTo("NONE");
+    }
+
+    @Test
+    void menuSummaryResponseIncludesBadge() {
+        Category category = category(1L);
+        Menu menu = menu(1L, category, "삼겹소금", 1, MenuBadge.RECOMMENDED);
+
+        MenuSummaryResponse response = MenuSummaryResponse.from(menu);
+
+        assertThat(response.getBadge()).isEqualTo("RECOMMENDED");
+    }
+
+    @Test
     void createMenuWithToppingEnabledCreatesDefaultSizesAndToppings() {
         Category category = category(1L);
         given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
@@ -293,7 +358,7 @@ class AdminMenuServiceTest {
 
         adminMenuService.createMenu(new MenuUpsertRequest(
                 1L, "삼겹소금", null, 3500, null, 1,
-                SaleStatus.AVAILABLE, true));
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
 
         org.mockito.ArgumentCaptor<List<MenuOption>> captor =
                 org.mockito.ArgumentCaptor.forClass(List.class);
@@ -451,7 +516,7 @@ class AdminMenuServiceTest {
 
         adminMenuService.createMenu(new MenuUpsertRequest(
                 2L, "삼겹소금", null, 5500, null, 1,
-                SaleStatus.AVAILABLE, true));
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
 
         verify(menuOptionRepository, never()).saveAll(any());
     }
@@ -542,16 +607,21 @@ class AdminMenuServiceTest {
     }
 
     private Menu menu(Long id, Category category) {
-        return menu(id, category, "삼겹소금", 1);
+        return menu(id, category, "삼겹소금", 1, MenuBadge.NONE);
     }
 
     private Menu menu(Long id, Category category, String name, int displayOrder) {
+        return menu(id, category, name, displayOrder, MenuBadge.NONE);
+    }
+
+    private Menu menu(Long id, Category category, String name, int displayOrder, MenuBadge badge) {
         Menu menu = Menu.builder()
                 .category(category)
                 .name(name)
                 .basePrice(3500)
                 .displayOrder(displayOrder)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .badge(badge)
                 .build();
         ReflectionTestUtils.setField(menu, "id", id);
         return menu;
@@ -573,7 +643,7 @@ class AdminMenuServiceTest {
     private MenuUpsertRequest menuRequest() {
         return new MenuUpsertRequest(
                 1L, "삼겹소금", null, 3500, null, 1,
-                SaleStatus.AVAILABLE, false);
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE);
     }
 
     private MenuOptionUpsertRequest optionRequest() {

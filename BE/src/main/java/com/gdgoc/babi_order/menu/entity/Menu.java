@@ -55,6 +55,11 @@ public class Menu {
     @ColumnDefault("'AVAILABLE'")
     private SaleStatus saleStatus;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "badge", nullable = false, length = 20)
+    @ColumnDefault("'NONE'")
+    private MenuBadge badge;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -63,7 +68,7 @@ public class Menu {
 
     @Builder
     public Menu(Category category, String name, String description, Integer basePrice,
-                String imageUrl, Integer displayOrder, SaleStatus saleStatus) {
+                String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge) {
         this.category = category;
         this.name = name;
         this.description = description;
@@ -71,10 +76,11 @@ public class Menu {
         this.imageUrl = imageUrl;
         this.displayOrder = displayOrder;
         this.saleStatus = saleStatus == null ? SaleStatus.AVAILABLE : saleStatus;
+        this.badge = badge == null ? MenuBadge.NONE : badge;
     }
 
     public void update(Category category, String name, String description, Integer basePrice,
-                       String imageUrl, Integer displayOrder, SaleStatus saleStatus) {
+                       String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge) {
         this.category = category;
         this.name = name;
         this.description = description;
@@ -82,6 +88,11 @@ public class Menu {
         this.imageUrl = imageUrl;
         this.displayOrder = displayOrder;
         this.saleStatus = saleStatus;
+        this.badge = badge == null ? MenuBadge.NONE : badge;
+    }
+
+    public void changeDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
     }
 
     public void changeSaleStatus(SaleStatus saleStatus) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import ImageCropModal from "../../ImageCropModal";
 import { uploadMenuImageBlob, validateMenuImageFile } from "../../../services/admin/menuImageUpload";
-import type { Menu, MenuCategory } from "../../../types/admin";
+import type { Menu, MenuCategory, MenuBadge } from "../../../types/admin";
 
 /** 신규 등록 / 기존 메뉴 수정 공용 폼 */
 export function MenuForm({
@@ -24,6 +24,7 @@ export function MenuForm({
     category: MenuCategory;
     toppingAvailable: boolean;
     imageUrl?: string | null;
+    badge: MenuBadge;
   }) => void;
   /** 수정 모드에서만 사용하는 메뉴 삭제 핸들러 */
   onDelete?: () => void;
@@ -36,6 +37,7 @@ export function MenuForm({
   const [topping, setTopping] = useState(
     menu?.toppingAvailable === false ? "불가능" : "가능",
   );
+  const [badge, setBadge] = useState<MenuBadge>(menu?.badge ?? "NONE");
   const [imageUrl, setImageUrl] = useState<string | null>(menu?.imageUrl ?? null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -87,6 +89,7 @@ export function MenuForm({
       category,
       toppingAvailable: topping === "가능",
       imageUrl,
+      badge,
     });
   };
 
@@ -198,6 +201,31 @@ export function MenuForm({
             <option value="불가능">불가능</option>
           </select>
           <SelectChevron />
+        </div>
+
+        <FormLabel>메뉴 배지</FormLabel>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { value: "NONE" as const, label: "없음" },
+              { value: "POPULAR" as const, label: "인기" },
+              { value: "BEST" as const, label: "베스트" },
+              { value: "RECOMMENDED" as const, label: "추천" },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setBadge(option.value)}
+              className={`h-9 rounded-[8px] border px-3 text-[13px] font-medium ${
+                badge === option.value
+                  ? "border-black bg-black text-white"
+                  : "border-black/40 bg-canvas text-black"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         {mode === "edit" && onDelete && (

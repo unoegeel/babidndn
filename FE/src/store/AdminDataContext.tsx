@@ -195,6 +195,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
               displayOrder: m.displayOrder,
               description: m.description,
               imageUrl: m.imageUrl,
+              badge: m.badge ?? "NONE",
             })),
         ),
     );
@@ -342,6 +343,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
       displayOrder: detail.displayOrder,
       description: detail.description,
       imageUrl: detail.imageUrl,
+      badge: detail.badge ?? "NONE",
     };
   }, []);
 
@@ -365,6 +367,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           displayOrder: nextOrder,
           saleStatus: menu.status === "품절" ? "SOLDOUT" : "AVAILABLE",
           toppingEnabled: menu.toppingAvailable,
+          badge: menu.badge ?? "NONE",
         });
         await refreshMenus();
       } catch (err) {
@@ -402,6 +405,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
           displayOrder,
           saleStatus: detail.saleStatus,
           toppingEnabled: patch.toppingAvailable,
+          badge: patch.badge ?? detail.badge ?? "NONE",
         });
         await refreshMenus();
       } catch (err) {

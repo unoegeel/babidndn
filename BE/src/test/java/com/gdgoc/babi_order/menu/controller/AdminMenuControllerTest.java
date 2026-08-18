@@ -306,7 +306,8 @@ class AdminMenuControllerTest {
                                   "basePrice": 3500,
                                   "displayOrder": 1,
                                   "saleStatus": "AVAILABLE",
-                                  "toppingEnabled": true
+                                  "toppingEnabled": true,
+                                  "badge": "NONE"
                                 }
                                 """))
                 .andExpect(status().isCreated())

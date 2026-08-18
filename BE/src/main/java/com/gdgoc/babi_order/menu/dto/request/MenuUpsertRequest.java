@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.menu.dto.request;
 
+import com.gdgoc.babi_order.menu.entity.MenuBadge;
 import com.gdgoc.babi_order.menu.entity.SaleStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -42,4 +43,7 @@ public class MenuUpsertRequest {
 
     @NotNull(message = "토핑 가능 여부는 필수입니다.")
     private Boolean toppingEnabled;
+
+    @NotNull(message = "메뉴 배지는 필수입니다.")
+    private MenuBadge badge;
 }

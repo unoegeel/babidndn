@@ -139,15 +139,7 @@ public class AdminMenuService {
         List<Menu> ordered = new ArrayList<>(menuIds.size());
         for (int i = 0; i < menuIds.size(); i++) {
             Menu menu = byId.get(menuIds.get(i));
-            menu.update(
-                    menu.getCategory(),
-                    menu.getName(),
-                    menu.getDescription(),
-                    menu.getBasePrice(),
-                    menu.getImageUrl(),
-                    i + 1,
-                    menu.getSaleStatus()
-            );
+            menu.changeDisplayOrder(i + 1);
             ordered.add(menu);
         }
         menuRepository.saveAll(ordered);
@@ -167,6 +159,7 @@ public class AdminMenuService {
                 .imageUrl(request.getImageUrl())
                 .displayOrder(request.getDisplayOrder())
                 .saleStatus(request.getSaleStatus())
+                .badge(request.getBadge())
                 .build());
         syncSizeAndToppingOptions(saved, request.getToppingEnabled());
         return detail(saved);
@@ -185,7 +178,8 @@ public class AdminMenuService {
                 request.getBasePrice(),
                 request.getImageUrl(),
                 request.getDisplayOrder(),
-                request.getSaleStatus()
+                request.getSaleStatus(),
+                request.getBadge()
         );
         syncSizeAndToppingOptions(menu, request.getToppingEnabled());
         return detail(menu);
