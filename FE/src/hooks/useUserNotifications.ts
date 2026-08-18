@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { NotificationItem, NotificationType } from "../types/user";
+import { dismissReadyBanner } from "../utils/readyCall";
 import { seoulDateKey } from "../utils/serverDate";
 
 const NOTIFS_STORAGE_KEY = "babi_user_notifications";
@@ -172,6 +173,16 @@ export function useUserNotifications() {
     );
   }, []);
 
+  /** 픽업 완료/이탈 시 해당 주문의 조리·준비 알림 읽음 + 준비완료 배너 종료 */
+  const resolveOrderPickupNotifications = useCallback(
+    (orderId: string) => {
+      markNotificationsReadByOrder(orderId, "PREPARING");
+      markNotificationsReadByOrder(orderId, "READY");
+      dismissReadyBanner(orderId);
+    },
+    [markNotificationsReadByOrder],
+  );
+
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
@@ -181,6 +192,7 @@ export function useUserNotifications() {
     addNotification,
     markAsRead,
     markNotificationsReadByOrder,
+    resolveOrderPickupNotifications,
     removeNotification,
   };
 }

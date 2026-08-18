@@ -35,6 +35,8 @@ interface UserDataContextType {
   markAsRead: (id: string) => void;
   /** 특정 주문의 알림을 읽음 처리 (type 지정 시 해당 유형만) */
   markNotificationsReadByOrder: (orderId: string, type?: NotificationType) => void;
+  /** 픽업 완료/이탈 시 PREPARING·READY 알림 읽음 + 준비완료 배너 종료 */
+  resolveOrderPickupNotifications: (orderId: string) => void;
   removeNotification: (id: string) => void;
 }
 
@@ -71,6 +73,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     addNotification,
     markAsRead,
     markNotificationsReadByOrder,
+    resolveOrderPickupNotifications,
     removeNotification,
   } = useUserNotifications();
   const [orders, setOrders] = useState<Order[]>(() => readStoredOrders());
@@ -81,7 +84,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   } | null>(null);
 
   // 주문별 앱 내 알림 중복 방지 (백그라운드 폴링용)
-  const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean }>>({});
+  const notifiedRef = useRef<Record<string, { preparing: boolean; ready: boolean; canceled: boolean; completed: boolean }>>({});
   /** 주문별 마지막으로 관측한 updatedAt — READY 재호출 구분 */
   const lastUpdatedAtRef = useRef<Record<string, string>>({});
 
@@ -132,7 +135,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       saveOrderToState(updated);
 
       if (!notifiedRef.current[id]) {
-        notifiedRef.current[id] = { preparing: false, ready: false, canceled: false };
+        notifiedRef.current[id] = { preparing: false, ready: false, canceled: false, completed: false };
       }
       const flags = notifiedRef.current[id];
       const nextUpdatedAt = updated.updatedAt ?? "";
@@ -148,7 +151,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         flags.preparing = true;
       }
 
-      if (updated.status === "READY" || updated.status === "COMPLETED") {
+      if (updated.status === "READY") {
         if (!flags.ready) {
           addNotification(
             "READY",
@@ -157,12 +160,10 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             updated.orderId,
           );
           flags.ready = true;
-          // 최초 READY updatedAt 기록(claim) — 이후 같은 시각 중복·재호출 오인 방지
-          if (updated.status === "READY" && nextUpdatedAt) {
+          if (nextUpdatedAt) {
             claimReadyCall(id, nextUpdatedAt);
           }
         } else if (
-          updated.status === "READY" &&
           nextUpdatedAt &&
           prevUpdatedAt &&
           prevUpdatedAt !== nextUpdatedAt &&
@@ -172,6 +173,11 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           clearReadyBannerDismiss(id);
           setReadyCallSignal({ orderId: id, updatedAt: nextUpdatedAt, isRecall: true });
         }
+      }
+
+      if (updated.status === "COMPLETED" && !flags.completed) {
+        resolveOrderPickupNotifications(id);
+        flags.completed = true;
       }
 
       if (nextUpdatedAt) {
@@ -188,7 +194,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         flags.canceled = true;
       }
     },
-    [saveOrderToState, addNotification],
+    [saveOrderToState, addNotification, resolveOrderPickupNotifications],
   );
 
   // 진행 중 주문 전체를 백그라운드에서 폴링 — READY 이후에도 픽업완료 반영
@@ -226,6 +232,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addNotification,
         markAsRead,
         markNotificationsReadByOrder,
+        resolveOrderPickupNotifications,
         removeNotification,
       }}
     >
