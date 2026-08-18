@@ -31,6 +31,7 @@ import NoticesPage from "./pages/user/NoticesPage";
 import ContactPage from "./pages/user/ContactPage";
 import RefundPolicyPage from "./pages/user/RefundPolicyPage";
 import UserGuidePage from "./pages/user/UserGuidePage";
+import MyMenuPage from "./pages/user/MyMenuPage";
 
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
@@ -92,6 +93,7 @@ const router = createBrowserRouter([
         ),
         children: [
           { index: true, element: <MenuPage /> },
+          { path: "my-menu", element: <MyMenuPage /> },
           { path: "cart", element: <CartPage /> },
           { path: "checkout", element: <CheckoutPage /> },
           { path: "payment/success", element: <PaymentSuccessPage /> },

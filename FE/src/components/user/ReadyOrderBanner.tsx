@@ -2,34 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Order } from "../../types/user";
 import { useUserData } from "../../store/UserDataContext";
-
-const DISMISSED_KEY = "babi_ready_banner_dismissed";
-
-function readDismissed(): Set<string> {
-  try {
-    // 예전 sessionStorage 값을 localStorage로 이전
-    const fromSession = sessionStorage.getItem(DISMISSED_KEY);
-    if (fromSession && !localStorage.getItem(DISMISSED_KEY)) {
-      localStorage.setItem(DISMISSED_KEY, fromSession);
-      sessionStorage.removeItem(DISMISSED_KEY);
-    }
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as string[];
-    return new Set(Array.isArray(parsed) ? parsed : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistDismissed(ids: Set<string>) {
-  try {
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
-    sessionStorage.removeItem(DISMISSED_KEY);
-  } catch {
-    // ignore
-  }
-}
+import { dismissReadyBanner, readDismissedOrderIdsForBanner } from "../../utils/readyCall";
 
 interface ReadyOrderBannerProps {
   readyOrders: Order[];
@@ -40,7 +13,7 @@ interface ReadyOrderBannerProps {
 export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders, visible }) => {
   const navigate = useNavigate();
   const { markNotificationsReadByOrder } = useUserData();
-  const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissedOrderIdsForBanner());
   const [entering, setEntering] = useState(false);
 
   useEffect(() => {
@@ -51,12 +24,25 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
         if (!prev.has(orderId)) return prev;
         const next = new Set(prev);
         next.delete(orderId);
-        persistDismissed(next);
+        return next;
+      });
+    };
+    const onDismiss = (e: Event) => {
+      const orderId = (e as CustomEvent<{ orderId: string }>).detail?.orderId;
+      if (!orderId) return;
+      setDismissed((prev) => {
+        if (prev.has(orderId)) return prev;
+        const next = new Set(prev);
+        next.add(orderId);
         return next;
       });
     };
     window.addEventListener("babi-ready-banner-undismiss", onUndismiss);
-    return () => window.removeEventListener("babi-ready-banner-undismiss", onUndismiss);
+    window.addEventListener("babi-ready-banner-dismiss", onDismiss);
+    return () => {
+      window.removeEventListener("babi-ready-banner-undismiss", onUndismiss);
+      window.removeEventListener("babi-ready-banner-dismiss", onDismiss);
+    };
   }, []);
 
   const visibleOrders = readyOrders.filter((o) => !dismissed.has(o.orderId));
@@ -79,10 +65,11 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
 
   const dismiss = (orderId: string) => {
     markNotificationsReadByOrder(orderId);
+    dismissReadyBanner(orderId);
     setDismissed((prev) => {
+      if (prev.has(orderId)) return prev;
       const next = new Set(prev);
       next.add(orderId);
-      persistDismissed(next);
       return next;
     });
   };

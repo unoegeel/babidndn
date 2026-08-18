@@ -19,6 +19,8 @@ import com.gdgoc.babi_order.menu.repository.MenuOptionRepository;
 import com.gdgoc.babi_order.menu.repository.MenuRepository;
 import com.gdgoc.babi_order.order.repository.OrderItemOptionRepository;
 import com.gdgoc.babi_order.order.repository.OrderItemRepository;
+import com.gdgoc.babi_order.savedmenu.repository.SavedMenuOptionRepository;
+import com.gdgoc.babi_order.savedmenu.repository.SavedMenuRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,6 +51,10 @@ class AdminMenuServiceTest {
     private OrderItemRepository orderItemRepository;
     @Mock
     private OrderItemOptionRepository orderItemOptionRepository;
+    @Mock
+    private SavedMenuRepository savedMenuRepository;
+    @Mock
+    private SavedMenuOptionRepository savedMenuOptionRepository;
 
     private AdminMenuService adminMenuService;
 
@@ -59,7 +65,9 @@ class AdminMenuServiceTest {
                 menuRepository,
                 menuOptionRepository,
                 orderItemRepository,
-                orderItemOptionRepository
+                orderItemOptionRepository,
+                savedMenuRepository,
+                savedMenuOptionRepository
         );
     }
 
@@ -612,6 +620,8 @@ class AdminMenuServiceTest {
 
         verify(orderItemOptionRepository).detachMenuOptionsByMenu(10L);
         verify(orderItemRepository).detachMenu(10L);
+        verify(savedMenuOptionRepository).detachMenuOptionsByMenu(10L);
+        verify(savedMenuRepository).detachMenu(10L);
         verify(menuOptionRepository).deleteAllByMenuId(10L);
         verify(menuRepository).delete(menu);
     }

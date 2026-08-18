@@ -6,6 +6,7 @@ type UserHeaderProps = {
   unreadCount: number;
   cartItemCount: number;
   onOpenDrawer: () => void;
+  onOpenMyMenu: () => void;
   onToggleNotifications: () => void;
   onBack: () => void;
   onHome: () => void;
@@ -20,15 +21,16 @@ export function UserHeader({
   unreadCount,
   cartItemCount,
   onOpenDrawer,
+  onOpenMyMenu,
   onToggleNotifications,
   onBack,
   onHome,
   onMenuTitleClick,
 }: UserHeaderProps) {
   return (
-    <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
+    <header className="relative h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
       {/* 왼쪽 영역 */}
-      <div className="w-10 flex items-center">
+      <div className="relative z-10 flex w-10 shrink-0 items-center">
         {isMenuPage ? (
           // 햄버거 메뉴 아이콘
           <button
@@ -54,29 +56,45 @@ export function UserHeader({
         )}
       </div>
 
-      {/* 타이틀 — 메뉴 페이지의 바비든든 클릭 시 목록 스크롤 최상단 */}
-      {isMenuPage ? (
-        <button
-          type="button"
-          onClick={onMenuTitleClick}
-          className="flex-1 text-center text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
-          aria-label="메뉴 맨 위로"
-        >
-          {title}
-        </button>
-      ) : (
-        <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{title}</h1>
-      )}
+      {/* 타이틀 — 헤더 전체 너비 기준 정중앙 (좌우 버튼 폭과 무관) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        {isMenuPage ? (
+          <button
+            type="button"
+            onClick={onMenuTitleClick}
+            className="pointer-events-auto text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
+            aria-label="메뉴 맨 위로"
+          >
+            {title}
+          </button>
+        ) : (
+          <h1 className="text-lg font-bold text-gray-800 text-center">{title}</h1>
+        )}
+      </div>
 
       {/* 오른쪽 영역 */}
-      <div className="w-10 flex items-center justify-end">
+      <div className="relative z-10 flex min-w-10 shrink-0 items-center justify-end gap-1">
         {isMenuPage && (
-          // 알림 종 아이콘
-          <button
-            onClick={onToggleNotifications}
-            className="text-gray-700 relative p-1 focus:outline-none cursor-pointer"
-            aria-label="알림"
-          >
+          <>
+            <button
+              type="button"
+              onClick={onOpenMyMenu}
+              className="relative p-1 text-gray-700 focus:outline-none cursor-pointer"
+              aria-label="나만의 메뉴"
+            >
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={onToggleNotifications}
+              className="text-gray-700 relative p-1 focus:outline-none cursor-pointer"
+              aria-label="알림"
+            >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -91,6 +109,7 @@ export function UserHeader({
               </span>
             )}
           </button>
+          </>
         )}
 
         {isStatusPage && (
