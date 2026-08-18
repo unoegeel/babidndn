@@ -122,7 +122,7 @@ export const OrderStatusPage: React.FC = () => {
     ? "주문이 취소되었습니다."
     : isReadyLike
       ? "음식을 픽업해주세요."
-      : "음식이 준비되고 있습니다.";
+      : "맛있게 조리 중입니다. 잠시만 기다려 주세요!";
   const waitingAheadLabel = isReadyLike
     ? "없음"
     : order.waitingCount > 0
