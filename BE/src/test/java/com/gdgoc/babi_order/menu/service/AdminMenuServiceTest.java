@@ -331,6 +331,37 @@ class AdminMenuServiceTest {
     }
 
     @Test
+    void ensureDefaultOptionsDoesNotAddCupbapDefaultsForNoodleCategory() {
+        Menu menu = menu(11L, category(2L, "우동", 2));
+
+        adminMenuService.ensureDefaultOptions(menu);
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        verify(menuOptionRepository, never()).deleteAll(any());
+        verify(menuOptionRepository, never()).findAllByMenuIdAndGroupTypeIn(any(), any());
+    }
+
+    @Test
+    void createMenuWithToppingEnabledOnNoodleCategoryDoesNotCreateDefaultOptions() {
+        Category category = category(2L, "면", 2);
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(2L, "삼겹소금")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 11L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of());
+
+        adminMenuService.createMenu(new MenuUpsertRequest(
+                2L, "삼겹소금", null, 5500, null, 1,
+                SaleStatus.AVAILABLE, true));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+    }
+
+    @Test
     void updateMenuWithToppingDisabledRemovesOnlyToppingOptions() {
         Category category = category(1L);
         Menu menu = menu(10L, category);

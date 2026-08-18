@@ -160,3 +160,43 @@ LEFT JOIN menu_options menu_option
     AND menu_option.name = option_source.name
 WHERE category.name IN ('컵밥', '세트')
   AND menu_option.id IS NULL;
+
+-- 참치불닭비빔우동: 컵밥 기본 토핑 없이 제외 토핑 3종만 연결합니다.
+INSERT INTO menu_options (
+    menu_id,
+    group_type,
+    name,
+    additional_price,
+    max_quantity,
+    default_selected,
+    display_order,
+    created_at,
+    updated_at
+)
+SELECT
+    menu.id,
+    option_source.group_type,
+    option_source.name,
+    option_source.additional_price,
+    option_source.max_quantity,
+    option_source.default_selected,
+    option_source.display_order,
+    NOW(6),
+    NOW(6)
+FROM menus menu
+CROSS JOIN (
+    SELECT
+        'TOPPING_REMOVE' AS group_type,
+        '불닭소스 제외' AS name,
+        0 AS additional_price,
+        1 AS max_quantity,
+        FALSE AS default_selected,
+        1 AS display_order
+    UNION ALL SELECT 'TOPPING_REMOVE', '김가루 제외', 0, 1, FALSE, 2
+    UNION ALL SELECT 'TOPPING_REMOVE', '파 제외', 0, 1, FALSE, 3
+) AS option_source
+LEFT JOIN menu_options menu_option
+    ON menu_option.menu_id = menu.id
+    AND menu_option.name = option_source.name
+WHERE menu.name = '참치불닭비빔우동'
+  AND menu_option.id IS NULL;

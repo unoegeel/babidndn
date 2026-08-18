@@ -107,21 +107,19 @@ export function UserDrawer({
           <button
             type="button"
             onClick={() => onNavigate("/user/contact")}
-            className="w-full rounded-xl px-2 py-2.5 text-left text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="w-full text-left py-3 px-2 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
           >
             서비스 문의하기 →
           </button>
-          <div className="mt-4 px-2">
-            <button
-              type="button"
-              onClick={onOpenBusinessInfo}
-              aria-label="사업장 정보"
-              className="-mx-2 rounded-xl px-2 py-0.5 text-left text-[11px] font-bold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              바비오더
-            </button>
-            <p className="mt-0.5 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
-          </div>
+          <button
+            type="button"
+            onClick={onOpenBusinessInfo}
+            aria-label="사업장 정보"
+            className="w-full text-left py-3 px-2 rounded-xl text-[11px] font-bold text-gray-900 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            바비오더
+          </button>
+          <p className="mt-0.5 px-2 text-[10px] text-gray-400">(C) 2026 BabiOrder</p>
         </div>
       </aside>
     </div>

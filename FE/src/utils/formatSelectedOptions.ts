@@ -1,5 +1,5 @@
 import type { MenuOption } from "../types/user";
-import { optionGroupRank } from "./optionSort";
+import { optionGroupRank, toppingAddDisplayRank } from "./optionSort";
 
 function displayName(opt: MenuOption): string {
   return opt.name === "기본" ? "싱글" : opt.name.replace(/^\+\s*/, "");
@@ -11,6 +11,10 @@ export function formatSelectedOptions(options: MenuOption[]): string {
     const ga = optionGroupRank(a.groupType);
     const gb = optionGroupRank(b.groupType);
     if (ga !== gb) return ga - gb;
+    if (a.groupType === "TOPPING_ADD" && b.groupType === "TOPPING_ADD") {
+      const rankDiff = toppingAddDisplayRank(a.name) - toppingAddDisplayRank(b.name);
+      if (rankDiff !== 0) return rankDiff;
+    }
     return a.displayOrder - b.displayOrder || a.id - b.id;
   });
 

@@ -28,6 +28,9 @@ public class OrderItemOptionResponse {
     @Schema(description = "옵션 수량", example = "1")
     private Integer quantity;
 
+    @Schema(description = "메뉴 옵션 표시 순서", example = "1")
+    private Integer displayOrder;
+
     public static OrderItemOptionResponse from(OrderItemOption option) {
         return OrderItemOptionResponse.builder()
                 .id(option.getId())
@@ -37,6 +40,14 @@ public class OrderItemOptionResponse {
                 .name(option.getOptionNameSnapshot())
                 .additionalPrice(option.getAdditionalPriceSnapshot())
                 .quantity(option.getQuantity())
+                .displayOrder(resolveDisplayOrder(option))
                 .build();
+    }
+
+    private static Integer resolveDisplayOrder(OrderItemOption option) {
+        if (option.getMenuOption() == null || option.getMenuOption().getDisplayOrder() == null) {
+            return 1;
+        }
+        return option.getMenuOption().getDisplayOrder();
     }
 }
