@@ -82,6 +82,11 @@ export const OrderCompletePage: React.FC = () => {
           <p className="min-h-[2.5rem] text-xs font-semibold text-gray-700 leading-snug">
             음식이 준비되었습니다. 카운터에서 픽업해주세요!
           </p>
+          {order.status === "READY" && (
+            <p className="text-[11px] font-medium text-gray-500 leading-snug">
+              15분 이내에 수령하지 않을 경우, 음식은 폐기될 수 있습니다.
+            </p>
+          )}
         </div>
 
         {/* 조리 진행도 스텝 바 — OrderStatusPage 2블록과 동일하게 바로 아래 배치 */}

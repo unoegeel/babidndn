@@ -157,6 +157,11 @@ export const OrderStatusPage: React.FC = () => {
           >
             {statusMessage}
           </p>
+          {order.status === "PREPARING" && (
+            <p className="text-[11px] font-medium text-gray-500 leading-snug">
+              15분 이내에 수령하지 않을 경우, 음식은 폐기될 수 있습니다.
+            </p>
+          )}
         </div>
 
         <div className="bg-white border-y border-gray-100 p-6 flex justify-around items-center relative shrink-0">
