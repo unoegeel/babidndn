@@ -51,7 +51,7 @@ public class MenuService {
 
     /**
      * 메뉴 상세 조회.
-     * 토핑 가능 메뉴에 사이즈/토핑제외가 누락된 경우 기본값을 보강한 뒤 반환합니다.
+     * 컵밥/세트 토핑 가능 메뉴에 사이즈/토핑제외가 누락된 경우 기본값을 보강한 뒤 반환합니다.
      * SIZE 로 잘못 저장된 '밥 추가' 등도 함께 교정합니다.
      */
     @Transactional
@@ -67,7 +67,8 @@ public class MenuService {
         boolean hasMisplacedToppingInSize = options.stream().anyMatch(option ->
                 option.getGroupType() == OptionGroupType.SIZE
                         && AdminMenuService.isDefaultToppingAddName(option.getName()));
-        if (toppingEnabled || hasMisplacedToppingInSize) {
+        if (AdminMenuService.usesDefaultSizeAndToppingOptions(menu)
+                && (toppingEnabled || hasMisplacedToppingInSize)) {
             adminMenuService.ensureDefaultOptions(menu);
             options = menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId);
         }

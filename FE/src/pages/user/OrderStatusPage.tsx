@@ -264,7 +264,7 @@ export const OrderStatusPage: React.FC = () => {
             </div>
           </div>
 
-          {!isCanceled && isReadyLike && (
+          {!isCanceled && (
             <button
               type="button"
               onClick={() => navigate(`/user/orders/${order.orderId}/receipt`)}

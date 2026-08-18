@@ -23,7 +23,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class MenuServiceTest {
@@ -87,6 +90,65 @@ class MenuServiceTest {
         assertThat(result.getName()).isEqualTo("바비 비빔밥");
         assertThat(result.getOptions()).hasSize(1);
         assertThat(result.getOptions().getFirst().getGroupType()).isEqualTo("SIZE");
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+    }
+
+    @Test
+    void getMenuHealsDefaultOptionsForCupbapCategory() {
+        Category category = category(1L, "컵밥", 1);
+        Menu menu = menu(1L, category);
+        MenuOption option = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("계란후라이")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .defaultSelected(false)
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(option, "id", 1L);
+        given(menuRepository.findWithCategoryById(1L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(1L))
+                .willReturn(List.of(option));
+
+        MenuDetailResponse result = menuService.getMenu(1L);
+
+        verify(adminMenuService).ensureDefaultOptions(menu);
+        assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void getMenuDoesNotHealDefaultOptionsForNoodleCategory() {
+        Category category = category(2L, "면", 2);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("참치불닭비빔우동")
+                .basePrice(5500)
+                .displayOrder(3)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 11L);
+        MenuOption option = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("불닭소스 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(false)
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(option, "id", 101L);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(option));
+
+        MenuDetailResponse result = menuService.getMenu(11L);
+
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+        assertThat(result.getName()).isEqualTo("참치불닭비빔우동");
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())
+                .containsExactly("불닭소스 제외");
     }
 
     @Test

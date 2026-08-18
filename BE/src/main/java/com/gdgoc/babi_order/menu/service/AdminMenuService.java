@@ -58,6 +58,7 @@ public class AdminMenuService {
     );
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
+    private static final Set<String> DEFAULT_OPTION_CATEGORY_NAMES = Set.of("컵밥", "세트");
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
@@ -237,6 +238,10 @@ public class AdminMenuService {
             return;
         }
 
+        if (!usesDefaultSizeAndToppingOptions(menu)) {
+            return;
+        }
+
         // 과거 데이터: '밥 추가' 등이 SIZE 로 저장된 경우 TOPPING_ADD 로 교정
         reclassifyMisplacedToppingsFromSize(menu);
 
@@ -355,6 +360,14 @@ public class AdminMenuService {
     /** SIZE 에 잘못 들어간 기본 토핑명인지 (밥 추가 등) */
     public static boolean isDefaultToppingAddName(String name) {
         return DEFAULT_TOPPING_ADD_BY_NAME.containsKey(name);
+    }
+
+    /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */
+    public static boolean usesDefaultSizeAndToppingOptions(Menu menu) {
+        if (menu == null || menu.getCategory() == null || menu.getCategory().getName() == null) {
+            return false;
+        }
+        return DEFAULT_OPTION_CATEGORY_NAMES.contains(menu.getCategory().getName());
     }
 
     private Category findCategory(Long categoryId) {
