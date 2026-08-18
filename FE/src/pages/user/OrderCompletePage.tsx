@@ -9,7 +9,7 @@ import type { Order } from "../../types/user";
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti, resolveOrderPickupNotifications } =
+  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti } =
     useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
@@ -74,7 +74,20 @@ export const OrderCompletePage: React.FC = () => {
       {/* 주문 현황과 동일: 대기번호·상태바는 밀착, space-y로 사이 여백을 만들지 않음 */}
       <div className="flex-1 overflow-y-auto pb-6">
         {/* 대기번호 — OrderStatusPage 1블록과 동일 구조 */}
-        <div className="bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
+        <div className="relative bg-white border-b border-gray-100 p-6 text-center space-y-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              stopConfetti();
+              navigate("/user");
+            }}
+            className="absolute right-4 top-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
+            aria-label="홈으로 이동"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" />
+            </svg>
+          </button>
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">내 대기번호</p>
           <h2 className="text-6xl font-extrabold leading-[1.05] text-[#009E39] tracking-tight">
             {order.pickupNumber}
@@ -177,25 +190,11 @@ export const OrderCompletePage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. 하단 고정 액션 영역 */}
+      {/* 하단 안내 */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-lg flex flex-col gap-3 z-40"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="shrink-0 px-4 py-3 bg-white border-t border-gray-100 z-40"
+        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
       >
-        <button
-          type="button"
-          onClick={() => {
-            if (orderId) {
-              resolveOrderPickupNotifications(orderId);
-            }
-            // route effect보다 먼저 종료해 이동 프레임에 Confetti가 남지 않게 함
-            stopConfetti();
-            navigate("/user");
-          }}
-          className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-4 text-center text-sm font-bold text-white shadow-md transition-colors hover:bg-[#C59B62]"
-        >
-          처음 화면으로 이동
-        </button>
         <div className="text-center text-gray-400">
           <p className="text-[11px] font-medium leading-snug">※ 실시간으로 업데이트됩니다.</p>
         </div>
