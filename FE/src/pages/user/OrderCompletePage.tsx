@@ -9,7 +9,7 @@ import type { Order } from "../../types/user";
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti } =
+  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti, markNotificationsReadByOrder } =
     useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
@@ -185,6 +185,10 @@ export const OrderCompletePage: React.FC = () => {
         <button
           type="button"
           onClick={() => {
+            if (orderId) {
+              markNotificationsReadByOrder(orderId, "PREPARING");
+              markNotificationsReadByOrder(orderId, "READY");
+            }
             // route effect보다 먼저 종료해 이동 프레임에 Confetti가 남지 않게 함
             stopConfetti();
             navigate("/user");
