@@ -577,7 +577,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-6">
             {mode === "cart" && (
               <button
                 type="button"
