@@ -48,7 +48,7 @@ export function RenameSavedMenuPopup({
             onChange={(event) => setCustomName(event.target.value)}
             maxLength={100}
             autoFocus
-            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-gray-400 focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-base text-gray-900 placeholder:text-gray-300 focus:border-gray-400 focus:outline-none"
           />
           {error ? <p className="mt-2 text-[11px] font-semibold text-red-500">{error}</p> : null}
         </div>
