@@ -23,9 +23,9 @@ const MENU_BADGE_LABELS: Record<MenuBadge, string> = {
 };
 
 const MENU_BADGE_CLASS: Record<Exclude<MenuBadge, "NONE">, string> = {
-  POPULAR: "border-[#D8B47E]/40 bg-[#D8B47E]/15 text-[#9a7340]",
+  POPULAR: "border-[#D8B47E] bg-[#D8B47E] text-white",
   BEST: "border-black bg-black text-white",
-  RECOMMENDED: "border-green-200 bg-green-50 text-green-700",
+  RECOMMENDED: "border-green-600 bg-green-600 text-white",
 };
 
 export const MenuPage: React.FC = () => {
@@ -276,7 +276,7 @@ export const MenuPage: React.FC = () => {
                 >
                   {badge !== "NONE" && (
                     <span
-                      className={`pointer-events-none absolute top-2 left-2 z-10 rounded-md border px-2 py-0.5 text-[10px] font-semibold leading-snug whitespace-nowrap ${MENU_BADGE_CLASS[badge]}`}
+                      className={`pointer-events-none absolute top-2 left-2 z-10 inline-flex min-h-[2.25rem] min-w-[2.25rem] origin-center items-center justify-center rounded-full border px-2.5 py-2 text-xs font-semibold leading-none whitespace-nowrap rotate-[-10deg] ${MENU_BADGE_CLASS[badge]}`}
                     >
                       {MENU_BADGE_LABELS[badge]}
                     </span>
