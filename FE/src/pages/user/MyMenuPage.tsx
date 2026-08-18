@@ -8,6 +8,7 @@ import { useUserData } from "../../store/UserDataContext";
 import { SavedMenuCard } from "../../components/user/SavedMenuCard";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
 import { RenameSavedMenuPopup } from "../../components/user/RenameSavedMenuPopup";
+import { QuickCartBar } from "../../components/user/QuickCartBar";
 import { ApiError } from "../../api/client";
 import { savedOptionsToRequest, toOptionQuantities } from "../../utils/savedMenuCombo";
 
@@ -35,7 +36,6 @@ export const MyMenuPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [retuneTarget, setRetuneTarget] = useState<SavedMenuResponse | null>(null);
   const [retuneDetail, setRetuneDetail] = useState<MenuDetail | null>(null);
   const [renameTarget, setRenameTarget] = useState<SavedMenuResponse | null>(null);
@@ -68,16 +68,13 @@ export const MyMenuPage: React.FC = () => {
   const handleAdd = async (saved: SavedMenuResponse, goToCart: boolean) => {
     if (saved.status !== "AVAILABLE") return;
     setBusyId(saved.id);
-    setMessage(null);
     try {
       const detail = await withLiveMenu(saved);
       const selected = liveOptionsFromSaved(detail, saved);
       addToCart(detail, selected, 1);
       if (goToCart) {
         navigate("/user/cart");
-        return;
       }
-      setMessage("장바구니에 담았습니다.");
     } catch (err) {
       alert(err instanceof Error ? err.message : "장바구니에 담지 못했습니다.");
     } finally {
@@ -171,11 +168,6 @@ export const MyMenuPage: React.FC = () => {
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-white">
-      {message ? (
-        <div className="shrink-0 border-b border-gray-100 bg-[#F8F9FA] px-4 py-2 text-center text-[11px] font-semibold text-gray-600">
-          {message}
-        </div>
-      ) : null}
       {items.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-4">
           <p className="text-center text-xs font-bold text-gray-400">
@@ -203,6 +195,8 @@ export const MyMenuPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <QuickCartBar />
 
       {retuneDetail && retuneTarget && (
         <MenuOptionModal
