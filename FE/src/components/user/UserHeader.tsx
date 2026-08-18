@@ -28,9 +28,9 @@ export function UserHeader({
   onMenuTitleClick,
 }: UserHeaderProps) {
   return (
-    <header className="h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
+    <header className="relative h-14 border-b border-gray-100 flex items-center justify-between px-4 sticky top-0 bg-white z-50 shrink-0">
       {/* 왼쪽 영역 */}
-      <div className="w-10 flex items-center">
+      <div className="relative z-10 flex w-10 shrink-0 items-center">
         {isMenuPage ? (
           // 햄버거 메뉴 아이콘
           <button
@@ -56,22 +56,24 @@ export function UserHeader({
         )}
       </div>
 
-      {/* 타이틀 — 메뉴 페이지의 바비든든 클릭 시 목록 스크롤 최상단 */}
-      {isMenuPage ? (
-        <button
-          type="button"
-          onClick={onMenuTitleClick}
-          className="flex-1 text-center text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
-          aria-label="메뉴 맨 위로"
-        >
-          {title}
-        </button>
-      ) : (
-        <h1 className="text-lg font-bold text-gray-800 text-center flex-1">{title}</h1>
-      )}
+      {/* 타이틀 — 헤더 전체 너비 기준 정중앙 (좌우 버튼 폭과 무관) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        {isMenuPage ? (
+          <button
+            type="button"
+            onClick={onMenuTitleClick}
+            className="pointer-events-auto text-lg font-bold text-gray-800 focus:outline-none cursor-pointer"
+            aria-label="메뉴 맨 위로"
+          >
+            {title}
+          </button>
+        ) : (
+          <h1 className="text-lg font-bold text-gray-800 text-center">{title}</h1>
+        )}
+      </div>
 
       {/* 오른쪽 영역 */}
-      <div className="flex min-w-10 items-center justify-end gap-1">
+      <div className="relative z-10 flex min-w-10 shrink-0 items-center justify-end gap-1">
         {isMenuPage && (
           <>
             <button
