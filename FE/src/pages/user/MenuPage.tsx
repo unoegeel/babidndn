@@ -10,6 +10,11 @@ import { WaitingStatusBar } from "../../components/user/WaitingStatusBar";
 
 const SWIPE_THRESHOLD_PX = 56;
 
+const NO_TAKEOUT_KEYWORDS = ["바비우동", "김치우동"] as const;
+
+const isNoTakeoutMenu = (menuName: string) =>
+  NO_TAKEOUT_KEYWORDS.some((keyword) => menuName.includes(keyword));
+
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, cartTotal, addToCart } = useUserData();
@@ -255,6 +260,11 @@ export const MenuPage: React.FC = () => {
                       : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
                   }`}
                 >
+                  {isNoTakeoutMenu(menu.name) && (
+                    <span className="pointer-events-none absolute top-2 right-2 z-10 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold leading-snug text-red-600 whitespace-nowrap">
+                      🚫포장 불가🚫
+                    </span>
+                  )}
                   {/* 메뉴 사진 */}
                   <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
                     <MenuThumb src={menu.imageUrl} alt={menu.name} />
