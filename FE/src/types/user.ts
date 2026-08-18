@@ -1,4 +1,5 @@
 export type SaleStatus = "AVAILABLE" | "SOLDOUT";
+export type MenuBadge = "NONE" | "POPULAR" | "BEST" | "RECOMMENDED";
 export type GroupType = "SIZE" | "TOPPING_ADD" | "TOPPING_REMOVE" | null;
 
 export interface MenuOption {
@@ -19,6 +20,7 @@ export interface MenuSummary {
   imageUrl: string | null;
   displayOrder: number;
   saleStatus: SaleStatus;
+  badge: MenuBadge;
 }
 
 export interface MenuCategory {
@@ -38,6 +40,7 @@ export interface MenuDetail {
   imageUrl: string | null;
   displayOrder: number;
   saleStatus: SaleStatus;
+  badge: MenuBadge;
   /** 토핑 선택 가능 여부 (false 이면 옵션 시트 없이 바로 담기) */
   toppingEnabled?: boolean;
   options: MenuOption[];

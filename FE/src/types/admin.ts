@@ -1,5 +1,9 @@
 // 사장님(admin) 화면에서 사용하는 도메인 타입 정의 (피그마 기준)
 
+import type { MenuBadge } from "./user";
+
+export type { MenuBadge };
+
 /**
  * 메뉴 카테고리
  * 사장님이 직접 추가할 수 있으므로 고정 목록이 아닌 문자열(카테고리명)로 다룹니다.
@@ -26,6 +30,8 @@ export interface Menu {
   description?: string | null;
   /** 메뉴 이미지 URL */
   imageUrl?: string | null;
+  /** 메뉴 배지 */
+  badge: MenuBadge;
 }
 
 /** 주문 안의 개별 메뉴 라인 */

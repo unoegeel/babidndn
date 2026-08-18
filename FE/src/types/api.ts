@@ -1,5 +1,5 @@
 // 백엔드(https://babidndn.shop) Swagger 스펙 기준 요청/응답 DTO 정의
-import type { SaleStatus } from "./user";
+import type { SaleStatus, MenuBadge } from "./user";
 
 /* ── 주문 (Order) ── */
 
@@ -107,6 +107,11 @@ export interface CategoryOrderUpdateRequest {
   categoryIds: number[];
 }
 
+export interface MenuOrderUpdateRequest {
+  categoryId: number;
+  menuIds: number[];
+}
+
 export interface MenuUpsertRequest {
   categoryId: number;
   name: string;
@@ -116,6 +121,7 @@ export interface MenuUpsertRequest {
   displayOrder: number;
   saleStatus: SaleStatus;
   toppingEnabled: boolean;
+  badge: MenuBadge;
 }
 
 export interface MenuSaleStatusUpdateRequest {

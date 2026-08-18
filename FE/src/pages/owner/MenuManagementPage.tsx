@@ -1,4 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import AdminShell from "../../components/AdminShell";
 import { CategoryManageModal } from "../../components/owner/menu/CategoryManageModal";
 import { MenuCard } from "../../components/owner/menu/MenuCard";
@@ -9,6 +24,14 @@ import type { Menu, MenuCategory } from "../../types/admin";
 /** 우측 패널 상태: 닫힘 | 신규 등록 | 특정 메뉴 수정 */
 type PanelState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; menuId: string };
 
+function sortCategoryMenus(items: Menu[]): Menu[] {
+  return [...items].sort((a, b) => {
+    const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+    if (orderDiff !== 0) return orderDiff;
+    return Number(a.id) - Number(b.id);
+  });
+}
+
 export default function MenuManagementPage() {
   const {
     categories,
@@ -18,6 +41,7 @@ export default function MenuManagementPage() {
     updateCategory,
     deleteCategory,
     reorderCategories,
+    reorderMenus,
     toggleMenuStatus,
     addMenu,
     updateMenu,
@@ -27,11 +51,41 @@ export default function MenuManagementPage() {
   const [tab, setTab] = useState<MenuCategory>(categories[0] ?? "");
   const [panel, setPanel] = useState<PanelState>({ mode: "closed" });
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [isReorderingMenus, setIsReorderingMenus] = useState(false);
+  const [orderedMenus, setOrderedMenus] = useState<Menu[]>([]);
   // 수정 대상 메뉴의 상세 정보 (토핑 여부 등은 목록에 없어 서버에서 조회)
   const [editing, setEditing] = useState<Menu | null>(null);
 
+  const orderedRef = useRef<Menu[]>([]);
+  const orderBeforeDragRef = useRef<Menu[]>([]);
+  const suppressClickRef = useRef(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+  );
+
   // 서버에서 카테고리를 받기 전이거나 선택한 탭이 사라진 경우 첫 카테고리 사용
   const activeTab = categories.includes(tab) ? tab : categories[0] ?? "";
+
+  const categoryMenus = useMemo(
+    () => sortCategoryMenus(menus.filter((m) => m.category === activeTab)),
+    [menus, activeTab],
+  );
+
+  useEffect(() => {
+    orderedRef.current = orderedMenus;
+  }, [orderedMenus]);
+
+  useEffect(() => {
+    if (isReorderingMenus) return;
+    orderedRef.current = categoryMenus;
+    setOrderedMenus(categoryMenus);
+  }, [categoryMenus, isReorderingMenus]);
 
   // 수정 패널이 열리면 해당 메뉴 상세 조회
   useEffect(() => {
@@ -54,7 +108,7 @@ export default function MenuManagementPage() {
     };
   }, [panel, getMenuDetail]);
 
-  const filtered = menus.filter((m) => m.category === activeTab);
+  const activeCategory = categoryList.find((c) => c.name === activeTab);
 
   const closePanel = () => {
     setEditing(null);
@@ -69,6 +123,53 @@ export default function MenuManagementPage() {
   const openEditPanel = (menuId: string) => {
     setEditing(null);
     setPanel({ mode: "edit", menuId });
+  };
+
+  const handleDragStart = (_event: DragStartEvent) => {
+    orderBeforeDragRef.current = orderedRef.current;
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const prev = orderedRef.current;
+    const oldIndex = prev.findIndex((m) => m.id === String(active.id));
+    const newIndex = prev.findIndex((m) => m.id === String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const next = arrayMove(prev, oldIndex, newIndex);
+    orderedRef.current = next;
+    setOrderedMenus(next);
+
+    const prevIds = orderBeforeDragRef.current.map((m) => m.id).join(",");
+    const nextIds = next.map((m) => m.id).join(",");
+    if (prevIds === nextIds) return;
+
+    if (!activeCategory) {
+      orderedRef.current = orderBeforeDragRef.current;
+      setOrderedMenus(orderBeforeDragRef.current);
+      alert("카테고리 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.");
+      return;
+    }
+
+    suppressClickRef.current = true;
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
+
+    setIsReorderingMenus(true);
+    void reorderMenus(
+      activeCategory.id,
+      next.map((m) => Number(m.id)),
+    ).then((ok) => {
+      setIsReorderingMenus(false);
+      if (!ok) {
+        orderedRef.current = orderBeforeDragRef.current;
+        setOrderedMenus(orderBeforeDragRef.current);
+        alert("메뉴 순서를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    });
   };
 
   return (
@@ -114,24 +215,38 @@ export default function MenuManagementPage() {
         {/* 본문: 메뉴 그리드 + (등록 폼) */}
         {/* 좁은 화면(태블릿 세로 등)에서는 폼이 아래로 내려가도록 세로 배치 */}
         <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-auto lg:flex-row lg:gap-[24px] lg:overflow-hidden">
-          {filtered.length === 0 ? (
+          {orderedMenus.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
               <p className="max-w-[12em] text-center text-[15px] text-black/50">
                 이 카테고리에 등록된 메뉴가 없습니다.
               </p>
             </div>
           ) : (
-            <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-[16px] pr-[4px] md:gap-[24px] lg:overflow-auto">
-              {filtered.map((menu) => (
-                <MenuCard
-                  key={menu.id}
-                  menu={menu}
-                  selected={editing?.id === menu.id}
-                  onEdit={() => openEditPanel(menu.id)}
-                  onToggleStatus={() => toggleMenuStatus(menu.id)}
-                />
-              ))}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={orderedMenus.map((m) => m.id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-[16px] pr-[4px] md:gap-[24px] lg:overflow-auto">
+                  {orderedMenus.map((menu) => (
+                    <MenuCard
+                      key={menu.id}
+                      menu={menu}
+                      selected={editing?.id === menu.id}
+                      onEdit={() => openEditPanel(menu.id)}
+                      onToggleStatus={() => toggleMenuStatus(menu.id)}
+                      sortableDisabled={isReorderingMenus}
+                      suppressClickRef={suppressClickRef}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
 
           {panel.mode === "create" && (

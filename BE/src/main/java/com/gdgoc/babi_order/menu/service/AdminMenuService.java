@@ -2,9 +2,11 @@ package com.gdgoc.babi_order.menu.service;
 
 import com.gdgoc.babi_order.menu.dto.request.CategoryUpsertRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuOptionUpsertRequest;
+import com.gdgoc.babi_order.menu.dto.request.MenuOrderUpdateRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuUpsertRequest;
 import com.gdgoc.babi_order.menu.dto.response.CategoryResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
+import com.gdgoc.babi_order.menu.dto.response.MenuSummaryResponse;
 import com.gdgoc.babi_order.menu.entity.Category;
 import com.gdgoc.babi_order.menu.entity.Menu;
 import com.gdgoc.babi_order.menu.entity.MenuOption;
@@ -123,6 +125,28 @@ public class AdminMenuService {
     }
 
     @Transactional
+    public List<MenuSummaryResponse> reorderMenus(MenuOrderUpdateRequest request) {
+        Category category = findCategory(request.getCategoryId());
+        List<Long> menuIds = request.getMenuIds();
+        validateMenuOrderIds(menuIds);
+
+        List<Menu> existing = menuRepository
+                .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(category.getId());
+        validateMenuOrderPermutation(menuIds, existing);
+
+        Map<Long, Menu> byId = existing.stream()
+                .collect(Collectors.toMap(Menu::getId, Function.identity()));
+        List<Menu> ordered = new ArrayList<>(menuIds.size());
+        for (int i = 0; i < menuIds.size(); i++) {
+            Menu menu = byId.get(menuIds.get(i));
+            menu.changeDisplayOrder(i + 1);
+            ordered.add(menu);
+        }
+        menuRepository.saveAll(ordered);
+        return ordered.stream().map(MenuSummaryResponse::from).toList();
+    }
+
+    @Transactional
     public MenuDetailResponse createMenu(MenuUpsertRequest request) {
         Category category = findCategory(request.getCategoryId());
         String name = request.getName().trim();
@@ -135,6 +159,7 @@ public class AdminMenuService {
                 .imageUrl(request.getImageUrl())
                 .displayOrder(request.getDisplayOrder())
                 .saleStatus(request.getSaleStatus())
+                .badge(request.getBadge())
                 .build());
         syncSizeAndToppingOptions(saved, request.getToppingEnabled());
         return detail(saved);
@@ -153,7 +178,8 @@ public class AdminMenuService {
                 request.getBasePrice(),
                 request.getImageUrl(),
                 request.getDisplayOrder(),
-                request.getSaleStatus()
+                request.getSaleStatus(),
+                request.getBadge()
         );
         syncSizeAndToppingOptions(menu, request.getToppingEnabled());
         return detail(menu);
@@ -421,6 +447,33 @@ public class AdminMenuService {
         }
         if (existingIds.size() != categoryIds.size()) {
             throw invalidRequest("모든 카테고리 ID를 한 번씩 포함해야 합니다.");
+        }
+    }
+
+    private void validateMenuOrderIds(List<Long> menuIds) {
+        if (menuIds == null || menuIds.isEmpty()) {
+            throw invalidRequest("메뉴 ID 목록은 필수입니다.");
+        }
+        Set<Long> unique = new HashSet<>();
+        for (Long menuId : menuIds) {
+            if (menuId == null) {
+                throw invalidRequest("메뉴 ID 목록에 null이 포함되어 있습니다.");
+            }
+            if (!unique.add(menuId)) {
+                throw invalidRequest("메뉴 ID 목록에 중복된 값이 있습니다. id=" + menuId);
+            }
+        }
+    }
+
+    private void validateMenuOrderPermutation(List<Long> menuIds, List<Menu> existing) {
+        Set<Long> existingIds = existing.stream().map(Menu::getId).collect(Collectors.toSet());
+        for (Long menuId : menuIds) {
+            if (!existingIds.contains(menuId)) {
+                throw new MenuNotFoundException(menuId);
+            }
+        }
+        if (existingIds.size() != menuIds.size()) {
+            throw invalidRequest("해당 카테고리의 모든 메뉴 ID를 한 번씩 포함해야 합니다.");
         }
     }
 

@@ -4,12 +4,14 @@ import com.gdgoc.babi_order.menu.dto.request.CategoryOrderUpdateRequest;
 import com.gdgoc.babi_order.menu.dto.request.CategoryUpsertRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuImageUploadUrlRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuOptionUpsertRequest;
+import com.gdgoc.babi_order.menu.dto.request.MenuOrderUpdateRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuSaleStatusUpdateRequest;
 import com.gdgoc.babi_order.menu.dto.request.MenuUpsertRequest;
 import com.gdgoc.babi_order.menu.dto.response.CategoryMenuResponse;
 import com.gdgoc.babi_order.menu.dto.response.CategoryResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
 import com.gdgoc.babi_order.menu.dto.response.MenuImageUploadUrlResponse;
+import com.gdgoc.babi_order.menu.dto.response.MenuSummaryResponse;
 import com.gdgoc.babi_order.menu.service.AdminMenuService;
 import com.gdgoc.babi_order.menu.service.MenuImageService;
 import com.gdgoc.babi_order.menu.service.MenuService;
@@ -89,6 +91,13 @@ public class AdminMenuController {
     @Operation(summary = "관리자 메뉴 목록 조회")
     public ResponseEntity<List<CategoryMenuResponse>> getMenus() {
         return ResponseEntity.ok(menuService.getMenus());
+    }
+
+    @PutMapping("/menus/order")
+    @Operation(summary = "카테고리 내 메뉴 표시 순서 변경")
+    public ResponseEntity<List<MenuSummaryResponse>> reorderMenus(
+            @Valid @RequestBody MenuOrderUpdateRequest request) {
+        return ResponseEntity.ok(adminMenuService.reorderMenus(request));
     }
 
     @GetMapping("/menus/{menuId}")

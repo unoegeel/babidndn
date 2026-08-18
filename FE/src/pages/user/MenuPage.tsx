@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import type { MenuCategory, MenuDetail, MenuSummary, MenuOption } from "../../types/user";
+import type { MenuCategory, MenuDetail, MenuSummary, MenuOption, MenuBadge } from "../../types/user";
 import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
@@ -9,6 +9,24 @@ import MarqueeText from "../../components/user/MarqueeText";
 import { WaitingStatusBar } from "../../components/user/WaitingStatusBar";
 
 const SWIPE_THRESHOLD_PX = 56;
+
+const NO_TAKEOUT_KEYWORDS = ["바비우동", "김치우동"] as const;
+
+const isNoTakeoutMenu = (menuName: string) =>
+  NO_TAKEOUT_KEYWORDS.some((keyword) => menuName.includes(keyword));
+
+const MENU_BADGE_LABELS: Record<MenuBadge, string> = {
+  NONE: "",
+  POPULAR: "인기",
+  BEST: "NEW",
+  RECOMMENDED: "추천",
+};
+
+const MENU_BADGE_CLASS: Record<Exclude<MenuBadge, "NONE">, string> = {
+  POPULAR: "border-[#D8B47E] bg-[#D8B47E] text-white",
+  BEST: "border-black bg-black text-white",
+  RECOMMENDED: "border-green-600 bg-green-600 text-white",
+};
 
 export const MenuPage: React.FC = () => {
   const navigate = useNavigate();
@@ -245,6 +263,7 @@ export const MenuPage: React.FC = () => {
           ) : (
             sortedMenus.map((menu) => {
               const isSoldOut = menu.saleStatus === "SOLDOUT";
+              const badge = menu.badge ?? "NONE";
               return (
                 <div
                   key={menu.id}
@@ -255,6 +274,18 @@ export const MenuPage: React.FC = () => {
                       : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
                   }`}
                 >
+                  {badge !== "NONE" && (
+                    <span
+                      className={`pointer-events-none absolute top-2 left-2 z-10 inline-flex min-h-[2.25rem] min-w-[2.25rem] origin-center items-center justify-center rounded-full border px-2.5 py-2 text-xs font-semibold leading-none whitespace-nowrap rotate-[-10deg] ${MENU_BADGE_CLASS[badge]}`}
+                    >
+                      {MENU_BADGE_LABELS[badge]}
+                    </span>
+                  )}
+                  {isNoTakeoutMenu(menu.name) && (
+                    <span className="pointer-events-none absolute top-2 right-2 z-10 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold leading-snug text-red-600 whitespace-nowrap">
+                      🚫포장 불가🚫
+                    </span>
+                  )}
                   {/* 메뉴 사진 */}
                   <div className="relative flex h-[84px] w-[84px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-[#F8F9FA]">
                     <MenuThumb src={menu.imageUrl} alt={menu.name} />
