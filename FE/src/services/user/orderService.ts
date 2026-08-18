@@ -40,7 +40,7 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
           additionalPrice: opt.additionalPrice,
           maxQuantity: 1,
           defaultSelected: false,
-          displayOrder: 1,
+          displayOrder: opt.displayOrder ?? 1,
         });
       }
     });

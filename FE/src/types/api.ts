@@ -29,6 +29,7 @@ export interface OrderItemOptionResponse {
   name: string;
   additionalPrice: number;
   quantity: number;
+  displayOrder: number;
 }
 
 export interface OrderItemResponse {

@@ -11,9 +11,11 @@ import com.gdgoc.babi_order.order.dto.request.OrderCreateRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderItemOptionRequest;
 import com.gdgoc.babi_order.order.dto.request.OrderItemRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
+import com.gdgoc.babi_order.order.dto.response.OrderItemOptionResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
 import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
 import com.gdgoc.babi_order.order.entity.Order;
+import com.gdgoc.babi_order.order.entity.OrderItemOption;
 import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.exception.OrderApiException;
 import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
@@ -127,11 +129,11 @@ class OrderServiceTest {
     @Test
     void createOrderPreservesSizeAddAndRemoveOptionSnapshots() {
         Menu menu = menu(1L, SaleStatus.AVAILABLE);
-        MenuOption size = option(1L, menu, OptionGroupType.SIZE, "더블", 1000, 1);
+        MenuOption size = option(1L, menu, OptionGroupType.SIZE, "더블", 1000, 1, 1);
         MenuOption toppingAdd = option(
-                2L, menu, OptionGroupType.TOPPING_ADD, "계란후라이", 700, 3);
+                2L, menu, OptionGroupType.TOPPING_ADD, "계란후라이", 700, 3, 1);
         MenuOption toppingRemove = option(
-                3L, menu, OptionGroupType.TOPPING_REMOVE, "김가루 제외", 0, 1);
+                3L, menu, OptionGroupType.TOPPING_REMOVE, "김가루 제외", 0, 1, 1);
         given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
         given(menuOptionRepository.findById(1L)).willReturn(Optional.of(size));
         given(menuOptionRepository.findById(2L)).willReturn(Optional.of(toppingAdd));
@@ -160,14 +162,75 @@ class OrderServiceTest {
                         option -> option.getGroupType(),
                         option -> option.getName(),
                         option -> option.getAdditionalPrice(),
-                        option -> option.getQuantity())
+                        option -> option.getQuantity(),
+                        option -> option.getDisplayOrder())
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("SIZE", "더블", 1000, 1),
+                        org.assertj.core.groups.Tuple.tuple("SIZE", "더블", 1000, 1, 1),
                         org.assertj.core.groups.Tuple.tuple(
-                                "TOPPING_ADD", "계란후라이", 700, 2),
+                                "TOPPING_ADD", "계란후라이", 700, 2, 1),
                         org.assertj.core.groups.Tuple.tuple(
-                                "TOPPING_REMOVE", "김가루 제외", 0, 1)
+                                "TOPPING_REMOVE", "김가루 제외", 0, 1, 1)
                 );
+    }
+
+    @Test
+    void createOrderIncludesMenuOptionDisplayOrderForToppingRemoves() {
+        Menu menu = menu(1L, SaleStatus.AVAILABLE);
+        MenuOption buldak = option(
+                11L, menu, OptionGroupType.TOPPING_REMOVE, "불닭소스 제외", 0, 1, 1);
+        MenuOption seaweed = option(
+                12L, menu, OptionGroupType.TOPPING_REMOVE, "김가루 제외", 0, 1, 2);
+        MenuOption greenOnion = option(
+                13L, menu, OptionGroupType.TOPPING_REMOVE, "파 제외", 0, 1, 3);
+        given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findById(11L)).willReturn(Optional.of(buldak));
+        given(menuOptionRepository.findById(12L)).willReturn(Optional.of(seaweed));
+        given(menuOptionRepository.findById(13L)).willReturn(Optional.of(greenOnion));
+        given(orderRepository.save(any())).willAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            ReflectionTestUtils.setField(order, "id", 1L);
+            return order;
+        });
+        OrderCreateRequest request = OrderCreateRequest.builder()
+                .items(List.of(OrderItemRequest.builder()
+                        .menuId(1L)
+                        .quantity(1)
+                        .options(List.of(
+                                optionRequest(13L, 1),
+                                optionRequest(11L, 1),
+                                optionRequest(12L, 1)
+                        ))
+                        .build()))
+                .build();
+
+        OrderDetailResponse result = orderService.createOrder(request);
+
+        assertThat(result.getItems().getFirst().getOptions())
+                .extracting(
+                        option -> option.getName(),
+                        option -> option.getDisplayOrder())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("파 제외", 3),
+                        org.assertj.core.groups.Tuple.tuple("불닭소스 제외", 1),
+                        org.assertj.core.groups.Tuple.tuple("김가루 제외", 2)
+                );
+    }
+
+    @Test
+    void orderItemOptionResponseFallsBackDisplayOrderWhenMenuOptionMissing() {
+        Menu menu = menu(1L, SaleStatus.AVAILABLE);
+        MenuOption menuOption = option(
+                10L, menu, OptionGroupType.TOPPING_REMOVE, "불닭소스 제외", 0, 1, 1);
+        OrderItemOption itemOption = new OrderItemOption(menuOption, 1);
+        ReflectionTestUtils.setField(itemOption, "id", 50L);
+        ReflectionTestUtils.setField(itemOption, "menuOption", null);
+
+        OrderItemOptionResponse response = OrderItemOptionResponse.from(itemOption);
+
+        assertThat(response.getMenuOptionId()).isNull();
+        assertThat(response.getName()).isEqualTo("불닭소스 제외");
+        assertThat(response.getGroupType()).isEqualTo("TOPPING_REMOVE");
+        assertThat(response.getDisplayOrder()).isEqualTo(1);
     }
 
     @Test
@@ -458,18 +521,23 @@ class OrderServiceTest {
     }
 
     private MenuOption option(Long id, Menu menu, Integer price, Integer maxQuantity) {
-        return option(id, menu, OptionGroupType.SIZE, "곱빼기", price, maxQuantity);
+        return option(id, menu, OptionGroupType.SIZE, "곱빼기", price, maxQuantity, 1);
     }
 
     private MenuOption option(Long id, Menu menu, OptionGroupType groupType, String name,
                               Integer price, Integer maxQuantity) {
+        return option(id, menu, groupType, name, price, maxQuantity, 1);
+    }
+
+    private MenuOption option(Long id, Menu menu, OptionGroupType groupType, String name,
+                              Integer price, Integer maxQuantity, Integer displayOrder) {
         MenuOption option = MenuOption.builder()
                 .menu(menu)
                 .groupType(groupType)
                 .name(name)
                 .additionalPrice(price)
                 .maxQuantity(maxQuantity)
-                .displayOrder(1)
+                .displayOrder(displayOrder)
                 .build();
         ReflectionTestUtils.setField(option, "id", id);
         return option;
