@@ -300,15 +300,43 @@ class SavedMenuServiceTest {
     }
 
     @Test
-    void updateRejectsDiscontinuedMenu() {
+    void updateRejectsDiscontinuedMenuWhenOptionsChange() {
         SavedMenu saved = savedMenu(1L, CLIENT_A, null, "내 최애 우동", null, 1);
         given(savedMenuRepository.findWithDetailsById(1L)).willReturn(Optional.of(saved));
 
         assertThatThrownBy(() -> savedMenuService.update(CLIENT_A, 1L, new SavedMenuUpdateRequest(
-                "내 최애 우동", List.of())))
+                "내 최애 우동", List.of(new SavedMenuOptionRequest(417L, 1)))))
                 .isInstanceOf(SavedMenuApiException.class)
                 .extracting("code")
                 .isEqualTo("MENU_DISCONTINUED");
+    }
+
+    @Test
+    void renameOnlyUpdatesCustomNameOnDiscontinuedMenu() {
+        SavedMenu saved = savedMenu(1L, CLIENT_A, null, "내 최애 우동", null, 1);
+        given(savedMenuRepository.findWithDetailsById(1L)).willReturn(Optional.of(saved));
+
+        SavedMenuResponse result = savedMenuService.update(CLIENT_A, 1L, new SavedMenuUpdateRequest(
+                "새 이름", List.of()));
+
+        assertThat(result.getCustomName()).isEqualTo("새 이름");
+        assertThat(result.getStatus()).isEqualTo("DISCONTINUED");
+        verify(menuRepository, never()).findById(any());
+    }
+
+    @Test
+    void renameOnlyUpdatesCustomNameOnSoldOutMenu() {
+        Menu menu = menu(10L, "참치불닭비빔우동", SaleStatus.SOLDOUT);
+        MenuOption sauce = option(417L, menu, "불닭소스 제외", OptionGroupType.TOPPING_REMOVE, 0, 1);
+        SavedMenu saved = savedMenu(1L, CLIENT_A, menu, "내 최애 우동", sauce, 1);
+        given(savedMenuRepository.findWithDetailsById(1L)).willReturn(Optional.of(saved));
+
+        SavedMenuResponse result = savedMenuService.update(CLIENT_A, 1L, new SavedMenuUpdateRequest(
+                "시험 끝나고 먹는 우동", List.of(new SavedMenuOptionRequest(417L, 1))));
+
+        assertThat(result.getCustomName()).isEqualTo("시험 끝나고 먹는 우동");
+        assertThat(result.getStatus()).isEqualTo("SOLDOUT");
+        verify(menuRepository, never()).findById(any());
     }
 
     private Category category() {

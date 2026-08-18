@@ -21,8 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -67,6 +69,12 @@ public class SavedMenuService {
     @Transactional
     public SavedMenuResponse update(String clientKey, Long savedMenuId, SavedMenuUpdateRequest request) {
         SavedMenu saved = findOwned(clientKey, savedMenuId);
+        saved.changeCustomName(request.getCustomName().trim());
+
+        if (isRenameOnly(saved, request.getOptions())) {
+            return SavedMenuResponse.of(saved, resolveStatus(saved));
+        }
+
         if (saved.getMenu() == null) {
             throw new SavedMenuApiException(
                     HttpStatus.CONFLICT,
@@ -75,7 +83,6 @@ public class SavedMenuService {
             );
         }
         Menu menu = requireOrderableMenu(saved.getMenu().getId());
-        saved.changeCustomName(request.getCustomName().trim());
         saved.refreshMenuSnapshot(menu);
         saved.replaceOptions(buildOptions(menu, request.getOptions()));
         return SavedMenuResponse.of(saved, resolveStatus(saved));
@@ -182,6 +189,27 @@ public class SavedMenuService {
                     "옵션 최대 수량을 초과했습니다. menuOptionId=" + option.getId()
             );
         }
+    }
+
+    private boolean isRenameOnly(SavedMenu saved, List<SavedMenuOptionRequest> optionRequests) {
+        Map<Long, Integer> savedQuantities = new HashMap<>();
+        for (SavedMenuOption savedOption : saved.getOptions()) {
+            if (savedOption.getMenuOption() != null) {
+                Long optionId = savedOption.getMenuOption().getId();
+                savedQuantities.merge(optionId, savedOption.getQuantity(), Integer::sum);
+            }
+        }
+
+        Map<Long, Integer> requestedQuantities = new HashMap<>();
+        List<SavedMenuOptionRequest> requests = optionRequests == null ? List.of() : optionRequests;
+        for (SavedMenuOptionRequest optionRequest : requests) {
+            requestedQuantities.merge(
+                    optionRequest.getMenuOptionId(),
+                    optionRequest.getQuantity(),
+                    Integer::sum
+            );
+        }
+        return savedQuantities.equals(requestedQuantities);
     }
 
     private SavedMenuApiException notFound(Long savedMenuId) {

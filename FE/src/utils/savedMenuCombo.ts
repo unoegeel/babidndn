@@ -53,3 +53,14 @@ export function isCombinationSaved(
   const current = comboKeyFromMenuOptions(menuId, selectedOptions);
   return savedMenus.some((saved) => comboKeyFromSavedOptions(saved.menuId, saved.options) === current);
 }
+
+export function savedOptionsToRequest(
+  options: SavedMenuOptionResponse[],
+): OptionQuantity[] {
+  return options
+    .filter((option) => option.menuOptionId != null)
+    .map((option) => ({
+      menuOptionId: option.menuOptionId as number,
+      quantity: option.quantity,
+    }));
+}

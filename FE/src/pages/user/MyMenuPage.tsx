@@ -7,8 +7,9 @@ import { menuService } from "../../services/user/menuService";
 import { useUserData } from "../../store/UserDataContext";
 import { SavedMenuCard } from "../../components/user/SavedMenuCard";
 import { MenuOptionModal } from "../../components/user/MenuOptionModal";
+import { RenameSavedMenuPopup } from "../../components/user/RenameSavedMenuPopup";
 import { ApiError } from "../../api/client";
-import { toOptionQuantities } from "../../utils/savedMenuCombo";
+import { savedOptionsToRequest, toOptionQuantities } from "../../utils/savedMenuCombo";
 
 function liveOptionsFromSaved(detail: MenuDetail, saved: SavedMenuResponse): MenuOption[] {
   const selected: MenuOption[] = [];
@@ -37,6 +38,9 @@ export const MyMenuPage: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [retuneTarget, setRetuneTarget] = useState<SavedMenuResponse | null>(null);
   const [retuneDetail, setRetuneDetail] = useState<MenuDetail | null>(null);
+  const [renameTarget, setRenameTarget] = useState<SavedMenuResponse | null>(null);
+  const [renameSubmitting, setRenameSubmitting] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -127,6 +131,28 @@ export const MyMenuPage: React.FC = () => {
     }
   };
 
+  const handleRenameSave = async (customName: string) => {
+    if (!renameTarget) return;
+    setRenameSubmitting(true);
+    setRenameError(null);
+    try {
+      const updated = await savedMenuService.update(renameTarget.id, {
+        customName,
+        options: savedOptionsToRequest(renameTarget.options),
+      });
+      setItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setRenameTarget(null);
+    } catch (err) {
+      setRenameError(
+        err instanceof ApiError && err.message
+          ? err.message
+          : "이름 수정에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    } finally {
+      setRenameSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center bg-white p-8">
@@ -150,12 +176,14 @@ export const MyMenuPage: React.FC = () => {
           {message}
         </div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {items.length === 0 ? (
-          <div className="py-24 text-center text-xs font-bold text-gray-400">
+      {items.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+          <p className="text-center text-xs font-bold text-gray-400">
             아직 등록한 나만의 메뉴가 없습니다.
-          </div>
-        ) : (
+          </p>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="space-y-3.5">
             {items.map((saved) => (
               <SavedMenuCard
@@ -166,11 +194,15 @@ export const MyMenuPage: React.FC = () => {
                 onOrder={() => void handleAdd(saved, true)}
                 onRetune={() => void handleRetune(saved)}
                 onDelete={() => void handleDelete(saved)}
+                onRename={() => {
+                  setRenameError(null);
+                  setRenameTarget(saved);
+                }}
               />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {retuneDetail && retuneTarget && (
         <MenuOptionModal
@@ -183,6 +215,21 @@ export const MyMenuPage: React.FC = () => {
           onAddToCart={(selectedOptions) => {
             void handleRetuneSave(selectedOptions);
           }}
+        />
+      )}
+
+      {renameTarget && (
+        <RenameSavedMenuPopup
+          initialName={renameTarget.customName}
+          submitting={renameSubmitting}
+          error={renameError}
+          onClose={() => {
+            if (!renameSubmitting) {
+              setRenameTarget(null);
+              setRenameError(null);
+            }
+          }}
+          onSubmit={(customName) => void handleRenameSave(customName)}
         />
       )}
     </div>
