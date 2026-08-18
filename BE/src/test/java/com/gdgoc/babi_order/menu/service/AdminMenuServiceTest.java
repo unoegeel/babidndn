@@ -522,6 +522,54 @@ class AdminMenuServiceTest {
     }
 
     @Test
+    void updateMenuWithToppingEnabledOnNoodleKeepsCustomToppingRemoves() {
+        Category category = category(2L, "면", 2);
+        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        MenuOption remove = noodleToppingRemove(101L, menu);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(remove));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
+                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).deleteAll(any());
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions())
+                .extracting(option -> option.getName())
+                .containsExactly("불닭소스 제외");
+    }
+
+    @Test
+    void updateMenuWithToppingDisabledOnNoodleDoesNotDeleteCustomToppingRemoves() {
+        Category category = category(2L, "면", 2);
+        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        MenuOption remove = noodleToppingRemove(101L, menu);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(remove));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
+                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).deleteAll(any());
+        verify(orderItemOptionRepository, never()).detachMenuOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions())
+                .extracting(option -> option.getName())
+                .containsExactly("불닭소스 제외");
+    }
+
+    @Test
     void updateMenuWithToppingDisabledRemovesOnlyToppingOptions() {
         Category category = category(1L);
         Menu menu = menu(10L, category);
@@ -625,6 +673,19 @@ class AdminMenuServiceTest {
                 .build();
         ReflectionTestUtils.setField(menu, "id", id);
         return menu;
+    }
+
+    private MenuOption noodleToppingRemove(Long id, Menu menu) {
+        MenuOption option = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("불닭소스 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(option, "id", id);
+        return option;
     }
 
     private MenuOption option(Long id, Menu menu) {

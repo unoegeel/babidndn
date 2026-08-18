@@ -1,5 +1,9 @@
 -- 참치불닭비빔우동: 컵밥 기본 사이즈/추가토핑/기본 제외토핑을 제거하고
 -- 전용 TOPPING_REMOVE 3종만 남깁니다.
+--
+-- 실행 대상(Flyway/Liquibase 없음, 환경별 1회 또는 idempotent 재실행 가능):
+--   개발: babi_order_dev
+--   운영: babi_order
 -- 과거 주문 snapshot(option_name_snapshot, option_group_snapshot 등)은 변경하지 않습니다.
 -- 메뉴명 기준으로 조회하므로 환경별 menu id에 의존하지 않습니다.
 -- 이미 반영된 환경에서는 detach/delete/insert가 중복으로 적용되지 않습니다.

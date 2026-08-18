@@ -126,9 +126,9 @@ public class AdminMenuService {
 
     @Transactional
     public List<MenuSummaryResponse> reorderMenus(MenuOrderUpdateRequest request) {
-        Category category = findCategory(request.getCategoryId());
         List<Long> menuIds = request.getMenuIds();
         validateMenuOrderIds(menuIds);
+        Category category = findCategory(request.getCategoryId());
 
         List<Menu> existing = menuRepository
                 .findAllByCategoryIdOrderByDisplayOrderAscIdAsc(category.getId());
@@ -253,6 +253,11 @@ public class AdminMenuService {
     }
 
     private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
+        // 컵밥/세트가 아니면 기본 사이즈·토핑을 만들지도, 기존 커스텀 토핑을 지우지도 않는다.
+        if (!usesDefaultSizeAndToppingOptions(menu)) {
+            return;
+        }
+
         if (!toppingEnabled) {
             List<MenuOption> currentToppings = menuOptionRepository
                     .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
@@ -261,10 +266,6 @@ public class AdminMenuService {
                 orderItemOptionRepository.detachMenuOptions(optionIds);
                 menuOptionRepository.deleteAll(currentToppings);
             }
-            return;
-        }
-
-        if (!usesDefaultSizeAndToppingOptions(menu)) {
             return;
         }
 

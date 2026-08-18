@@ -264,6 +264,10 @@ export const MenuPage: React.FC = () => {
             sortedMenus.map((menu) => {
               const isSoldOut = menu.saleStatus === "SOLDOUT";
               const badge = menu.badge ?? "NONE";
+              const badgeClass =
+                badge !== "NONE" && badge in MENU_BADGE_CLASS
+                  ? MENU_BADGE_CLASS[badge as Exclude<MenuBadge, "NONE">]
+                  : null;
               return (
                 <div
                   key={menu.id}
@@ -274,11 +278,11 @@ export const MenuPage: React.FC = () => {
                       : "bg-white border-gray-100 hover:border-gray-300 cursor-pointer"
                   }`}
                 >
-                  {badge !== "NONE" && (
+                  {badgeClass && (
                     <span
-                      className={`pointer-events-none absolute top-2 left-2 z-10 inline-flex min-h-[2.25rem] min-w-[2.25rem] origin-center items-center justify-center rounded-full border px-2.5 py-2 text-xs font-semibold leading-none whitespace-nowrap rotate-[-10deg] ${MENU_BADGE_CLASS[badge]}`}
+                      className={`pointer-events-none absolute top-2 left-2 z-10 inline-flex min-h-[2.25rem] min-w-[2.25rem] origin-center items-center justify-center rounded-full border px-2.5 py-2 text-xs font-semibold leading-none whitespace-nowrap rotate-[-10deg] ${badgeClass}`}
                     >
-                      {MENU_BADGE_LABELS[badge]}
+                      {MENU_BADGE_LABELS[badge] ?? badge}
                     </span>
                   )}
                   {isNoTakeoutMenu(menu.name) && (
