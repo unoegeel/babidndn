@@ -85,15 +85,15 @@ export function SavedMenuCard({
 
       <div className="flex min-w-0 flex-1 flex-col justify-between pr-5">
         <div>
-          <div className="flex items-center gap-1 pr-4">
-            <h3 className="min-w-0 flex-1 text-sm font-bold text-gray-900">
+          <div className="flex min-w-0 items-center">
+            <h3 className="min-w-0 text-sm font-bold text-gray-900">
               <MarqueeText text={saved.customName} textClassName="text-sm font-bold text-gray-900" />
             </h3>
             <button
               type="button"
               onClick={onRename}
               disabled={busy}
-              className="shrink-0 p-1 text-gray-400 hover:text-gray-600 cursor-pointer disabled:opacity-50"
+              className="-mr-1 shrink-0 p-1.5 text-gray-400 hover:text-gray-600 cursor-pointer disabled:opacity-50"
               aria-label="나만의 메뉴명 수정"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
