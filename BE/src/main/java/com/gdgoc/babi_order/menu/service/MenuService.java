@@ -53,7 +53,7 @@ public class MenuService {
      * 메뉴 상세 조회.
      * 컵밥/세트 토핑 가능 메뉴에 사이즈/토핑제외가 누락된 경우 기본값을 보강한 뒤 반환합니다.
      * SIZE 로 잘못 저장된 '밥 추가' 등도 함께 교정합니다.
-     * 냉모밀은 PACKAGING만 남기고 컵밥 기본 옵션을 제거합니다.
+     * 냉모밀 단품은 PACKAGING만 남기고, 냉모밀 세트는 컵밥 옵션+PACKAGING을 맞춥니다.
      * 참치불닭비빔우동은 전용 토핑 제외 + PACKAGING을 맞춥니다.
      */
     @Transactional
@@ -63,7 +63,7 @@ public class MenuService {
         List<MenuOption> options = menuOptionRepository
                 .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId);
 
-        if (AdminMenuService.isNaengmomilMenu(menu)) {
+        if (AdminMenuService.isNaengmomilStandalone(menu)) {
             boolean hasManagedOptions = options.stream().anyMatch(option ->
                     option.getGroupType() == OptionGroupType.SIZE
                             || option.getGroupType() == OptionGroupType.TOPPING_ADD
@@ -81,6 +81,16 @@ public class MenuService {
                             || option.getGroupType() == OptionGroupType.PACKAGING);
             if (hasManagedOptions) {
                 adminMenuService.healBibimUdonOptions(menu);
+                options = menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId);
+            }
+        } else if (AdminMenuService.isNaengmomilSet(menu)) {
+            boolean hasManagedOptions = options.stream().anyMatch(option ->
+                    option.getGroupType() == OptionGroupType.SIZE
+                            || option.getGroupType() == OptionGroupType.TOPPING_ADD
+                            || option.getGroupType() == OptionGroupType.TOPPING_REMOVE
+                            || option.getGroupType() == OptionGroupType.PACKAGING);
+            if (hasManagedOptions) {
+                adminMenuService.ensureDefaultOptions(menu);
                 options = menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId);
             }
         } else {

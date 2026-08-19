@@ -241,6 +241,48 @@ class MenuServiceTest {
 
         MenuDetailResponse result = menuService.getMenu(12L);
 
+        verify(adminMenuService).ensureDefaultOptions(menu);
+        verify(adminMenuService, never()).healNaengmomilOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())
+                .containsExactly("매장");
+    }
+
+    @Test
+    void getMenuHealsStandaloneNaengmomilLeftoverCupbapOptions() {
+        Category category = category(2L, "우동", 2);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("냉모밀")
+                .basePrice(5500)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 11L);
+        MenuOption size = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.SIZE)
+                .name("싱글")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(true)
+                .displayOrder(1)
+                .build();
+        MenuOption packaging = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.PACKAGING)
+                .name("매장")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(true)
+                .displayOrder(1)
+                .build();
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(size), List.of(packaging));
+
+        MenuDetailResponse result = menuService.getMenu(11L);
+
         verify(adminMenuService).healNaengmomilOptions(menu);
         verify(adminMenuService, never()).ensureDefaultOptions(any());
         assertThat(result.isToppingEnabled()).isTrue();

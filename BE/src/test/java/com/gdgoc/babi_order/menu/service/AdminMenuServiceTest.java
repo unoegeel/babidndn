@@ -34,7 +34,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -681,63 +683,162 @@ class AdminMenuServiceTest {
     }
 
     @Test
-    void createSetNaengmomilWithToppingEnabledRemovesCupbapOptions() {
+    void createSetNaengmomilWithToppingEnabledKeepsCupbapOptionsAndAddsPackaging() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "세트 냉모밀");
+
+        assertThat(saved)
+                .extracting(MenuOption::getGroupType)
+                .contains(
+                        OptionGroupType.SIZE,
+                        OptionGroupType.TOPPING_ADD,
+                        OptionGroupType.TOPPING_REMOVE,
+                        OptionGroupType.PACKAGING);
+        assertThat(saved)
+                .extracting(MenuOption::getName)
+                .contains("싱글", "더블", "점보", "김치 제외", "고추장 소스 제외", "매장", "포장")
+                .doesNotContain("참기름 제외");
+        verify(menuOptionRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void createSaltPorkNaengmomilSetAddsSesameAndPackaging() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "삼겹소금+냉모밀");
+
+        assertThat(saved)
+                .extracting(MenuOption::getGroupType, MenuOption::getName)
+                .contains(
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "김치 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "고추장 소스 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "참기름 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.SIZE, "싱글"));
+    }
+
+    @Test
+    void createTunaMayoNaengmomilSetDoesNotAddSesameOil() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "참치마요+냉모밀");
+
+        assertThat(saved).extracting(MenuOption::getName)
+                .contains("매장", "포장", "김치 제외")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createSeasonedPorkNaengmomilSetDoesNotAddSesameOil() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "삼겹양념(매운맛)+냉모밀");
+
+        assertThat(saved).extracting(MenuOption::getName)
+                .contains("매장", "포장")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createOtherNaengmomilSetsDoNotAddSesameOil() {
+        assertThat(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "치킨마요+냉모밀"))
+                .extracting(MenuOption::getName)
+                .contains("매장", "포장")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createSpamMayoNaengmomilSetDoesNotAddSesameOil() {
+        assertThat(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "스팸마요+냉모밀"))
+                .extracting(MenuOption::getName)
+                .contains("매장", "포장")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createKimchiPorkNaengmomilSetDoesNotAddSesameOil() {
+        assertThat(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "김치삼겹볶음밥+냉모밀"))
+                .extracting(MenuOption::getName)
+                .contains("매장", "포장")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createBulgogiSaltPorkMayoNaengmomilSetDoesNotAddSesameOil() {
+        assertThat(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "불고기맛소금삼겹마요+냉모밀"))
+                .extracting(MenuOption::getName)
+                .contains("매장", "포장")
+                .doesNotContain("참기름 제외");
+    }
+
+    @Test
+    void createSaltPorkUdonSetsAddSesameWithoutPackaging() {
+        List<MenuOption> barbie = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "삼겹소금+바비우동");
+        assertThat(barbie).extracting(MenuOption::getName)
+                .contains("참기름 제외")
+                .doesNotContain("매장", "포장");
+    }
+
+    @Test
+    void createSaltPorkKimchiUdonSetAddsSesameWithoutPackaging() {
+        List<MenuOption> kimchi = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "삼겹소금+김치우동");
+        assertThat(kimchi).extracting(MenuOption::getName)
+                .contains("참기름 제외")
+                .doesNotContain("매장", "포장");
+    }
+
+    @Test
+    void updateSetNaengmomilWithToppingDisabledRemovesAllOptions() {
         Category category = category(3L, "세트", 3);
-        Menu savedMenu = menu(12L, category, "세트 냉모밀", 1);
+        Menu menu = menu(12L, category, "참치마요+냉모밀", 17);
         MenuOption size = MenuOption.builder()
-                .menu(savedMenu)
+                .menu(menu)
                 .groupType(OptionGroupType.SIZE)
                 .name("싱글")
                 .additionalPrice(0)
                 .maxQuantity(1)
                 .displayOrder(1)
                 .build();
-        MenuOption topping = option(100L, savedMenu);
+        MenuOption topping = option(100L, menu);
+        MenuOption store = packagingOption(201L, menu, "매장", 1, true);
         ReflectionTestUtils.setField(size, "id", 90L);
+        given(menuRepository.findWithCategoryById(12L)).willReturn(Optional.of(menu));
         given(categoryRepository.findById(3L)).willReturn(Optional.of(category));
-        given(menuRepository.existsByCategoryIdAndName(3L, "세트 냉모밀")).willReturn(false);
-        given(menuRepository.save(any())).willAnswer(invocation -> {
-            Menu menu = invocation.getArgument(0);
-            ReflectionTestUtils.setField(menu, "id", 12L);
-            return menu;
-        });
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(3L, "참치마요+냉모밀", 12L))
+                .willReturn(false);
         given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(12L, List.of(
-                OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
-                .willReturn(List.of(size, topping));
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(topping));
         given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(12L, List.of(OptionGroupType.PACKAGING)))
-                .willReturn(List.of());
+                .willReturn(List.of(store));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(12L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of(size));
         given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(12L))
-                .willReturn(List.of(
-                        packagingOption(201L, savedMenu, "매장", 1, true),
-                        packagingOption(202L, savedMenu, "포장", 2, false)));
+                .willReturn(List.of());
 
-        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
-                3L, "세트 냉모밀", null, 8000, null, 1,
-                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+        MenuDetailResponse result = adminMenuService.updateMenu(12L, new MenuUpsertRequest(
+                3L, "참치마요+냉모밀", null, 8500, null, 17,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
 
-        verify(orderItemOptionRepository).detachMenuOptions(List.of(90L, 100L));
-        verify(menuOptionRepository).deleteAll(List.of(size, topping));
-        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
-                org.mockito.ArgumentCaptor.forClass(List.class);
-        verify(menuOptionRepository).saveAll(captor.capture());
-        assertThat(captor.getValue())
-                .extracting(MenuOption::getGroupType, MenuOption::getName)
-                .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
-                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"));
-        assertThat(captor.getValue())
-                .extracting(MenuOption::getGroupType)
-                .doesNotContain(OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
-        assertThat(result.isToppingEnabled()).isTrue();
+        verify(menuOptionRepository).deleteAll(List.of(topping));
+        verify(menuOptionRepository).deleteAll(List.of(store));
+        verify(menuOptionRepository).deleteAll(List.of(size));
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+        assertThat(result.getOptions()).isEmpty();
     }
 
     @Test
-    void updateMenuNameToNaengmomilCreatesPackaging() {
-        Category category = category(1L);
-        Menu menu = menu(10L, category, "삼겹소금", 1);
+    void updateMenuNameToStandaloneNaengmomilCreatesPackagingOnly() {
+        Category category = category(2L, "우동", 2);
+        Menu menu = menu(10L, category, "김치우동", 1);
         given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
-        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
-        given(menuRepository.existsByCategoryIdAndNameAndIdNot(1L, "냉모밀", 10L)).willReturn(false);
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "냉모밀", 10L)).willReturn(false);
         given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
                 OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
                 .willReturn(List.of());
@@ -749,17 +850,43 @@ class AdminMenuServiceTest {
                         packagingOption(202L, menu, "포장", 2, false)));
 
         MenuDetailResponse result = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
-                1L, "냉모밀", null, 3500, null, 1,
+                2L, "냉모밀", null, 5500, null, 1,
                 SaleStatus.AVAILABLE, true, MenuBadge.NONE));
 
         org.mockito.ArgumentCaptor<List<MenuOption>> captor =
                 org.mockito.ArgumentCaptor.forClass(List.class);
         verify(menuOptionRepository).saveAll(captor.capture());
         assertThat(captor.getValue())
-                .extracting(MenuOption::getName)
-                .containsExactly("매장", "포장");
+                .extracting(MenuOption::getGroupType, MenuOption::getName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"));
         assertThat(result.getName()).isEqualTo("냉모밀");
         assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void updateMenuNameToSaltPorkNaengmomilSetCreatesCupbapPackagingAndSesame() {
+        Category category = category(1L);
+        Menu menu = menu(10L, category, "참치마요", 1);
+        given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(1L, "삼겹소금+냉모밀", 10L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(eq(10L), any())).willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of());
+
+        adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "삼겹소금+냉모밀", null, 8500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository, atLeastOnce()).saveAll(captor.capture());
+        List<MenuOption> saved = captor.getAllValues().stream().flatMap(List::stream).toList();
+        assertThat(saved).extracting(MenuOption::getName)
+                .contains("싱글", "김치 제외", "고추장 소스 제외", "참기름 제외", "매장", "포장");
     }
 
     @Test
@@ -1115,5 +1242,46 @@ class AdminMenuServiceTest {
     private MenuOptionUpsertRequest optionRequest() {
         return new MenuOptionUpsertRequest(
                 OptionGroupType.TOPPING_ADD, "계란후라이", 700, 3, false, 1);
+    }
+
+    private List<MenuOption> createMenuAndCaptureSavedOptions(
+            Long categoryId, Category category, Long menuId, String name) {
+        given(categoryRepository.findById(categoryId)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(categoryId, name)).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", menuId);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(eq(menuId), any())).willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(menuId))
+                .willReturn(List.of());
+
+        adminMenuService.createMenu(new MenuUpsertRequest(
+                categoryId, name, null, 8500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository, atLeastOnce()).saveAll(captor.capture());
+        return captor.getAllValues().stream().flatMap(List::stream).toList();
+    }
+
+    @Test
+    void saltPorkAndNaengmomilClassifiersUseExactNamesAndCategory() {
+        Category cupbap = category(1L);
+        Category set = category(3L, "세트", 3);
+        Category udon = category(2L, "우동", 2);
+
+        assertThat(AdminMenuService.isNaengmomilStandalone(menu(1L, udon, "냉모밀", 1))).isTrue();
+        assertThat(AdminMenuService.isNaengmomilSet(menu(2L, set, "삼겹소금+냉모밀", 1))).isTrue();
+        assertThat(AdminMenuService.isNaengmomilStandalone(menu(3L, set, "삼겹소금+냉모밀", 1))).isFalse();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(4L, cupbap, "삼겹소금", 1))).isTrue();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(5L, set, "삼겹소금+바비우동", 1))).isTrue();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(6L, set, "삼겹소금+김치우동", 1))).isTrue();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(7L, set, "삼겹소금+냉모밀", 1))).isTrue();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(8L, set, "삼겹양념(매운맛)+냉모밀", 1))).isFalse();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(9L, set, "참치마요+냉모밀", 1))).isFalse();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(10L, set, "불고기맛소금삼겹마요+냉모밀", 1))).isFalse();
     }
 }

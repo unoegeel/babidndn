@@ -52,7 +52,12 @@ public class AdminMenuService {
             OptionGroupType.PACKAGING);
     private static final String NAENGMOMIL_NAME_MARKER = "냉모밀";
     private static final String BIBIM_UDON_MENU_NAME = "참치불닭비빔우동";
-    private static final String SALT_PORK_MENU_NAME = "삼겹소금";
+    private static final Set<String> SALT_PORK_MENU_NAMES = Set.of(
+            "삼겹소금",
+            "삼겹소금+바비우동",
+            "삼겹소금+김치우동",
+            "삼겹소금+냉모밀"
+    );
     private static final String SESAME_OIL_REMOVE_NAME = "참기름 제외";
     private static final String PACKAGING_STORE_NAME = "매장";
     private static final String PACKAGING_TAKEOUT_NAME = "포장";
@@ -286,7 +291,7 @@ public class AdminMenuService {
     }
 
     private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
-        if (isNaengmomilMenu(menu)) {
+        if (isNaengmomilStandalone(menu)) {
             syncNaengmomilPackaging(menu, toppingEnabled);
             return;
         }
@@ -295,11 +300,8 @@ public class AdminMenuService {
             return;
         }
 
-        // 전용 메뉴가 아니면 PACKAGING 잔여 옵션을 제거한다.
-        deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
-
-        // 컵밥/세트가 아니면 기본 사이즈·토핑을 만들지도, 기존 커스텀 토핑을 지우지도 않는다.
         if (!usesDefaultSizeAndToppingOptions(menu)) {
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
             return;
         }
 
@@ -311,6 +313,10 @@ public class AdminMenuService {
                 orderItemOptionRepository.detachMenuOptions(optionIds);
                 savedMenuOptionRepository.detachMenuOptions(optionIds);
                 menuOptionRepository.deleteAll(currentToppings);
+            }
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
+            if (isNaengmomilSet(menu)) {
+                deleteOptionsOfTypes(menu, List.of(OptionGroupType.SIZE));
             }
             return;
         }
@@ -392,6 +398,12 @@ public class AdminMenuService {
                 .toList();
         if (!missingSizes.isEmpty()) {
             menuOptionRepository.saveAll(missingSizes);
+        }
+
+        if (isNaengmomilSet(menu)) {
+            ensurePackagingOptions(menu);
+        } else {
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
         }
     }
 
@@ -584,7 +596,7 @@ public class AdminMenuService {
 
     /**
      * 토핑 가능 메뉴에 누락된 기본 사이즈/토핑추가/토핑제외 옵션을 보강합니다.
-     * 냉모밀이면 PACKAGING만 맞춥니다.
+     * 냉모밀 단품이면 PACKAGING만, 냉모밀 세트면 컵밥 옵션+PACKAGING을 맞춥니다.
      * (기존 메뉴 상세 조회 시 자동 보정용)
      */
     @Transactional
@@ -610,12 +622,12 @@ public class AdminMenuService {
     }
 
     /**
-     * 메뉴명에 냉모밀이 포함된 경우 현재 옵션으로 토핑 가능 여부를 추론해 동기화합니다.
+     * 냉모밀 단품은 현재 옵션으로 토핑 가능 여부를 추론해 PACKAGING만 맞춥니다.
      * SIZE/토핑만 남은 과거 데이터와 PACKAGING 누락을 상세 조회 시 교정합니다.
      */
     @Transactional
     public void healNaengmomilOptions(Menu menu) {
-        if (!isNaengmomilMenu(menu) || menu.getId() == null) {
+        if (!isNaengmomilStandalone(menu) || menu.getId() == null) {
             return;
         }
         List<MenuOption> options = menuOptionRepository
@@ -637,12 +649,23 @@ public class AdminMenuService {
         return menu != null && menu.getName() != null && menu.getName().contains(NAENGMOMIL_NAME_MARKER);
     }
 
+    /** 우동 등 컵밥/세트가 아닌 냉모밀 단품 */
+    public static boolean isNaengmomilStandalone(Menu menu) {
+        return isNaengmomilMenu(menu) && !usesDefaultSizeAndToppingOptions(menu);
+    }
+
+    /** 컵밥/세트 카테고리의 냉모밀 포함 메뉴 */
+    public static boolean isNaengmomilSet(Menu menu) {
+        return isNaengmomilMenu(menu) && usesDefaultSizeAndToppingOptions(menu);
+    }
+
     public static boolean isBibimUdonMenu(Menu menu) {
         return menu != null && BIBIM_UDON_MENU_NAME.equals(menu.getName());
     }
 
+    /** 삼겹소금 계열만 참기름 제외 대상. 이름 부분 일치가 아니라 정확한 메뉴명으로 판별한다. */
     public static boolean isSaltPorkMenu(Menu menu) {
-        return menu != null && SALT_PORK_MENU_NAME.equals(menu.getName());
+        return menu != null && menu.getName() != null && SALT_PORK_MENU_NAMES.contains(menu.getName());
     }
 
     /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */
