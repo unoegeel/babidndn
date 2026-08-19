@@ -7,6 +7,7 @@ import MenuThumb from "../../components/user/MenuThumb";
 import MarqueeText from "../../components/user/MarqueeText";
 import { WaitingStatusBar } from "../../components/user/WaitingStatusBar";
 import { QuickCartBar } from "../../components/user/QuickCartBar";
+import { enablesOptionSheet } from "../../utils/optionSort";
 
 const SWIPE_THRESHOLD_PX = 56;
 
@@ -161,8 +162,9 @@ export const MenuPage: React.FC = () => {
         return;
       }
 
-      // 관리자에서 토핑 선택을 불가능으로 둔 메뉴는 바텀시트 없이 즉시 담기
-      if (detail.toppingEnabled === false) {
+      // 토핑 불가능이거나 시트용 옵션이 없으면 바텀시트 없이 즉시 담기
+      const hasOptionSheet = detail.options.some((option) => enablesOptionSheet(option.groupType));
+      if (detail.toppingEnabled === false || !hasOptionSheet) {
         const sizeOptions = detail.options.filter((o) => o.groupType === "SIZE");
         const defaultSize =
           sizeOptions.find((o) => o.defaultSelected) ?? sizeOptions[0] ?? null;

@@ -60,6 +60,10 @@ public class Menu {
     @ColumnDefault("'NONE'")
     private MenuBadge badge;
 
+    @Column(name = "topping_enabled", nullable = false)
+    @ColumnDefault("false")
+    private boolean toppingEnabled;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -68,7 +72,8 @@ public class Menu {
 
     @Builder
     public Menu(Category category, String name, String description, Integer basePrice,
-                String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge) {
+                String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge,
+                Boolean toppingEnabled) {
         this.category = category;
         this.name = name;
         this.description = description;
@@ -77,10 +82,12 @@ public class Menu {
         this.displayOrder = displayOrder;
         this.saleStatus = saleStatus == null ? SaleStatus.AVAILABLE : saleStatus;
         this.badge = badge == null ? MenuBadge.NONE : badge;
+        this.toppingEnabled = Boolean.TRUE.equals(toppingEnabled);
     }
 
     public void update(Category category, String name, String description, Integer basePrice,
-                       String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge) {
+                       String imageUrl, Integer displayOrder, SaleStatus saleStatus, MenuBadge badge,
+                       boolean toppingEnabled) {
         this.category = category;
         this.name = name;
         this.description = description;
@@ -89,6 +96,7 @@ public class Menu {
         this.displayOrder = displayOrder;
         this.saleStatus = saleStatus;
         this.badge = badge == null ? MenuBadge.NONE : badge;
+        this.toppingEnabled = toppingEnabled;
     }
 
     public void changeDisplayOrder(Integer displayOrder) {

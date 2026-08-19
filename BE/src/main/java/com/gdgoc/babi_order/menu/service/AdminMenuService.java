@@ -41,6 +41,29 @@ public class AdminMenuService {
 
     private static final List<OptionGroupType> TOPPING_GROUP_TYPES =
             List.of(OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+    private static final List<OptionGroupType> CUPBAP_OPTION_GROUP_TYPES = List.of(
+            OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+    private static final List<OptionGroupType> PACKAGING_GROUP_TYPES =
+            List.of(OptionGroupType.PACKAGING);
+    private static final List<OptionGroupType> NAENGMOMIL_OFF_GROUP_TYPES = List.of(
+            OptionGroupType.SIZE,
+            OptionGroupType.TOPPING_ADD,
+            OptionGroupType.TOPPING_REMOVE,
+            OptionGroupType.PACKAGING);
+    private static final String NAENGMOMIL_NAME_MARKER = "냉모밀";
+    private static final String NAENGMOMIL_STANDALONE_NAME = "냉모밀";
+    private static final String CUPBAP_CATEGORY_NAME = "컵밥";
+    private static final String SET_CATEGORY_SUFFIX = "세트";
+    private static final String BIBIM_UDON_MENU_NAME = "참치불닭비빔우동";
+    private static final Set<String> SALT_PORK_MENU_NAMES = Set.of(
+            "삼겹소금",
+            "삼겹소금+바비우동",
+            "삼겹소금+김치우동",
+            "삼겹소금+냉모밀"
+    );
+    private static final String SESAME_OIL_REMOVE_NAME = "참기름 제외";
+    private static final String PACKAGING_STORE_NAME = "매장";
+    private static final String PACKAGING_TAKEOUT_NAME = "포장";
     private static final List<DefaultOption> DEFAULT_SIZES = List.of(
             new DefaultOption("싱글", 0, 1, true),
             new DefaultOption("더블", 1000, 2, false),
@@ -48,21 +71,31 @@ public class AdminMenuService {
     );
     private static final List<DefaultOption> DEFAULT_TOPPINGS = List.of(
             new DefaultOption("계란후라이", 700, 1, false),
-            new DefaultOption("밥 추가", 1000, 2, false),
-            new DefaultOption("삼겹소금 추가", 1200, 3, false),
-            new DefaultOption("삼겹양념 추가", 1200, 4, false),
-            new DefaultOption("참치마요 추가", 1200, 5, false),
-            new DefaultOption("모짜렐라치즈", 1000, 6, false),
-            new DefaultOption("체다치즈", 500, 7, false),
-            new DefaultOption("스팸", 700, 8, false)
+            new DefaultOption("햄구이", 700, 2, false),
+            new DefaultOption("밥 추가", 1000, 3, false),
+            new DefaultOption("삼겹소금 추가", 1200, 4, false),
+            new DefaultOption("삼겹양념 추가", 1200, 5, false),
+            new DefaultOption("참치마요 추가", 1200, 6, false),
+            new DefaultOption("모짜렐라치즈", 1000, 7, false),
+            new DefaultOption("체다치즈", 500, 8, false)
     );
     private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
             new DefaultOption("김치 제외", 0, 1, false),
             new DefaultOption("고추장 소스 제외", 0, 2, false)
     );
+    private static final List<DefaultOption> DEFAULT_PACKAGING = List.of(
+            new DefaultOption(PACKAGING_STORE_NAME, 0, 1, true),
+            new DefaultOption(PACKAGING_TAKEOUT_NAME, 0, 2, false)
+    );
+    private static final List<DefaultOption> BIBIM_UDON_TOPPING_REMOVES = List.of(
+            new DefaultOption("불닭소스 제외", 0, 1, false),
+            new DefaultOption("김가루 제외", 0, 2, false),
+            new DefaultOption("파 제외", 0, 3, false)
+    );
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
-    private static final Set<String> DEFAULT_OPTION_CATEGORY_NAMES = Set.of("컵밥", "세트");
+    private static final String LEGACY_SPAM_TOPPING_NAME = "스팸";
+    private static final String HAM_GRILL_TOPPING_NAME = "햄구이";
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
@@ -164,8 +197,9 @@ public class AdminMenuService {
                 .displayOrder(request.getDisplayOrder())
                 .saleStatus(request.getSaleStatus())
                 .badge(request.getBadge())
+                .toppingEnabled(request.getToppingEnabled())
                 .build());
-        syncSizeAndToppingOptions(saved, request.getToppingEnabled());
+        syncSizeAndToppingOptions(saved, saved.isToppingEnabled());
         return detail(saved);
     }
 
@@ -183,9 +217,10 @@ public class AdminMenuService {
                 request.getImageUrl(),
                 request.getDisplayOrder(),
                 request.getSaleStatus(),
-                request.getBadge()
+                request.getBadge(),
+                Boolean.TRUE.equals(request.getToppingEnabled())
         );
-        syncSizeAndToppingOptions(menu, request.getToppingEnabled());
+        syncSizeAndToppingOptions(menu, menu.isToppingEnabled());
         return detail(menu);
     }
 
@@ -260,8 +295,17 @@ public class AdminMenuService {
     }
 
     private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
-        // 컵밥/세트가 아니면 기본 사이즈·토핑을 만들지도, 기존 커스텀 토핑을 지우지도 않는다.
+        if (isNaengmomilStandalone(menu)) {
+            syncNaengmomilPackaging(menu, toppingEnabled);
+            return;
+        }
+        if (isBibimUdonMenu(menu)) {
+            syncBibimUdonOptions(menu, toppingEnabled);
+            return;
+        }
+
         if (!usesDefaultSizeAndToppingOptions(menu)) {
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
             return;
         }
 
@@ -274,6 +318,10 @@ public class AdminMenuService {
                 savedMenuOptionRepository.detachMenuOptions(optionIds);
                 menuOptionRepository.deleteAll(currentToppings);
             }
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
+            if (isNaengmomilSet(menu)) {
+                deleteOptionsOfTypes(menu, List.of(OptionGroupType.SIZE));
+            }
             return;
         }
 
@@ -282,6 +330,7 @@ public class AdminMenuService {
 
         List<MenuOption> currentToppings = menuOptionRepository
                 .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
+        renameLegacySpamTopping(currentToppings);
 
         Set<String> existingToppingNames = currentToppings.stream()
                 .map(MenuOption::getName)
@@ -312,8 +361,26 @@ public class AdminMenuService {
                         .displayOrder(remove.displayOrder())
                         .build())
                 .forEach(missingToppingOptions::add);
+        if (isSaltPorkMenu(menu) && !existingToppingNames.contains(SESAME_OIL_REMOVE_NAME)) {
+            missingToppingOptions.add(MenuOption.builder()
+                    .menu(menu)
+                    .groupType(OptionGroupType.TOPPING_REMOVE)
+                    .name(SESAME_OIL_REMOVE_NAME)
+                    .additionalPrice(0)
+                    .maxQuantity(1)
+                    .defaultSelected(false)
+                    .displayOrder(3)
+                    .build());
+        }
         if (!missingToppingOptions.isEmpty()) {
             menuOptionRepository.saveAll(missingToppingOptions);
+        }
+
+        if (!isSaltPorkMenu(menu)) {
+            deleteNamedOptions(currentToppings.stream()
+                    .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                    .filter(option -> SESAME_OIL_REMOVE_NAME.equals(option.getName()))
+                    .toList());
         }
 
         List<MenuOption> currentSizes = menuOptionRepository
@@ -336,6 +403,154 @@ public class AdminMenuService {
         if (!missingSizes.isEmpty()) {
             menuOptionRepository.saveAll(missingSizes);
         }
+
+        if (isNaengmomilSet(menu)) {
+            ensurePackagingOptions(menu);
+        } else {
+            deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
+        }
+    }
+
+    private void syncNaengmomilPackaging(Menu menu, boolean toppingEnabled) {
+        if (!toppingEnabled) {
+            deleteOptionsOfTypes(menu, NAENGMOMIL_OFF_GROUP_TYPES);
+            return;
+        }
+
+        deleteOptionsOfTypes(menu, CUPBAP_OPTION_GROUP_TYPES);
+        ensurePackagingOptions(menu);
+    }
+
+    private void syncBibimUdonOptions(Menu menu, boolean toppingEnabled) {
+        if (!toppingEnabled) {
+            deleteOptionsOfTypes(menu, NAENGMOMIL_OFF_GROUP_TYPES);
+            return;
+        }
+
+        deleteOptionsOfTypes(menu, List.of(OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD));
+
+        List<MenuOption> currentRemoves = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.TOPPING_REMOVE));
+        Set<String> canonicalRemoveNames = BIBIM_UDON_TOPPING_REMOVES.stream()
+                .map(DefaultOption::name)
+                .collect(Collectors.toSet());
+        deleteNamedOptions(currentRemoves.stream()
+                .filter(option -> !canonicalRemoveNames.contains(option.getName()))
+                .toList());
+
+        Set<String> existingRemoveNames = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.TOPPING_REMOVE))
+                .stream()
+                .map(MenuOption::getName)
+                .collect(Collectors.toSet());
+        List<MenuOption> missingRemoves = BIBIM_UDON_TOPPING_REMOVES.stream()
+                .filter(remove -> !existingRemoveNames.contains(remove.name()))
+                .map(remove -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.TOPPING_REMOVE)
+                        .name(remove.name())
+                        .additionalPrice(remove.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(remove.defaultSelected())
+                        .displayOrder(remove.displayOrder())
+                        .build())
+                .toList();
+        if (!missingRemoves.isEmpty()) {
+            menuOptionRepository.saveAll(missingRemoves);
+        }
+
+        ensurePackagingOptions(menu);
+    }
+
+    private void ensurePackagingOptions(Menu menu) {
+        List<MenuOption> currentPackaging = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), PACKAGING_GROUP_TYPES);
+        Map<String, MenuOption> packagingByName = currentPackaging.stream()
+                .collect(Collectors.toMap(MenuOption::getName, Function.identity(), (left, right) -> left));
+
+        ArrayList<MenuOption> missingPackaging = new ArrayList<>();
+        for (DefaultOption packaging : DEFAULT_PACKAGING) {
+            MenuOption existing = packagingByName.get(packaging.name());
+            if (existing == null) {
+                missingPackaging.add(MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.PACKAGING)
+                        .name(packaging.name())
+                        .additionalPrice(packaging.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(packaging.defaultSelected())
+                        .displayOrder(packaging.displayOrder())
+                        .build());
+                continue;
+            }
+            existing.update(
+                    OptionGroupType.PACKAGING,
+                    packaging.name(),
+                    packaging.additionalPrice(),
+                    1,
+                    packaging.defaultSelected(),
+                    packaging.displayOrder()
+            );
+        }
+        if (!missingPackaging.isEmpty()) {
+            menuOptionRepository.saveAll(missingPackaging);
+        }
+    }
+
+    private void deleteNamedOptions(List<MenuOption> options) {
+        if (options == null || options.isEmpty()) {
+            return;
+        }
+        List<Long> optionIds = options.stream().map(MenuOption::getId).toList();
+        orderItemOptionRepository.detachMenuOptions(optionIds);
+        savedMenuOptionRepository.detachMenuOptions(optionIds);
+        menuOptionRepository.deleteAll(options);
+    }
+
+    private void deleteOptionsOfTypes(Menu menu, List<OptionGroupType> groupTypes) {
+        if (menu.getId() == null) {
+            return;
+        }
+        List<MenuOption> current = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), groupTypes);
+        if (current.isEmpty()) {
+            return;
+        }
+        List<Long> optionIds = current.stream().map(MenuOption::getId).toList();
+        orderItemOptionRepository.detachMenuOptions(optionIds);
+        savedMenuOptionRepository.detachMenuOptions(optionIds);
+        menuOptionRepository.deleteAll(current);
+    }
+
+    /**
+     * 라이브 메뉴 옵션의 과거 명칭 '스팸'을 '햄구이'로 교정합니다.
+     * 주문 snapshot은 건드리지 않습니다. 이미 '햄구이'가 있으면 중복 생성만 막습니다.
+     */
+    private void renameLegacySpamTopping(List<MenuOption> currentToppings) {
+        MenuOption spam = currentToppings.stream()
+                .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD)
+                .filter(option -> LEGACY_SPAM_TOPPING_NAME.equals(option.getName()))
+                .findFirst()
+                .orElse(null);
+        if (spam == null) {
+            return;
+        }
+        boolean hamGrillExists = currentToppings.stream()
+                .anyMatch(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD
+                        && HAM_GRILL_TOPPING_NAME.equals(option.getName()));
+        if (hamGrillExists) {
+            deleteNamedOptions(List.of(spam));
+            return;
+        }
+        DefaultOption def = DEFAULT_TOPPING_ADD_BY_NAME.get(HAM_GRILL_TOPPING_NAME);
+        spam.update(
+                OptionGroupType.TOPPING_ADD,
+                def.name(),
+                spam.getAdditionalPrice(),
+                spam.getMaxQuantity(),
+                def.defaultSelected(),
+                def.displayOrder()
+        );
     }
 
     /**
@@ -386,6 +601,7 @@ public class AdminMenuService {
 
     /**
      * 토핑 가능 메뉴에 누락된 기본 사이즈/토핑추가/토핑제외 옵션을 보강합니다.
+     * 냉모밀 단품이면 PACKAGING만, 냉모밀 세트면 컵밥 옵션+PACKAGING을 맞춥니다.
      * (기존 메뉴 상세 조회 시 자동 보정용)
      */
     @Transactional
@@ -393,17 +609,75 @@ public class AdminMenuService {
         syncSizeAndToppingOptions(menu, true);
     }
 
+    /**
+     * 참치불닭비빔우동은 저장된 toppingEnabled에 맞춰 제외 토핑+PACKAGING을 맞춥니다.
+     */
+    @Transactional
+    public void healBibimUdonOptions(Menu menu) {
+        if (!isBibimUdonMenu(menu) || menu.getId() == null) {
+            return;
+        }
+        syncBibimUdonOptions(menu, menu.isToppingEnabled());
+    }
+
+    /**
+     * 냉모밀 단품은 저장된 toppingEnabled에 맞춰 PACKAGING만 맞춥니다.
+     * SIZE/토핑만 남은 과거 데이터와 PACKAGING 누락을 상세 조회 시 교정합니다.
+     */
+    @Transactional
+    public void healNaengmomilOptions(Menu menu) {
+        if (!isNaengmomilStandalone(menu) || menu.getId() == null) {
+            return;
+        }
+        syncNaengmomilPackaging(menu, menu.isToppingEnabled());
+    }
+
     /** SIZE 에 잘못 들어간 기본 토핑명인지 (밥 추가 등) */
     public static boolean isDefaultToppingAddName(String name) {
         return DEFAULT_TOPPING_ADD_BY_NAME.containsKey(name);
     }
 
-    /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */
-    public static boolean usesDefaultSizeAndToppingOptions(Menu menu) {
-        if (menu == null || menu.getCategory() == null || menu.getCategory().getName() == null) {
+    /** 메뉴명에 냉모밀이 포함되면 냉모밀 관련 메뉴로 본다. */
+    public static boolean isNaengmomilMenu(Menu menu) {
+        return menu != null && menu.getName() != null && menu.getName().contains(NAENGMOMIL_NAME_MARKER);
+    }
+
+    /** 면 등 컵밥형이 아닌 카테고리의 단품 냉모밀 */
+    public static boolean isNaengmomilStandalone(Menu menu) {
+        return menu != null
+                && NAENGMOMIL_STANDALONE_NAME.equals(menu.getName())
+                && !usesDefaultSizeAndToppingOptions(menu);
+    }
+
+    /** 컵밥형 카테고리의 냉모밀 포함 메뉴 */
+    public static boolean isNaengmomilSet(Menu menu) {
+        return isNaengmomilMenu(menu) && usesDefaultSizeAndToppingOptions(menu);
+    }
+
+    public static boolean isBibimUdonMenu(Menu menu) {
+        return menu != null && BIBIM_UDON_MENU_NAME.equals(menu.getName());
+    }
+
+    /** 삼겹소금 계열만 참기름 제외 대상. 이름 부분 일치가 아니라 정확한 메뉴명으로 판별한다. */
+    public static boolean isSaltPorkMenu(Menu menu) {
+        return menu != null && menu.getName() != null && SALT_PORK_MENU_NAMES.contains(menu.getName());
+    }
+
+    /**
+     * 컵밥형 카테고리: 이름이 정확히 컵밥이거나, 운영 세트 탭처럼 '세트'로 끝나는 경우.
+     * 면/음료수는 해당하지 않는다.
+     */
+    public static boolean isCupbapLikeCategory(Category category) {
+        if (category == null || category.getName() == null) {
             return false;
         }
-        return DEFAULT_OPTION_CATEGORY_NAMES.contains(menu.getCategory().getName());
+        String name = category.getName().trim();
+        return CUPBAP_CATEGORY_NAME.equals(name) || name.endsWith(SET_CATEGORY_SUFFIX);
+    }
+
+    /** 컵밥형 메뉴만 기본 사이즈·토핑 보강 대상인지 */
+    public static boolean usesDefaultSizeAndToppingOptions(Menu menu) {
+        return menu != null && isCupbapLikeCategory(menu.getCategory());
     }
 
     private Category findCategory(Long categoryId) {

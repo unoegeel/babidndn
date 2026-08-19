@@ -130,7 +130,7 @@ export interface MenuSaleStatusUpdateRequest {
 
 export interface MenuOptionUpsertRequest {
   /** 옵션 그룹 (생략 시 기타 옵션) */
-  groupType?: "SIZE" | "TOPPING_ADD" | "TOPPING_REMOVE" | null;
+  groupType?: "SIZE" | "PACKAGING" | "TOPPING_ADD" | "TOPPING_REMOVE" | null;
   name: string;
   additionalPrice: number;
   maxQuantity: number;

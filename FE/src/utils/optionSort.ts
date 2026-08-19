@@ -1,30 +1,49 @@
 /**
  * 메뉴/주문/영수증 옵션의 공통 그룹 정렬 순위.
- * SIZE → TOPPING_ADD → TOPPING_REMOVE (그 외는 뒤).
+ * SIZE → TOPPING_ADD → TOPPING_REMOVE → PACKAGING (그 외는 뒤).
  */
 export const OPTION_GROUP_ORDER: Record<string, number> = {
   SIZE: 0,
   TOPPING_ADD: 1,
   TOPPING_REMOVE: 2,
+  PACKAGING: 3,
 };
 
 /** 유저 바텀시트 토핑 추가 표시 순서. */
 export const TOPPING_ADD_DISPLAY_ORDER = [
   "계란후라이",
+  "햄구이",
   "밥 추가",
   "삼겹소금 추가",
   "삼겹양념 추가",
   "참치마요 추가",
   "모짜렐라치즈",
   "체다치즈",
-  "스팸",
 ] as const;
+
+/** 과거 주문 snapshot 등에서 쓰인 이전 명칭 → 현재 정렬 기준명 */
+const TOPPING_ADD_ALIASES: Record<string, string> = {
+  스팸: "햄구이",
+};
 
 const TOPPING_ADD_RANK = new Map<string, number>(
   TOPPING_ADD_DISPLAY_ORDER.map((name, index) => [name, index]),
 );
 
 const HIDDEN_TOPPING_ADD_NAMES = new Set(["고기 추가"]);
+
+export const PACKAGING_DISPLAY_ORDER = ["매장", "포장"] as const;
+
+const PACKAGING_RANK = new Map<string, number>(
+  PACKAGING_DISPLAY_ORDER.map((name, index) => [name, index]),
+);
+
+/** 유저 옵션시트를 열 수 있는 그룹인지. SIZE만으로는 시트를 열지 않는다. */
+export function enablesOptionSheet(groupType: string | null | undefined): boolean {
+  return groupType === "TOPPING_ADD"
+    || groupType === "TOPPING_REMOVE"
+    || groupType === "PACKAGING";
+}
 
 /** groupType → 정렬 순위. 미지정/알 수 없는 값은 99. */
 export function optionGroupRank(groupType: string | null | undefined): number {
@@ -36,5 +55,11 @@ export function isHiddenToppingAdd(name: string): boolean {
 }
 
 export function toppingAddDisplayRank(name: string): number {
-  return TOPPING_ADD_RANK.get(name.trim()) ?? 1000;
+  const trimmed = name.trim();
+  const canonical = TOPPING_ADD_ALIASES[trimmed] ?? trimmed;
+  return TOPPING_ADD_RANK.get(canonical) ?? 1000;
+}
+
+export function packagingDisplayRank(name: string): number {
+  return PACKAGING_RANK.get(name.trim()) ?? 1000;
 }

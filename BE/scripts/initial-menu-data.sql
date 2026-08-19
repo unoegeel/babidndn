@@ -145,13 +145,13 @@ CROSS JOIN (
     UNION ALL SELECT 'SIZE', '더블', 1000, 1, FALSE, 2
     UNION ALL SELECT 'SIZE', '점보', 2000, 1, FALSE, 3
     UNION ALL SELECT 'TOPPING_ADD', '계란후라이', 700, 3, FALSE, 1
-    UNION ALL SELECT 'TOPPING_ADD', '밥 추가', 1000, 3, FALSE, 2
-    UNION ALL SELECT 'TOPPING_ADD', '삼겹소금 추가', 1200, 3, FALSE, 3
-    UNION ALL SELECT 'TOPPING_ADD', '삼겹양념 추가', 1200, 3, FALSE, 4
-    UNION ALL SELECT 'TOPPING_ADD', '참치마요 추가', 1200, 3, FALSE, 5
-    UNION ALL SELECT 'TOPPING_ADD', '모짜렐라치즈', 1000, 3, FALSE, 6
-    UNION ALL SELECT 'TOPPING_ADD', '체다치즈', 500, 3, FALSE, 7
-    UNION ALL SELECT 'TOPPING_ADD', '스팸', 700, 3, FALSE, 8
+    UNION ALL SELECT 'TOPPING_ADD', '햄구이', 700, 3, FALSE, 2
+    UNION ALL SELECT 'TOPPING_ADD', '밥 추가', 1000, 3, FALSE, 3
+    UNION ALL SELECT 'TOPPING_ADD', '삼겹소금 추가', 1200, 3, FALSE, 4
+    UNION ALL SELECT 'TOPPING_ADD', '삼겹양념 추가', 1200, 3, FALSE, 5
+    UNION ALL SELECT 'TOPPING_ADD', '참치마요 추가', 1200, 3, FALSE, 6
+    UNION ALL SELECT 'TOPPING_ADD', '모짜렐라치즈', 1000, 3, FALSE, 7
+    UNION ALL SELECT 'TOPPING_ADD', '체다치즈', 500, 3, FALSE, 8
     UNION ALL SELECT 'TOPPING_REMOVE', '김치 제외', 0, 1, FALSE, 1
     UNION ALL SELECT 'TOPPING_REMOVE', '고추장 소스 제외', 0, 1, FALSE, 2
 ) AS option_source
@@ -200,3 +200,12 @@ LEFT JOIN menu_options menu_option
     AND menu_option.name = option_source.name
 WHERE menu.name = '참치불닭비빔우동'
   AND menu_option.id IS NULL;
+
+-- 토핑 가능 여부 백필: ADD/REMOVE/PACKAGING이 있으면 true, SIZE만 있으면 false
+UPDATE menus menu
+SET menu.topping_enabled = EXISTS (
+    SELECT 1
+    FROM menu_options option_row
+    WHERE option_row.menu_id = menu.id
+      AND option_row.group_type IN ('TOPPING_ADD', 'TOPPING_REMOVE', 'PACKAGING')
+);

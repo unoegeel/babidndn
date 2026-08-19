@@ -265,7 +265,7 @@ export const UserShell: React.FC = () => {
           <UserHeader
             title={headerTitle}
             isMenuPage={isMenuPage}
-            isStatusPage={isStatusPage}
+            isStatusPage={isStatusPage || isCompletePage}
             isCartPage={isCartPage}
             unreadCount={unreadCount}
             cartItemCount={totalCartItems}

@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { userPrimaryButtonClassName } from "./userPrimaryButton";
+import { useSavedMenuPopupKeyboard } from "./useSavedMenuPopupKeyboard";
 
 export function RenameSavedMenuPopup({
   initialName,
@@ -14,7 +15,12 @@ export function RenameSavedMenuPopup({
   onClose: () => void;
   onSubmit: (customName: string) => void;
 }) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [customName, setCustomName] = useState(initialName);
+
+  useSavedMenuPopupKeyboard({ overlayRef, cardRef, inputRef });
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -24,8 +30,12 @@ export function RenameSavedMenuPopup({
   };
 
   return (
-    <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+    <div
+      ref={overlayRef}
+      className="absolute inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
+    >
       <form
+        ref={cardRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="rename-menu-title"
@@ -43,12 +53,12 @@ export function RenameSavedMenuPopup({
 
         <div className="px-5 py-4">
           <input
+            ref={inputRef}
             type="text"
             value={customName}
             onChange={(event) => setCustomName(event.target.value)}
             maxLength={100}
-            autoFocus
-            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:border-gray-400 focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-base text-gray-900 placeholder:text-gray-300 focus:border-gray-400 focus:outline-none"
           />
           {error ? <p className="mt-2 text-[11px] font-semibold text-red-500">{error}</p> : null}
         </div>

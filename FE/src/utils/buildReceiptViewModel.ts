@@ -1,5 +1,6 @@
 import type { OrderDetailResponse, PaymentResponse } from "../types/api";
 import type { ReceiptViewModel } from "../types/receipt";
+import { sortReceiptOptions } from "./sortReceiptOptions";
 
 /**
  * 주문 상세 + 결제 응답 → 공통 ReceiptViewModel.
@@ -14,12 +15,14 @@ export function buildReceiptViewModel(
     menuPrice: item.menuPrice,
     quantity: item.quantity,
     lineAmount: item.lineAmount,
-    options: item.options.map((opt) => ({
-      name: opt.name,
-      additionalPrice: opt.additionalPrice,
-      quantity: opt.quantity,
-      groupType: opt.groupType ?? null,
-    })),
+    options: sortReceiptOptions(
+      item.options.map((opt) => ({
+        name: opt.name,
+        additionalPrice: opt.additionalPrice,
+        quantity: opt.quantity,
+        groupType: opt.groupType ?? null,
+      })),
+    ),
   }));
 
   const paymentInfo = payment

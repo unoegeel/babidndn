@@ -9,7 +9,7 @@ import type { Order } from "../../types/user";
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti, stopConfetti, resolveOrderPickupNotifications } =
+  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti } =
     useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
@@ -177,25 +177,11 @@ export const OrderCompletePage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. 하단 고정 액션 영역 */}
+      {/* 하단 안내 */}
       <div
-        className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-lg flex flex-col gap-3 z-40"
-        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+        className="shrink-0 px-4 py-3 bg-white border-t border-gray-100 z-40"
+        style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
       >
-        <button
-          type="button"
-          onClick={() => {
-            if (orderId) {
-              resolveOrderPickupNotifications(orderId);
-            }
-            // route effect보다 먼저 종료해 이동 프레임에 Confetti가 남지 않게 함
-            stopConfetti();
-            navigate("/user");
-          }}
-          className="w-full cursor-pointer rounded-xl border border-[#D8B47E] bg-[#D8B47E] py-4 text-center text-sm font-bold text-white shadow-md transition-colors hover:bg-[#C59B62]"
-        >
-          처음 화면으로 이동
-        </button>
         <div className="text-center text-gray-400">
           <p className="text-[11px] font-medium leading-snug">※ 실시간으로 업데이트됩니다.</p>
         </div>

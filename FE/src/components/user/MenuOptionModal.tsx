@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { MenuDetail, MenuOption } from "../../types/user";
 import type { SavedMenuResponse } from "../../types/api";
-import { isHiddenToppingAdd, toppingAddDisplayRank } from "../../utils/optionSort";
+import { isHiddenToppingAdd, packagingDisplayRank, toppingAddDisplayRank } from "../../utils/optionSort";
 import { savedMenuService } from "../../services/user/savedMenuService";
 import { getLatestMatchingSavedMenu, isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
 import { ApiError } from "../../api/client";
@@ -51,10 +52,20 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const initialSizeId = sizeOptions.find((o) => o.defaultSelected)?.id || sizeOptions[0]?.id;
   const [selectedSizeId, setSelectedSizeId] = useState<number | undefined>(initialSizeId);
 
+  const packagingOptions = menuDetail.options.filter((o) => o.groupType === "PACKAGING");
+  const initialPackagingId =
+    packagingOptions.find((o) => o.defaultSelected)?.id
+    || packagingOptions.find((o) => o.name === "매장")?.id
+    || packagingOptions[0]?.id;
+  const [selectedPackagingId, setSelectedPackagingId] = useState<number | undefined>(initialPackagingId);
+
   // TOPPING_ADD 및 TOPPING_REMOVE, null 옵션들에 대한 수량/선택 상태 관리 (평면 구조 유지)
   // '고기 추가'는 더 이상 판매하지 않아 표시·선택 대상에서 제외한다.
   const otherOptions = menuDetail.options.filter(
-    (o) => o.groupType !== "SIZE" && !(o.groupType === "TOPPING_ADD" && isHiddenToppingAdd(o.name)),
+    (o) =>
+      o.groupType !== "SIZE"
+      && o.groupType !== "PACKAGING"
+      && !(o.groupType === "TOPPING_ADD" && isHiddenToppingAdd(o.name)),
   );
   const [selectedOtherOptions, setSelectedOtherOptions] = useState<Record<number, number>>(() => {
     const initialSelected: Record<number, number> = {};
@@ -111,6 +122,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const handleSizeChange = (id: number) => {
     setSelectedSizeId(id);
+  };
+
+  const handlePackagingChange = (id: number) => {
+    setSelectedPackagingId(id);
   };
 
   // SIZE 및 TOPPING_REMOVE, null 옵션 클릭 처리
@@ -187,6 +202,13 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       }
     }
 
+    if (selectedPackagingId !== undefined) {
+      const packagingOpt = packagingOptions.find((o) => o.id === selectedPackagingId);
+      if (packagingOpt) {
+        price += packagingOpt.additionalPrice;
+      }
+    }
+
     otherOptions.forEach((opt) => {
       const qty = selectedOtherOptions[opt.id] || 0;
       if (qty > 0) {
@@ -204,6 +226,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     if (selectedSizeId !== undefined) {
       const sizeOpt = sizeOptions.find((o) => o.id === selectedSizeId);
       if (sizeOpt) finalOptions.push(sizeOpt);
+    }
+    if (selectedPackagingId !== undefined) {
+      const packagingOpt = packagingOptions.find((o) => o.id === selectedPackagingId);
+      if (packagingOpt) finalOptions.push(packagingOpt);
     }
     otherOptions.forEach((opt) => {
       const qty = selectedOtherOptions[opt.id] || 0;
@@ -298,7 +324,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const toppingRemoveOptions = otherOptions.filter((o) => o.groupType === "TOPPING_REMOVE");
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
-  return (
+  const modal = (
     <div className="absolute inset-0 z-[60] flex flex-col justify-end">
       {/* 오버레이 — 시트와 분리해 닫힐 때 페이드 (시트 슬라이드가 가려지지 않도록) */}
       <div
@@ -349,7 +375,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {sizeOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">사이즈 선택</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-nowrap gap-2">
                 {[...sizeOptions]
                   .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
                   .map((opt) => {
@@ -474,17 +500,18 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈/토핑 추가와 동일한 1줄 카드 */}
+          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈와 동일한 1줄 균등 분할 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-nowrap gap-2">
                 {[...toppingRemoveOptions]
                   .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
                   .map((opt) => {
                     const isSelected = !!selectedOtherOptions[opt.id];
                     const removeLabel =
                       opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
+                    const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
                     return (
                       <button
                         key={opt.id}
@@ -494,7 +521,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                           isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
                         }`}
                       >
-                        <div className="w-full text-center text-[11px] font-semibold leading-snug line-clamp-2">
+                        <div className={`w-full text-center font-semibold leading-snug line-clamp-2 ${nameClass}`}>
                           {removeLabel}
                         </div>
                         {isSelected && (
@@ -509,7 +536,44 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 4) 기타 옵션 (groupType === null) */}
+          {/* 4) 포장 여부 (PACKAGING) - 사이즈와 동일한 1줄 선택, 가격 미표시 */}
+          {packagingOptions.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">포장 여부</h3>
+              <div className="flex flex-nowrap gap-2">
+                {[...packagingOptions]
+                  .sort((a, b) => {
+                    const rankDiff = packagingDisplayRank(a.name) - packagingDisplayRank(b.name);
+                    if (rankDiff !== 0) return rankDiff;
+                    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+                  })
+                  .map((opt) => {
+                    const isSelected = selectedPackagingId === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handlePackagingChange(opt.id)}
+                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                        }`}
+                      >
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug">
+                          {opt.name}
+                        </div>
+                        {isSelected && (
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* 5) 기타 옵션 (groupType === null) */}
           {extraOptions.length > 0 && (
             <div>
               <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">기타 선택</h3>
@@ -641,4 +705,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       )}
     </div>
   );
+
+  const frame = document.getElementById("user-app-frame");
+  return frame ? createPortal(modal, frame) : modal;
 };

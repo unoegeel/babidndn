@@ -61,10 +61,7 @@ public class MenuDetailResponse {
                 .displayOrder(menu.getDisplayOrder())
                 .saleStatus(menu.getSaleStatus().name())
                 .badge(badgeName(menu))
-                .toppingEnabled(options.stream().anyMatch(option ->
-                        option.getGroupType() == com.gdgoc.babi_order.menu.entity.OptionGroupType.TOPPING_ADD
-                                || option.getGroupType()
-                                == com.gdgoc.babi_order.menu.entity.OptionGroupType.TOPPING_REMOVE))
+                .toppingEnabled(menu.isToppingEnabled())
                 .options(options.stream().map(MenuOptionResponse::from).toList())
                 .build();
     }
