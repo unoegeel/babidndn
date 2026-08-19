@@ -55,10 +55,20 @@ export const DEV_LABELS = {
   errorDetail: "오류 상세",
   requestMonitoring: "요청 모니터링",
   requestDetail: "요청 상세",
+  eventMonitoring: "사용자 이벤트",
+  eventDetail: "사용자 이벤트 상세",
+  eventType: "이벤트",
+  eventId: "이벤트 ID",
+  anonymousId: "익명 사용자 ID",
+  sessionId: "세션 ID",
+  metadata: "메타데이터",
+  viewRelatedRequest: "관련 요청 보기",
+  allEventTypes: "전체 이벤트",
 
   pageOf: (page: number, total: number) => `${page} / ${total} 페이지`,
   totalErrors: (n: number) => `${n}건`,
   totalRequests: (n: number) => `${n}건`,
+  totalEvents: (n: number) => `${n}건`,
 } as const;
 
 export function sourceLabelKo(source: "FRONTEND" | "BACKEND"): string {

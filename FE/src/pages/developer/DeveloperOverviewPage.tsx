@@ -53,7 +53,7 @@ export default function DeveloperOverviewPage() {
           <ModuleCard
             title={DEV_LABELS.events}
             description="사용자 행동 이벤트 조회"
-            status="planned"
+            status="ready"
           />
           <ModuleCard
             title={DEV_LABELS.analytics}
