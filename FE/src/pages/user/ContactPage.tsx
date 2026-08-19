@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { contactService } from "../../services/contactService";
+import { trackContactSubmitted } from "../../utils/userEvent/eventHelpers";
 
 const MAX_LENGTH = 2000;
 
@@ -19,6 +20,7 @@ export default function ContactPage() {
     setSubmitting(true);
     try {
       await contactService.send(trimmed);
+      trackContactSubmitted();
       setContent("");
       setSubmitted(true);
     } catch (err) {

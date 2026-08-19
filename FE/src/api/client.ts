@@ -117,6 +117,11 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 
 type AuthMode = "public" | "admin";
 
+export interface ApiCallResult<T> {
+  data: T;
+  relatedRequestId?: string;
+}
+
 function readResponseRequestId(response: Response): string | undefined {
   const header = response.headers.get(REQUEST_ID_HEADER)
     ?? response.headers.get(REQUEST_ID_HEADER.toLowerCase());
@@ -133,11 +138,11 @@ function attachRelatedRequestId(error: unknown, relatedRequestId?: string): neve
   throw error;
 }
 
-async function request<T>(
+async function requestInternal<T>(
   path: string,
   options: RequestOptions = {},
   authMode: AuthMode = "public",
-): Promise<T> {
+): Promise<ApiCallResult<T>> {
   const { body, headers, baseUrl, ...rest } = options;
   const root = baseUrl ?? resolveApiBaseUrl();
 
@@ -163,7 +168,6 @@ async function request<T>(
     } catch {
       // JSON 이 아닌 오류 응답은 상태 코드만 사용
     }
-    // 관리자 인증 요청에서만 토큰 만료 시 로그아웃 유도
     if (response.status === 401 && authMode === "admin" && token) {
       signOutAdmin();
     }
@@ -171,15 +175,24 @@ async function request<T>(
   }
 
   if (!text) {
-    return undefined as T;
+    return { data: undefined as T, relatedRequestId };
   }
 
   try {
-    return JSON.parse(text) as T;
+    return { data: JSON.parse(text) as T, relatedRequestId };
   } catch (parseError) {
     reportApiProcessingError(parseError, relatedRequestId);
     return attachRelatedRequestId(parseError, relatedRequestId);
   }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  authMode: AuthMode = "public",
+): Promise<T> {
+  const { data } = await requestInternal<T>(path, options, authMode);
+  return data;
 }
 
 function createClient(authMode: AuthMode) {
@@ -188,6 +201,8 @@ function createClient(authMode: AuthMode) {
       request<T>(path, { ...options, method: "GET" }, authMode),
     post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
       request<T>(path, { ...options, method: "POST", body }, authMode),
+    postWithMeta: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+      requestInternal<T>(path, { ...options, method: "POST", body }, authMode),
     patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
       request<T>(path, { ...options, method: "PATCH", body }, authMode),
     put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

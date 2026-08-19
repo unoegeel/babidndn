@@ -84,11 +84,21 @@ export function mapOrderDetailToOrder(res: OrderDetailResponse): Order {
   };
 }
 
+export interface CreateOrderResult {
+  order: OrderDetailResponse;
+  relatedRequestId?: string;
+}
+
 export const orderService = {
   /**
    * 주문 생성 (POST /api/orders)
    */
   async createOrder(cartItems: CartItem[]): Promise<OrderDetailResponse> {
+    const result = await orderService.createOrderWithMeta(cartItems);
+    return result.order;
+  },
+
+  async createOrderWithMeta(cartItems: CartItem[]): Promise<CreateOrderResult> {
     const items: OrderItemRequest[] = cartItems.map((cartItem) => {
       // selectedOptions에서 같은 menuOptionId(id)를 묶어 quantity로 변환
       const optionMap = new Map<number, number>();
@@ -113,7 +123,8 @@ export const orderService = {
 
     const body: OrderCreateRequest = { items };
     rememberOrderApiBaseUrl();
-    return api.post<OrderDetailResponse>("/api/orders", body);
+    const { data, relatedRequestId } = await api.postWithMeta<OrderDetailResponse>("/api/orders", body);
+    return { order: data, relatedRequestId };
   },
 
   /**
@@ -137,9 +148,10 @@ export const orderService = {
    * 결제 승인 요청 (POST /api/payments/confirm)
    */
   async confirmPayment(data: PaymentConfirmRequest): Promise<PaymentConfirmResponse> {
-    return api.post<PaymentConfirmResponse>("/api/payments/confirm", data, {
+    const { data: response } = await api.postWithMeta<PaymentConfirmResponse>("/api/payments/confirm", data, {
       baseUrl: getOrderApiBaseUrl(),
     });
+    return response;
   },
 
   /**

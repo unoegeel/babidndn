@@ -6,6 +6,11 @@ import { isHiddenToppingAdd, packagingDisplayRank, toppingAddDisplayRank } from 
 import { savedMenuService } from "../../services/user/savedMenuService";
 import { getLatestMatchingSavedMenu, isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
 import { ApiError } from "../../api/client";
+import {
+  trackOptionSelected,
+  trackSavedMenuCreated,
+  trackSavedMenuDeleted,
+} from "../../utils/userEvent/eventHelpers";
 import { SaveMenuPopup } from "./SaveMenuPopup";
 import { USER_PRIMARY_BUTTON_COLOR, userPrimaryButtonClassName } from "./userPrimaryButton";
 
@@ -122,10 +127,14 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const handleSizeChange = (id: number) => {
     setSelectedSizeId(id);
+    const option = sizeOptions.find((o) => o.id === id);
+    if (option) trackOptionSelected(menuDetail.id, option);
   };
 
   const handlePackagingChange = (id: number) => {
     setSelectedPackagingId(id);
+    const option = packagingOptions.find((o) => o.id === id);
+    if (option) trackOptionSelected(menuDetail.id, option);
   };
 
   // SIZE 및 TOPPING_REMOVE, null 옵션 클릭 처리
@@ -143,6 +152,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           ...prev,
           [option.id]: 1,
         }));
+        trackOptionSelected(menuDetail.id, option, 1);
       }
     } else {
       setSelectedOtherOptions((prev) => {
@@ -151,6 +161,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           delete next[option.id];
         } else {
           next[option.id] = 1;
+          trackOptionSelected(menuDetail.id, option, 1);
         }
         return next;
       });
@@ -188,6 +199,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         ...prev,
         [option.id]: nextQty,
       }));
+      if (val > 0) {
+        trackOptionSelected(menuDetail.id, option, nextQty);
+      }
     }
   };
 
@@ -273,6 +287,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         setSaveDeleting(true);
         try {
           await savedMenuService.remove(target.id);
+          trackSavedMenuDeleted(target.id);
           setSavedMenus((prev) => prev.filter((item) => item.id !== target.id));
         } catch (err) {
           alert(
@@ -300,6 +315,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         customName,
         options: toOptionQuantities(selectedForSave),
       });
+      trackSavedMenuCreated(created.id, menuDetail.id);
       setSavedMenus((prev) => [created, ...prev]);
       setSaveOpen(false);
     } catch (err) {

@@ -5,6 +5,7 @@ import { orderService, mapOrderDetailToOrder } from "../../services/user/orderSe
 import type { OrderDetailResponse } from "../../types/api";
 import { useUserData } from "../../store/UserDataContext";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
+import { trackPaymentSuccess } from "../../utils/userEvent/eventHelpers";
 
 function readPendingOrder(): OrderDetailResponse | null {
   for (const storage of [sessionStorage, localStorage]) {
@@ -50,8 +51,9 @@ export const PaymentSuccessPage: React.FC = () => {
   const isBackendConfirmed = Boolean(confirmedOrderId);
   const isInvalidParams = !isBackendConfirmed && (!paymentKey || !tossOrderId || !amountStr);
 
-  const goToOrderStatus = (orderId: string | number) => {
+  const goToOrderStatus = (orderId: string | number, amount?: number) => {
     const id = String(orderId);
+    trackPaymentSuccess(id, amount);
     clearCart();
     clearPaymentStorage();
     void linkPushSubscriptionToOrder(id);
@@ -97,7 +99,7 @@ export const PaymentSuccessPage: React.FC = () => {
     if (isBackendConfirmed && confirmedOrderId) {
       if (isRequestingRef.current) return;
       isRequestingRef.current = true;
-      goToOrderStatus(confirmedOrderId);
+      goToOrderStatus(confirmedOrderId, readPendingOrder()?.totalAmount);
       return;
     }
 
@@ -110,7 +112,7 @@ export const PaymentSuccessPage: React.FC = () => {
       const pending = readPendingOrder();
       if (pending?.id) {
         sessionStorage.removeItem(sessionConfirmKey);
-        goToOrderStatus(pending.id);
+        goToOrderStatus(pending.id, pending.totalAmount);
       }
       return;
     }
@@ -141,7 +143,7 @@ export const PaymentSuccessPage: React.FC = () => {
       })
       .then((res) => {
         sessionStorage.removeItem(sessionConfirmKey);
-        goToOrderStatus(res.orderId);
+        goToOrderStatus(res.orderId, pendingOrder?.totalAmount ?? amount);
       })
       .catch(async (err: unknown) => {
         console.error("결제 승인 실패:", err);
@@ -160,7 +162,7 @@ export const PaymentSuccessPage: React.FC = () => {
           (pending?.id ? String(pending.id) : null);
 
         if (alreadyProcessed && recoveredId) {
-          goToOrderStatus(recoveredId);
+          goToOrderStatus(recoveredId, pending?.totalAmount ?? amount);
           return;
         }
 

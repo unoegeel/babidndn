@@ -11,6 +11,12 @@ import { RenameSavedMenuPopup } from "../../components/user/RenameSavedMenuPopup
 import { QuickCartBar } from "../../components/user/QuickCartBar";
 import { ApiError } from "../../api/client";
 import { savedOptionsToRequest, toOptionQuantities } from "../../utils/savedMenuCombo";
+import {
+  trackSavedMenuDeleted,
+  trackSavedMenuReorder,
+  trackSavedMenuUpdated,
+  trackSavedMenuView,
+} from "../../utils/userEvent/eventHelpers";
 
 function liveOptionsFromSaved(detail: MenuDetail, saved: SavedMenuResponse): MenuOption[] {
   const selected: MenuOption[] = [];
@@ -47,6 +53,7 @@ export const MyMenuPage: React.FC = () => {
       setError(null);
       const data = await savedMenuService.list();
       setItems(data);
+      trackSavedMenuView(data.length);
     } catch {
       setError("나만의 메뉴를 불러오지 못했습니다.");
     } finally {
@@ -72,6 +79,7 @@ export const MyMenuPage: React.FC = () => {
       const detail = await withLiveMenu(saved);
       const selected = liveOptionsFromSaved(detail, saved);
       addToCart(detail, selected, 1);
+      trackSavedMenuReorder(saved.id, saved.menuId ?? detail.id);
       if (goToCart) {
         navigate("/user/cart");
       }
@@ -87,6 +95,7 @@ export const MyMenuPage: React.FC = () => {
     setBusyId(saved.id);
     try {
       await savedMenuService.remove(saved.id);
+      trackSavedMenuDeleted(saved.id);
       setItems((prev) => prev.filter((item) => item.id !== saved.id));
     } catch {
       alert("삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
@@ -117,6 +126,7 @@ export const MyMenuPage: React.FC = () => {
         options: toOptionQuantities(selectedOptions),
       });
       setItems((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      trackSavedMenuUpdated(updated.id);
       setRetuneTarget(null);
       setRetuneDetail(null);
     } catch (err) {
