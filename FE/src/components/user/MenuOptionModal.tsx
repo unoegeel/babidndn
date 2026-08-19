@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { MenuDetail, MenuOption } from "../../types/user";
 import type { SavedMenuResponse } from "../../types/api";
 import { isHiddenToppingAdd, packagingDisplayRank, toppingAddDisplayRank } from "../../utils/optionSort";
@@ -323,7 +324,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const toppingRemoveOptions = otherOptions.filter((o) => o.groupType === "TOPPING_REMOVE");
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
-  return (
+  const modal = (
     <div className="absolute inset-0 z-[60] flex flex-col justify-end">
       {/* 오버레이 — 시트와 분리해 닫힐 때 페이드 (시트 슬라이드가 가려지지 않도록) */}
       <div
@@ -704,4 +705,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       )}
     </div>
   );
+
+  const frame = document.getElementById("user-app-frame");
+  return frame ? createPortal(modal, frame) : modal;
 };
