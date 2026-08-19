@@ -375,11 +375,12 @@ class AdminMenuServiceTest {
         assertThat(toppingsAndRemoves)
                 .extracting(MenuOption::getName)
                 .containsExactly(
-                        "계란후라이", "밥 추가",
+                        "계란후라이", "햄구이", "밥 추가",
                         "삼겹소금 추가", "삼겹양념 추가", "참치마요 추가",
-                        "모짜렐라치즈", "체다치즈", "스팸",
+                        "모짜렐라치즈", "체다치즈",
                         "김치 제외", "고추장 소스 제외")
-                .doesNotContain("고기 추가");
+                .doesNotContain("고기 추가")
+                .doesNotContain("스팸");
         assertThat(toppingsAndRemoves)
                 .filteredOn(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD)
                 .extracting(
@@ -389,13 +390,13 @@ class AdminMenuServiceTest {
                         MenuOption::getMaxQuantity)
                 .containsExactly(
                         org.assertj.core.groups.Tuple.tuple("계란후라이", 700, 1, 3),
-                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 2, 3),
-                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 3, 3),
-                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 4, 3),
-                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 5, 3),
-                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 6, 3),
-                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 7, 3),
-                        org.assertj.core.groups.Tuple.tuple("스팸", 700, 8, 3));
+                        org.assertj.core.groups.Tuple.tuple("햄구이", 700, 2, 3),
+                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 3, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 4, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 5, 3),
+                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 6, 3),
+                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 7, 3),
+                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 8, 3));
         assertThat(captor.getAllValues().get(1))
                 .hasSize(3)
                 .extracting(MenuOption::getName, MenuOption::getAdditionalPrice)
@@ -446,13 +447,13 @@ class AdminMenuServiceTest {
         assertThat(captor.getValue())
                 .extracting(MenuOption::getName, MenuOption::getAdditionalPrice, MenuOption::getDisplayOrder)
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 2),
-                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 3),
-                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 4),
-                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 5),
-                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 6),
-                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 7),
-                        org.assertj.core.groups.Tuple.tuple("스팸", 700, 8),
+                        org.assertj.core.groups.Tuple.tuple("햄구이", 700, 2),
+                        org.assertj.core.groups.Tuple.tuple("밥 추가", 1000, 3),
+                        org.assertj.core.groups.Tuple.tuple("삼겹소금 추가", 1200, 4),
+                        org.assertj.core.groups.Tuple.tuple("삼겹양념 추가", 1200, 5),
+                        org.assertj.core.groups.Tuple.tuple("참치마요 추가", 1200, 6),
+                        org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 7),
+                        org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 8),
                         org.assertj.core.groups.Tuple.tuple("김치 제외", 0, 1),
                         org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 0, 2));
         assertThat(captor.getValue()).extracting(MenuOption::getName).doesNotContain("고기 추가");
@@ -467,7 +468,53 @@ class AdminMenuServiceTest {
         assertThat(AdminMenuService.isDefaultToppingAddName("삼겹소금 추가")).isTrue();
         assertThat(AdminMenuService.isDefaultToppingAddName("삼겹양념 추가")).isTrue();
         assertThat(AdminMenuService.isDefaultToppingAddName("참치마요 추가")).isTrue();
-        assertThat(AdminMenuService.isDefaultToppingAddName("밥 추가")).isTrue();
+        assertThat(AdminMenuService.isDefaultToppingAddName("햄구이")).isTrue();
+        assertThat(AdminMenuService.isDefaultToppingAddName("스팸")).isFalse();
+    }
+
+    @Test
+    void ensureDefaultOptionsRenamesLegacySpamToHamGrillWithoutDuplicating() {
+        Menu menu = menu(10L, category(1L));
+        MenuOption egg = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("계란후라이")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .displayOrder(1)
+                .build();
+        MenuOption spam = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("스팸")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .displayOrder(8)
+                .build();
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of(
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("싱글").additionalPrice(0).maxQuantity(1).displayOrder(1).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("더블").additionalPrice(1000).maxQuantity(1).displayOrder(2).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("점보").additionalPrice(2000).maxQuantity(1).displayOrder(3).build()
+                ));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(egg, spam));
+
+        adminMenuService.ensureDefaultOptions(menu);
+
+        assertThat(spam.getName()).isEqualTo("햄구이");
+        assertThat(spam.getDisplayOrder()).isEqualTo(2);
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(MenuOption::getName)
+                .doesNotContain("햄구이")
+                .doesNotContain("스팸");
     }
 
     @Test
@@ -495,7 +542,7 @@ class AdminMenuServiceTest {
 
         assertThat(riceAsSize.getGroupType()).isEqualTo(OptionGroupType.TOPPING_ADD);
         assertThat(riceAsSize.getMaxQuantity()).isEqualTo(3);
-        assertThat(riceAsSize.getDisplayOrder()).isEqualTo(2);
+        assertThat(riceAsSize.getDisplayOrder()).isEqualTo(3);
     }
 
     @Test

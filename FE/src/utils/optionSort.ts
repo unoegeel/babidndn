@@ -11,14 +11,19 @@ export const OPTION_GROUP_ORDER: Record<string, number> = {
 /** 유저 바텀시트 토핑 추가 표시 순서. */
 export const TOPPING_ADD_DISPLAY_ORDER = [
   "계란후라이",
+  "햄구이",
   "밥 추가",
   "삼겹소금 추가",
   "삼겹양념 추가",
   "참치마요 추가",
   "모짜렐라치즈",
   "체다치즈",
-  "스팸",
 ] as const;
+
+/** 과거 주문 snapshot 등에서 쓰인 이전 명칭 → 현재 정렬 기준명 */
+const TOPPING_ADD_ALIASES: Record<string, string> = {
+  스팸: "햄구이",
+};
 
 const TOPPING_ADD_RANK = new Map<string, number>(
   TOPPING_ADD_DISPLAY_ORDER.map((name, index) => [name, index]),
@@ -36,5 +41,7 @@ export function isHiddenToppingAdd(name: string): boolean {
 }
 
 export function toppingAddDisplayRank(name: string): number {
-  return TOPPING_ADD_RANK.get(name.trim()) ?? 1000;
+  const trimmed = name.trim();
+  const canonical = TOPPING_ADD_ALIASES[trimmed] ?? trimmed;
+  return TOPPING_ADD_RANK.get(canonical) ?? 1000;
 }

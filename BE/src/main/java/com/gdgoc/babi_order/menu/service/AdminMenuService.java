@@ -48,13 +48,13 @@ public class AdminMenuService {
     );
     private static final List<DefaultOption> DEFAULT_TOPPINGS = List.of(
             new DefaultOption("계란후라이", 700, 1, false),
-            new DefaultOption("밥 추가", 1000, 2, false),
-            new DefaultOption("삼겹소금 추가", 1200, 3, false),
-            new DefaultOption("삼겹양념 추가", 1200, 4, false),
-            new DefaultOption("참치마요 추가", 1200, 5, false),
-            new DefaultOption("모짜렐라치즈", 1000, 6, false),
-            new DefaultOption("체다치즈", 500, 7, false),
-            new DefaultOption("스팸", 700, 8, false)
+            new DefaultOption("햄구이", 700, 2, false),
+            new DefaultOption("밥 추가", 1000, 3, false),
+            new DefaultOption("삼겹소금 추가", 1200, 4, false),
+            new DefaultOption("삼겹양념 추가", 1200, 5, false),
+            new DefaultOption("참치마요 추가", 1200, 6, false),
+            new DefaultOption("모짜렐라치즈", 1000, 7, false),
+            new DefaultOption("체다치즈", 500, 8, false)
     );
     private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
             new DefaultOption("김치 제외", 0, 1, false),
@@ -63,6 +63,8 @@ public class AdminMenuService {
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
     private static final Set<String> DEFAULT_OPTION_CATEGORY_NAMES = Set.of("컵밥", "세트");
+    private static final String LEGACY_SPAM_TOPPING_NAME = "스팸";
+    private static final String HAM_GRILL_TOPPING_NAME = "햄구이";
 
     private final CategoryRepository categoryRepository;
     private final MenuRepository menuRepository;
@@ -282,6 +284,7 @@ public class AdminMenuService {
 
         List<MenuOption> currentToppings = menuOptionRepository
                 .findAllByMenuIdAndGroupTypeIn(menu.getId(), TOPPING_GROUP_TYPES);
+        renameLegacySpamTopping(currentToppings);
 
         Set<String> existingToppingNames = currentToppings.stream()
                 .map(MenuOption::getName)
@@ -336,6 +339,36 @@ public class AdminMenuService {
         if (!missingSizes.isEmpty()) {
             menuOptionRepository.saveAll(missingSizes);
         }
+    }
+
+    /**
+     * 라이브 메뉴 옵션의 과거 명칭 '스팸'을 '햄구이'로 교정합니다.
+     * 주문 snapshot은 건드리지 않습니다. 이미 '햄구이'가 있으면 중복 생성만 막습니다.
+     */
+    private void renameLegacySpamTopping(List<MenuOption> currentToppings) {
+        MenuOption spam = currentToppings.stream()
+                .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD)
+                .filter(option -> LEGACY_SPAM_TOPPING_NAME.equals(option.getName()))
+                .findFirst()
+                .orElse(null);
+        if (spam == null) {
+            return;
+        }
+        boolean hamGrillExists = currentToppings.stream()
+                .anyMatch(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD
+                        && HAM_GRILL_TOPPING_NAME.equals(option.getName()));
+        if (hamGrillExists) {
+            return;
+        }
+        DefaultOption def = DEFAULT_TOPPING_ADD_BY_NAME.get(HAM_GRILL_TOPPING_NAME);
+        spam.update(
+                OptionGroupType.TOPPING_ADD,
+                def.name(),
+                spam.getAdditionalPrice(),
+                spam.getMaxQuantity(),
+                def.defaultSelected(),
+                def.displayOrder()
+        );
     }
 
     /**

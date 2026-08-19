@@ -1,4 +1,5 @@
 import type { OrderDetailResponse } from "../types/api";
+import { sortOrderItemOptions } from "./orderItemOptions";
 
 export type KitchenTicketPrintMode = "new" | "reprint";
 
@@ -9,6 +10,10 @@ export function buildKitchenTicketPayload(
 ): OrderDetailResponse & { ticketHeader: string } {
   return {
     ...orderDetail,
+    items: orderDetail.items.map((item) => ({
+      ...item,
+      options: sortOrderItemOptions(item.options),
+    })),
     ticketHeader: mode === "reprint" ? "재출력" : "신규 주문",
   };
 }
