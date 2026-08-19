@@ -1,9 +1,14 @@
 package com.gdgoc.babi_order.common.request;
 
+import com.gdgoc.babi_order.httprequest.RequestRecordService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -11,10 +16,22 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.verify;
 
+@ExtendWith(MockitoExtension.class)
 class RequestIdFilterTest {
 
-    private final RequestIdFilter filter = new RequestIdFilter();
+    @Mock
+    private RequestRecordService requestRecordService;
+
+    private RequestIdFilter filter;
+
+    @BeforeEach
+    void setUp() {
+        filter = new RequestIdFilter(requestRecordService);
+    }
 
     @AfterEach
     void tearDown() {
@@ -30,6 +47,7 @@ class RequestIdFilterTest {
 
         assertThat(response.getHeader(RequestIdSupport.HEADER_NAME)).isNotBlank();
         assertThat(MDC.get(RequestIdSupport.MDC_KEY)).isNull();
+        verify(requestRecordService).complete(any(), any(), anyLong());
     }
 
     @Test

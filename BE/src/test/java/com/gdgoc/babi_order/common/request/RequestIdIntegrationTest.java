@@ -1,8 +1,10 @@
 package com.gdgoc.babi_order.common.request;
 
+import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
+import com.gdgoc.babi_order.httprequest.RequestRecordService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -10,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +33,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         RequestIdIntegrationTest.TestController.class
 })
 class RequestIdIntegrationTest {
+
+    @MockitoBean
+    private RequestRecordService requestRecordService;
+
+    @MockitoBean
+    private BackendErrorRecordService backendErrorRecordService;
 
     @Autowired
     private MockMvc mockMvc;

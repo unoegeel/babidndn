@@ -1,6 +1,6 @@
 package com.gdgoc.babi_order.common.request;
 
-import com.gdgoc.babi_order.common.logging.RequestAccessLogger;
+import com.gdgoc.babi_order.httprequest.RequestRecordService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,9 +12,14 @@ import java.io.IOException;
 
 /**
  * 모든 HTTP 요청에 requestId를 부여하고 MDC·응답 헤더에 연결합니다.
- * SSE 등 장시간 연결도 요청 스레드 lifecycle 동안 MDC를 유지하고 finally에서 정리합니다.
  */
 public class RequestIdFilter extends OncePerRequestFilter {
+
+    private final RequestRecordService requestRecordService;
+
+    public RequestIdFilter(RequestRecordService requestRecordService) {
+        this.requestRecordService = requestRecordService;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -31,7 +36,7 @@ public class RequestIdFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(request, response);
         } finally {
-            RequestAccessLogger.logCompleted(request, response, startNano);
+            requestRecordService.complete(request, response, startNano);
             MDC.remove(RequestIdSupport.MDC_KEY);
         }
     }

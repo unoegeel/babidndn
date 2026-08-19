@@ -1,3 +1,5 @@
+import { DEV_LABELS } from "../../constants/developerLabels";
+
 interface DeveloperPlaceholderPageProps {
   title: string;
   description: string;
@@ -18,7 +20,7 @@ export default function DeveloperPlaceholderPage({
       </div>
 
       <div className="rounded-lg border border-dashed border-white/15 bg-[#171b24] p-6">
-        <p className="text-sm font-medium text-gray-300">준비 중</p>
+        <p className="text-sm font-medium text-gray-300">{DEV_LABELS.inProgress}</p>
         <p className="mt-2 text-xs leading-relaxed text-gray-500">
           `{module}` 모듈 UI가 구성되었습니다. API 연동 및 데이터 표시는 다음 단계에서 구현합니다.
         </p>

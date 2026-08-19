@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import DeveloperShell from "../../components/developer/DeveloperShell";
 import DeveloperErrorDetailPanel from "../../components/developer/DeveloperErrorDetailPanel";
+import { DEV_LABELS, sourceLabelKo } from "../../constants/developerLabels";
 import { developerErrorService } from "../../services/developer/errorService";
 import type {
   DeveloperErrorDetail,
@@ -88,8 +89,8 @@ export default function DeveloperErrorsPage() {
     <DeveloperShell>
       <div className="mx-auto max-w-7xl space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-100">Errors</h2>
-          <p className="text-sm text-gray-500">Frontend / Backend structured error monitoring</p>
+          <h2 className="text-lg font-semibold text-gray-100">{DEV_LABELS.errorMonitoring}</h2>
+          <p className="text-sm text-gray-500">프론트엔드/백엔드 구조화 오류 모니터링</p>
         </div>
 
         <div className="grid gap-3 rounded-lg border border-white/10 bg-[#171b24] p-4 md:grid-cols-[1fr_auto_auto_auto_auto]">
@@ -97,7 +98,7 @@ export default function DeveloperErrorsPage() {
             value={draftSearch}
             onChange={(e) => setDraftSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="Search message, route, requestId..."
+            placeholder="메시지, 경로, 요청 ID 검색..."
             className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100 outline-none focus:border-indigo-400/40"
           />
           <select
@@ -105,14 +106,14 @@ export default function DeveloperErrorsPage() {
             onChange={(e) => updateFilter({ source: e.target.value as DeveloperErrorSource | "" })}
             className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
           >
-            <option value="">All Sources</option>
-            <option value="FRONTEND">FRONTEND</option>
-            <option value="BACKEND">BACKEND</option>
+            <option value="">{DEV_LABELS.allSources}</option>
+            <option value="FRONTEND">{DEV_LABELS.frontend}</option>
+            <option value="BACKEND">{DEV_LABELS.backend}</option>
           </select>
           <input
             value={query.status ?? ""}
             onChange={(e) => updateFilter({ status: e.target.value || undefined })}
-            placeholder="Status"
+            placeholder={DEV_LABELS.status}
             className="w-28 rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
           />
           <input
@@ -120,13 +121,14 @@ export default function DeveloperErrorsPage() {
             value={toDateTimeLocal(query.from)}
             onChange={(e) => updateFilter({ from: fromDateTimeLocal(e.target.value) })}
             className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+            title="시작 기간"
           />
           <button
             type="button"
             onClick={applyFilters}
             className="rounded-md bg-indigo-500/20 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/30"
           >
-            Apply
+            {DEV_LABELS.apply}
           </button>
         </div>
 
@@ -136,23 +138,27 @@ export default function DeveloperErrorsPage() {
           <table className="min-w-full text-left text-xs">
             <thead className="bg-[#12151d] text-[11px] uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="px-3 py-2 font-semibold">Time</th>
-                <th className="px-3 py-2 font-semibold">Source</th>
-                <th className="px-3 py-2 font-semibold">Status</th>
-                <th className="px-3 py-2 font-semibold">Route</th>
-                <th className="px-3 py-2 font-semibold">Error</th>
-                <th className="px-3 py-2 font-semibold">Request ID</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.time}</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.source}</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.status}</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.route}</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.error}</th>
+                <th className="px-3 py-2 font-semibold">{DEV_LABELS.requestId}</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">Loading...</td>
+                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
+                    {DEV_LABELS.loading}
+                  </td>
                 </tr>
               )}
               {!loading && (pageData?.content.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">표시할 오류가 없습니다.</td>
+                  <td colSpan={6} className="px-3 py-6 text-center text-gray-500">
+                    표시할 오류가 없습니다.
+                  </td>
                 </tr>
               )}
               {!loading && pageData?.content.map((item) => (
@@ -170,7 +176,8 @@ export default function DeveloperErrorsPage() {
         {pageData && pageData.totalPages > 0 && (
           <div className="flex items-center justify-between text-sm text-gray-400">
             <span>
-              Page {pageData.page + 1} / {pageData.totalPages} · {pageData.totalElements} errors
+              {DEV_LABELS.pageOf(pageData.page + 1, pageData.totalPages)} ·{" "}
+              {DEV_LABELS.totalErrors(pageData.totalElements)}
             </span>
             <div className="flex gap-2">
               <button
@@ -179,7 +186,7 @@ export default function DeveloperErrorsPage() {
                 onClick={() => goPage(pageData.page - 1)}
                 className="rounded border border-white/10 px-3 py-1 disabled:opacity-40"
               >
-                Prev
+                {DEV_LABELS.previous}
               </button>
               <button
                 type="button"
@@ -187,7 +194,7 @@ export default function DeveloperErrorsPage() {
                 onClick={() => goPage(pageData.page + 1)}
                 className="rounded border border-white/10 px-3 py-1 disabled:opacity-40"
               >
-                Next
+                {DEV_LABELS.next}
               </button>
             </div>
           </div>
@@ -222,7 +229,7 @@ function ErrorRow({
       <td className="whitespace-nowrap px-3 py-2 font-mono text-gray-300">{formatErrorTime(item.createdAt)}</td>
       <td className="px-3 py-2">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${sourceBadgeClass(item.source)}`}>
-          {item.source}
+          {sourceLabelKo(item.source)}
         </span>
       </td>
       <td className="px-3 py-2 font-mono text-gray-300">{statusLabel(item.status)}</td>

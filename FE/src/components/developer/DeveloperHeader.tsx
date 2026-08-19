@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { signOutAdmin } from "../../constants/adminAccount";
+import { DEV_LABELS } from "../../constants/developerLabels";
 
 export default function DeveloperHeader() {
   const navigate = useNavigate();
@@ -12,8 +13,8 @@ export default function DeveloperHeader() {
   return (
     <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#12151d] px-4 py-3 md:px-6">
       <div>
-        <h1 className="text-sm font-semibold text-gray-100">Developer Console</h1>
-        <p className="text-xs text-gray-500">Error · Request · Event · Analytics</p>
+        <h1 className="text-sm font-semibold text-gray-100">{DEV_LABELS.consoleTitle}</h1>
+        <p className="text-xs text-gray-500">{DEV_LABELS.consoleSubtitle}</p>
       </div>
       <button
         type="button"

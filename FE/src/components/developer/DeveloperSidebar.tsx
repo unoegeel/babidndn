@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { DEV_LABELS } from "../../constants/developerLabels";
 
 interface NavItem {
   to: string;
@@ -13,21 +14,21 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Overview",
-    items: [{ to: "/dev", label: "Overview", end: true }],
+    title: DEV_LABELS.overview,
+    items: [{ to: "/dev", label: DEV_LABELS.overview, end: true }],
   },
   {
-    title: "Monitoring",
+    title: DEV_LABELS.monitoring,
     items: [
-      { to: "/dev/errors", label: "Errors" },
-      { to: "/dev/requests", label: "Requests" },
+      { to: "/dev/errors", label: DEV_LABELS.errors },
+      { to: "/dev/requests", label: DEV_LABELS.requests },
     ],
   },
   {
-    title: "Analytics",
+    title: DEV_LABELS.analytics,
     items: [
-      { to: "/dev/events", label: "Events" },
-      { to: "/dev/analytics", label: "Funnel / Analytics" },
+      { to: "/dev/events", label: DEV_LABELS.events },
+      { to: "/dev/analytics", label: DEV_LABELS.funnelAnalytics },
     ],
   },
 ];
@@ -49,9 +50,9 @@ export default function DeveloperSidebar() {
     >
       <div className="mb-6 px-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-300/80">
-          Developer Console
+          {DEV_LABELS.consoleTitle}
         </p>
-        <p className="mt-1 text-xs text-gray-500">Observability</p>
+        <p className="mt-1 text-xs text-gray-500">{DEV_LABELS.observability}</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-5">
