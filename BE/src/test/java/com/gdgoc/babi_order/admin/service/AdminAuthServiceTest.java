@@ -44,7 +44,8 @@ class AdminAuthServiceTest {
         Admin admin = new Admin("owner", "encoded-password");
         given(adminRepository.findByLoginId("owner")).willReturn(Optional.of(admin));
         given(passwordEncoder.matches("password", "encoded-password")).willReturn(true);
-        given(jwtTokenProvider.createToken("owner")).willReturn("access-token");
+        given(jwtTokenProvider.createToken("owner", com.gdgoc.babi_order.admin.entity.AdminRole.ADMIN))
+                .willReturn("access-token");
         given(jwtTokenProvider.getExpirationSeconds()).willReturn(3600L);
 
         AdminLoginResponse result = adminAuthService.login(
@@ -85,7 +86,8 @@ class AdminAuthServiceTest {
         given(passwordEncoder.encode("password123")).willReturn("encoded-password");
         given(adminRepository.save(org.mockito.ArgumentMatchers.any(Admin.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
-        given(jwtTokenProvider.createToken("new-owner")).willReturn("access-token");
+        given(jwtTokenProvider.createToken("new-owner", com.gdgoc.babi_order.admin.entity.AdminRole.ADMIN))
+                .willReturn("access-token");
         given(jwtTokenProvider.getExpirationSeconds()).willReturn(3600L);
 
         AdminLoginResponse result = adminAuthService.signup(

@@ -90,6 +90,7 @@ export interface AdminLoginResponse {
   accessToken: string;
   tokenType: string;
   expiresIn: number;
+  role: "ADMIN" | "DEVELOPER";
 }
 
 export interface CategoryResponse {

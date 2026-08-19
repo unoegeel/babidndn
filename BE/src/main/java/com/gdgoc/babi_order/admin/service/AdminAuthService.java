@@ -6,6 +6,7 @@ import com.gdgoc.babi_order.admin.dto.response.AdminLoginResponse;
 import com.gdgoc.babi_order.admin.entity.Admin;
 import com.gdgoc.babi_order.admin.exception.AdminAuthException;
 import com.gdgoc.babi_order.admin.repository.AdminRepository;
+import com.gdgoc.babi_order.admin.entity.AdminRole;
 import com.gdgoc.babi_order.admin.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,9 +30,10 @@ public class AdminAuthService {
             throw invalidCredentials();
         }
         return AdminLoginResponse.builder()
-                .accessToken(jwtTokenProvider.createToken(admin.getLoginId()))
+                .accessToken(jwtTokenProvider.createToken(admin.getLoginId(), admin.getRole()))
                 .tokenType("Bearer")
                 .expiresIn(jwtTokenProvider.getExpirationSeconds())
+                .role(admin.getRole().name())
                 .build();
     }
 
@@ -44,13 +46,15 @@ public class AdminAuthService {
 
         Admin admin = adminRepository.save(new Admin(
                 loginId,
-                passwordEncoder.encode(request.getPassword())
+                passwordEncoder.encode(request.getPassword()),
+                AdminRole.ADMIN
         ));
 
         return AdminLoginResponse.builder()
-                .accessToken(jwtTokenProvider.createToken(admin.getLoginId()))
+                .accessToken(jwtTokenProvider.createToken(admin.getLoginId(), admin.getRole()))
                 .tokenType("Bearer")
                 .expiresIn(jwtTokenProvider.getExpirationSeconds())
+                .role(admin.getRole().name())
                 .build();
     }
 

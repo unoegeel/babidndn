@@ -38,6 +38,13 @@ import MyMenuPage from "./pages/user/MyMenuPage";
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
 
+import RequireDeveloperAuth from "./components/RequireDeveloperAuth";
+import DeveloperOverviewPage from "./pages/developer/DeveloperOverviewPage";
+import DeveloperErrorsPage from "./pages/developer/DeveloperErrorsPage";
+import DeveloperRequestsPage from "./pages/developer/DeveloperRequestsPage";
+import DeveloperEventsPage from "./pages/developer/DeveloperEventsPage";
+import DeveloperAnalyticsPage from "./pages/developer/DeveloperAnalyticsPage";
+
 // 태블릿/모바일 브라우저 상·하단 UI를 반영한 가시 높이 동기화
 startAppHeightSync();
 initFrontendErrorTracking();
@@ -66,6 +73,14 @@ function RootLayout() {
   );
 }
 
+function DeveloperLayout() {
+  return (
+    <RequireDeveloperAuth>
+      <Outlet />
+    </RequireDeveloperAuth>
+  );
+}
+
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
@@ -85,6 +100,17 @@ const router = createBrowserRouter([
           { path: "store", element: <StoreManagementPage /> },
           { path: "store/reviews", element: <StoreReviewsPage /> },
           { path: "settings", element: <SettingsPage /> },
+        ],
+      },
+      {
+        path: "/dev",
+        element: <DeveloperLayout />,
+        children: [
+          { index: true, element: <DeveloperOverviewPage /> },
+          { path: "errors", element: <DeveloperErrorsPage /> },
+          { path: "requests", element: <DeveloperRequestsPage /> },
+          { path: "events", element: <DeveloperEventsPage /> },
+          { path: "analytics", element: <DeveloperAnalyticsPage /> },
         ],
       },
       {

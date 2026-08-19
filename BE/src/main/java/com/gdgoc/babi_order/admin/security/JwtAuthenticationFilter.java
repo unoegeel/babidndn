@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.admin.security;
 
+import com.gdgoc.babi_order.admin.entity.AdminRole;
 import com.gdgoc.babi_order.admin.repository.AdminRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -31,16 +32,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authorization = request.getHeader("Authorization");
         if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
             String token = authorization.substring(BEARER_PREFIX.length());
-            jwtTokenProvider.getValidLoginId(token)
-                    .filter(adminRepository::existsByLoginId)
-                    .ifPresent(loginId -> SecurityContextHolder.getContext().setAuthentication(
+            jwtTokenProvider.parseValidClaims(token)
+                    .flatMap(claims -> adminRepository.findByLoginId(claims.sub())
+                            .filter(admin -> admin.getRole().name().equals(claims.role())))
+                    .ifPresent(admin -> SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(
-                                    loginId,
+                                    admin.getLoginId(),
                                     null,
-                                    List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                                    List.of(toAuthority(admin.getRole()))
                             )
                     ));
         }
         filterChain.doFilter(request, response);
+    }
+
+    private static SimpleGrantedAuthority toAuthority(AdminRole role) {
+        return new SimpleGrantedAuthority("ROLE_" + role.name());
     }
 }

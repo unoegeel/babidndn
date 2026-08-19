@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.admin.security;
 
 import com.gdgoc.babi_order.admin.config.JwtProperties;
+import com.gdgoc.babi_order.admin.entity.AdminRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -24,12 +25,12 @@ public class JwtTokenProvider {
     private final JwtProperties properties;
     private final ObjectMapper objectMapper;
 
-    public String createToken(String loginId) {
+    public String createToken(String loginId, AdminRole role) {
         validateSecret();
         long issuedAt = Instant.now().getEpochSecond();
         JwtClaims claims = new JwtClaims(
                 loginId,
-                "ADMIN",
+                role.name(),
                 issuedAt,
                 issuedAt + properties.getExpirationSeconds()
         );
@@ -43,7 +44,7 @@ public class JwtTokenProvider {
         }
     }
 
-    public Optional<String> getValidLoginId(String token) {
+    public Optional<JwtClaims> parseValidClaims(String token) {
         try {
             validateSecret();
             String[] parts = token.split("\\.");
@@ -58,20 +59,28 @@ public class JwtTokenProvider {
             }
             JwtClaims claims = objectMapper.readValue(
                     BASE64_DECODER.decode(parts[1]), JwtClaims.class);
-            if (!"ADMIN".equals(claims.role())
+            if (!isSupportedRole(claims.role())
                     || claims.exp() <= Instant.now().getEpochSecond()
                     || claims.sub() == null
                     || claims.sub().isBlank()) {
                 return Optional.empty();
             }
-            return Optional.of(claims.sub());
+            return Optional.of(claims);
         } catch (Exception exception) {
             return Optional.empty();
         }
     }
 
+    public Optional<String> getValidLoginId(String token) {
+        return parseValidClaims(token).map(JwtClaims::sub);
+    }
+
     public long getExpirationSeconds() {
         return properties.getExpirationSeconds();
+    }
+
+    private static boolean isSupportedRole(String role) {
+        return AdminRole.ADMIN.name().equals(role) || AdminRole.DEVELOPER.name().equals(role);
     }
 
     private String sign(String value) throws Exception {

@@ -13,4 +13,6 @@ public class AdminAccountProperties {
 
     private String loginId;
     private String password;
+    private String developerLoginId;
+    private String developerPassword;
 }
