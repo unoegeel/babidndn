@@ -38,8 +38,6 @@ export function useSavedMenuPopupKeyboard({
     const input = inputRef.current;
     if (!overlay || !card || !input) return;
 
-    input.focus({ preventScroll: true });
-
     const ancestor = closestOverflowYAncestor(overlay);
     const savedScrollTop = ancestor?.scrollTop ?? 0;
     const viewport = window.visualViewport;
@@ -79,12 +77,6 @@ export function useSavedMenuPopupKeyboard({
     };
 
     const scheduleUpdate = (withFollowUp = false) => {
-      if (rafId) return;
-      rafId = window.requestAnimationFrame(() => {
-        rafId = 0;
-        updateCardPosition();
-      });
-
       if (withFollowUp) {
         if (followUpTimer) clearTimeout(followUpTimer);
         followUpTimer = setTimeout(() => {
@@ -92,17 +84,25 @@ export function useSavedMenuPopupKeyboard({
           updateCardPosition();
         }, 150);
       }
+
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateCardPosition();
+      });
     };
 
-    const onViewportChange = () => scheduleUpdate(true);
-    const onFocusIn = () => scheduleUpdate(true);
+    /** 최초 자동 focus와 재탭 focus가 동일하게 거치는 진입점 */
+    const syncCardPosition = () => scheduleUpdate(true);
+
+    const onViewportChange = () => syncCardPosition();
 
     viewport?.addEventListener("resize", onViewportChange);
     viewport?.addEventListener("scroll", onViewportChange);
     window.addEventListener("resize", onViewportChange);
-    document.addEventListener("focusin", onFocusIn);
+    input.addEventListener("focus", syncCardPosition);
 
-    scheduleUpdate(true);
+    input.focus({ preventScroll: true });
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
@@ -111,7 +111,7 @@ export function useSavedMenuPopupKeyboard({
       viewport?.removeEventListener("resize", onViewportChange);
       viewport?.removeEventListener("scroll", onViewportChange);
       window.removeEventListener("resize", onViewportChange);
-      document.removeEventListener("focusin", onFocusIn);
+      input.removeEventListener("focus", syncCardPosition);
     };
   }, [overlayRef, cardRef, inputRef]);
 }
