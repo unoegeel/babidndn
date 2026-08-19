@@ -1,6 +1,6 @@
 export type SaleStatus = "AVAILABLE" | "SOLDOUT";
 export type MenuBadge = "NONE" | "POPULAR" | "BEST" | "RECOMMENDED";
-export type GroupType = "SIZE" | "TOPPING_ADD" | "TOPPING_REMOVE" | null;
+export type GroupType = "SIZE" | "PACKAGING" | "TOPPING_ADD" | "TOPPING_REMOVE" | null;
 
 export interface MenuOption {
   id: number;

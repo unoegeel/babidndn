@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { MenuDetail, MenuOption } from "../../types/user";
 import type { SavedMenuResponse } from "../../types/api";
-import { isHiddenToppingAdd, toppingAddDisplayRank } from "../../utils/optionSort";
+import { isHiddenToppingAdd, packagingDisplayRank, toppingAddDisplayRank } from "../../utils/optionSort";
 import { savedMenuService } from "../../services/user/savedMenuService";
 import { getLatestMatchingSavedMenu, isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
 import { ApiError } from "../../api/client";
@@ -51,10 +51,20 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const initialSizeId = sizeOptions.find((o) => o.defaultSelected)?.id || sizeOptions[0]?.id;
   const [selectedSizeId, setSelectedSizeId] = useState<number | undefined>(initialSizeId);
 
+  const packagingOptions = menuDetail.options.filter((o) => o.groupType === "PACKAGING");
+  const initialPackagingId =
+    packagingOptions.find((o) => o.defaultSelected)?.id
+    || packagingOptions.find((o) => o.name === "매장")?.id
+    || packagingOptions[0]?.id;
+  const [selectedPackagingId, setSelectedPackagingId] = useState<number | undefined>(initialPackagingId);
+
   // TOPPING_ADD 및 TOPPING_REMOVE, null 옵션들에 대한 수량/선택 상태 관리 (평면 구조 유지)
   // '고기 추가'는 더 이상 판매하지 않아 표시·선택 대상에서 제외한다.
   const otherOptions = menuDetail.options.filter(
-    (o) => o.groupType !== "SIZE" && !(o.groupType === "TOPPING_ADD" && isHiddenToppingAdd(o.name)),
+    (o) =>
+      o.groupType !== "SIZE"
+      && o.groupType !== "PACKAGING"
+      && !(o.groupType === "TOPPING_ADD" && isHiddenToppingAdd(o.name)),
   );
   const [selectedOtherOptions, setSelectedOtherOptions] = useState<Record<number, number>>(() => {
     const initialSelected: Record<number, number> = {};
@@ -111,6 +121,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const handleSizeChange = (id: number) => {
     setSelectedSizeId(id);
+  };
+
+  const handlePackagingChange = (id: number) => {
+    setSelectedPackagingId(id);
   };
 
   // SIZE 및 TOPPING_REMOVE, null 옵션 클릭 처리
@@ -187,6 +201,13 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
       }
     }
 
+    if (selectedPackagingId !== undefined) {
+      const packagingOpt = packagingOptions.find((o) => o.id === selectedPackagingId);
+      if (packagingOpt) {
+        price += packagingOpt.additionalPrice;
+      }
+    }
+
     otherOptions.forEach((opt) => {
       const qty = selectedOtherOptions[opt.id] || 0;
       if (qty > 0) {
@@ -204,6 +225,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
     if (selectedSizeId !== undefined) {
       const sizeOpt = sizeOptions.find((o) => o.id === selectedSizeId);
       if (sizeOpt) finalOptions.push(sizeOpt);
+    }
+    if (selectedPackagingId !== undefined) {
+      const packagingOpt = packagingOptions.find((o) => o.id === selectedPackagingId);
+      if (packagingOpt) finalOptions.push(packagingOpt);
     }
     otherOptions.forEach((opt) => {
       const qty = selectedOtherOptions[opt.id] || 0;
@@ -387,7 +412,44 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
+          {/* 2) 포장 여부 (PACKAGING) - 사이즈와 동일한 1줄 선택, 가격 미표시 */}
+          {packagingOptions.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">포장 여부</h3>
+              <div className="flex gap-2">
+                {[...packagingOptions]
+                  .sort((a, b) => {
+                    const rankDiff = packagingDisplayRank(a.name) - packagingDisplayRank(b.name);
+                    if (rankDiff !== 0) return rankDiff;
+                    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+                  })
+                  .map((opt) => {
+                    const isSelected = selectedPackagingId === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handlePackagingChange(opt.id)}
+                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                        }`}
+                      >
+                        <div className="w-full text-center text-[11px] font-semibold leading-snug">
+                          {opt.name}
+                        </div>
+                        {isSelected && (
+                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* 3) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
@@ -474,7 +536,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈/토핑 추가와 동일한 1줄 카드 */}
+          {/* 4) 토핑 제외 (TOPPING_REMOVE) - 사이즈/토핑 추가와 동일한 1줄 카드 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
@@ -509,7 +571,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 4) 기타 옵션 (groupType === null) */}
+          {/* 5) 기타 옵션 (groupType === null) */}
           {extraOptions.length > 0 && (
             <div>
               <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">기타 선택</h3>

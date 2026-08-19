@@ -41,6 +41,18 @@ public class AdminMenuService {
 
     private static final List<OptionGroupType> TOPPING_GROUP_TYPES =
             List.of(OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+    private static final List<OptionGroupType> CUPBAP_OPTION_GROUP_TYPES = List.of(
+            OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+    private static final List<OptionGroupType> PACKAGING_GROUP_TYPES =
+            List.of(OptionGroupType.PACKAGING);
+    private static final List<OptionGroupType> NAENGMOMIL_OFF_GROUP_TYPES = List.of(
+            OptionGroupType.SIZE,
+            OptionGroupType.TOPPING_ADD,
+            OptionGroupType.TOPPING_REMOVE,
+            OptionGroupType.PACKAGING);
+    private static final String NAENGMOMIL_NAME_MARKER = "냉모밀";
+    private static final String PACKAGING_STORE_NAME = "매장";
+    private static final String PACKAGING_TAKEOUT_NAME = "포장";
     private static final List<DefaultOption> DEFAULT_SIZES = List.of(
             new DefaultOption("싱글", 0, 1, true),
             new DefaultOption("더블", 1000, 2, false),
@@ -59,6 +71,10 @@ public class AdminMenuService {
     private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
             new DefaultOption("김치 제외", 0, 1, false),
             new DefaultOption("고추장 소스 제외", 0, 2, false)
+    );
+    private static final List<DefaultOption> DEFAULT_PACKAGING = List.of(
+            new DefaultOption(PACKAGING_STORE_NAME, 0, 1, true),
+            new DefaultOption(PACKAGING_TAKEOUT_NAME, 0, 2, false)
     );
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
@@ -262,6 +278,14 @@ public class AdminMenuService {
     }
 
     private void syncSizeAndToppingOptions(Menu menu, boolean toppingEnabled) {
+        if (isNaengmomilMenu(menu)) {
+            syncNaengmomilPackaging(menu, toppingEnabled);
+            return;
+        }
+
+        // 메뉴명에서 냉모밀이 빠지면 PACKAGING 잔여 옵션을 제거한다.
+        deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
+
         // 컵밥/세트가 아니면 기본 사이즈·토핑을 만들지도, 기존 커스텀 토핑을 지우지도 않는다.
         if (!usesDefaultSizeAndToppingOptions(menu)) {
             return;
@@ -339,6 +363,63 @@ public class AdminMenuService {
         if (!missingSizes.isEmpty()) {
             menuOptionRepository.saveAll(missingSizes);
         }
+    }
+
+    private void syncNaengmomilPackaging(Menu menu, boolean toppingEnabled) {
+        if (!toppingEnabled) {
+            deleteOptionsOfTypes(menu, NAENGMOMIL_OFF_GROUP_TYPES);
+            return;
+        }
+
+        deleteOptionsOfTypes(menu, CUPBAP_OPTION_GROUP_TYPES);
+
+        List<MenuOption> currentPackaging = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), PACKAGING_GROUP_TYPES);
+        Map<String, MenuOption> packagingByName = currentPackaging.stream()
+                .collect(Collectors.toMap(MenuOption::getName, Function.identity(), (left, right) -> left));
+
+        ArrayList<MenuOption> missingPackaging = new ArrayList<>();
+        for (DefaultOption packaging : DEFAULT_PACKAGING) {
+            MenuOption existing = packagingByName.get(packaging.name());
+            if (existing == null) {
+                missingPackaging.add(MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.PACKAGING)
+                        .name(packaging.name())
+                        .additionalPrice(packaging.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(packaging.defaultSelected())
+                        .displayOrder(packaging.displayOrder())
+                        .build());
+                continue;
+            }
+            existing.update(
+                    OptionGroupType.PACKAGING,
+                    packaging.name(),
+                    packaging.additionalPrice(),
+                    1,
+                    packaging.defaultSelected(),
+                    packaging.displayOrder()
+            );
+        }
+        if (!missingPackaging.isEmpty()) {
+            menuOptionRepository.saveAll(missingPackaging);
+        }
+    }
+
+    private void deleteOptionsOfTypes(Menu menu, List<OptionGroupType> groupTypes) {
+        if (menu.getId() == null) {
+            return;
+        }
+        List<MenuOption> current = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), groupTypes);
+        if (current.isEmpty()) {
+            return;
+        }
+        List<Long> optionIds = current.stream().map(MenuOption::getId).toList();
+        orderItemOptionRepository.detachMenuOptions(optionIds);
+        savedMenuOptionRepository.detachMenuOptions(optionIds);
+        menuOptionRepository.deleteAll(current);
     }
 
     /**
@@ -419,6 +500,7 @@ public class AdminMenuService {
 
     /**
      * 토핑 가능 메뉴에 누락된 기본 사이즈/토핑추가/토핑제외 옵션을 보강합니다.
+     * 냉모밀이면 PACKAGING만 맞춥니다.
      * (기존 메뉴 상세 조회 시 자동 보정용)
      */
     @Transactional
@@ -426,9 +508,32 @@ public class AdminMenuService {
         syncSizeAndToppingOptions(menu, true);
     }
 
+    /**
+     * 메뉴명에 냉모밀이 포함된 경우 현재 옵션으로 토핑 가능 여부를 추론해 동기화합니다.
+     * SIZE/토핑만 남은 과거 데이터와 PACKAGING 누락을 상세 조회 시 교정합니다.
+     */
+    @Transactional
+    public void healNaengmomilOptions(Menu menu) {
+        if (!isNaengmomilMenu(menu) || menu.getId() == null) {
+            return;
+        }
+        List<MenuOption> options = menuOptionRepository
+                .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menu.getId());
+        boolean toppingEnabled = options.stream().anyMatch(option ->
+                option.getGroupType() == OptionGroupType.TOPPING_ADD
+                        || option.getGroupType() == OptionGroupType.TOPPING_REMOVE
+                        || option.getGroupType() == OptionGroupType.PACKAGING);
+        syncNaengmomilPackaging(menu, toppingEnabled);
+    }
+
     /** SIZE 에 잘못 들어간 기본 토핑명인지 (밥 추가 등) */
     public static boolean isDefaultToppingAddName(String name) {
         return DEFAULT_TOPPING_ADD_BY_NAME.containsKey(name);
+    }
+
+    /** 메뉴명에 냉모밀이 포함되면 카테고리와 관계없이 냉모밀로 취급한다. */
+    public static boolean isNaengmomilMenu(Menu menu) {
+        return menu != null && menu.getName() != null && menu.getName().contains(NAENGMOMIL_NAME_MARKER);
     }
 
     /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */

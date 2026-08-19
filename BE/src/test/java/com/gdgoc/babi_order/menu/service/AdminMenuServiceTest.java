@@ -69,6 +69,9 @@ class AdminMenuServiceTest {
                 savedMenuRepository,
                 savedMenuOptionRepository
         );
+        org.mockito.Mockito.lenient()
+                .when(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(any(), any()))
+                .thenReturn(List.of());
     }
 
     @Test
@@ -553,7 +556,6 @@ class AdminMenuServiceTest {
 
         verify(menuOptionRepository, never()).saveAll(any());
         verify(menuOptionRepository, never()).deleteAll(any());
-        verify(menuOptionRepository, never()).findAllByMenuIdAndGroupTypeIn(any(), any());
     }
 
     @Test
@@ -574,6 +576,193 @@ class AdminMenuServiceTest {
                 SaleStatus.AVAILABLE, true, MenuBadge.NONE));
 
         verify(menuOptionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void createNaengmomilWithToppingEnabledCreatesPackagingOnly() {
+        Category category = category(2L, "우동", 2);
+        Menu savedMenu = menu(11L, category, "냉모밀", 1);
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(2L, "냉모밀")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 11L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(
+                OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(
+                        packagingOption(201L, savedMenu, "매장", 1, true),
+                        packagingOption(202L, savedMenu, "포장", 2, false)));
+
+        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
+                2L, "냉모밀", null, 5500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(
+                        MenuOption::getGroupType,
+                        MenuOption::getName,
+                        MenuOption::getAdditionalPrice,
+                        MenuOption::isDefaultSelected,
+                        MenuOption::getDisplayOrder,
+                        MenuOption::getMaxQuantity)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                OptionGroupType.PACKAGING, "매장", 0, true, 1, 1),
+                        org.assertj.core.groups.Tuple.tuple(
+                                OptionGroupType.PACKAGING, "포장", 0, false, 2, 1));
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions())
+                .extracting(option -> option.getName())
+                .containsExactly("매장", "포장");
+    }
+
+    @Test
+    void createNaengmomilWithToppingDisabledCreatesNoOptions() {
+        Category category = category(2L, "우동", 2);
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(2L, "냉모밀")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 11L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(
+                OptionGroupType.SIZE,
+                OptionGroupType.TOPPING_ADD,
+                OptionGroupType.TOPPING_REMOVE,
+                OptionGroupType.PACKAGING)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of());
+
+        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
+                2L, "냉모밀", null, 5500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        verify(menuOptionRepository, never()).deleteAll(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+        assertThat(result.getOptions()).isEmpty();
+    }
+
+    @Test
+    void createSetNaengmomilWithToppingEnabledRemovesCupbapOptions() {
+        Category category = category(3L, "세트", 3);
+        Menu savedMenu = menu(12L, category, "세트 냉모밀", 1);
+        MenuOption size = MenuOption.builder()
+                .menu(savedMenu)
+                .groupType(OptionGroupType.SIZE)
+                .name("싱글")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(1)
+                .build();
+        MenuOption topping = option(100L, savedMenu);
+        ReflectionTestUtils.setField(size, "id", 90L);
+        given(categoryRepository.findById(3L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(3L, "세트 냉모밀")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 12L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(12L, List.of(
+                OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(size, topping));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(12L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(12L))
+                .willReturn(List.of(
+                        packagingOption(201L, savedMenu, "매장", 1, true),
+                        packagingOption(202L, savedMenu, "포장", 2, false)));
+
+        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
+                3L, "세트 냉모밀", null, 8000, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        verify(orderItemOptionRepository).detachMenuOptions(List.of(90L, 100L));
+        verify(menuOptionRepository).deleteAll(List.of(size, topping));
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(MenuOption::getGroupType, MenuOption::getName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"));
+        assertThat(captor.getValue())
+                .extracting(MenuOption::getGroupType)
+                .doesNotContain(OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE);
+        assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void updateMenuNameToNaengmomilCreatesPackaging() {
+        Category category = category(1L);
+        Menu menu = menu(10L, category, "삼겹소금", 1);
+        given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(1L, "냉모밀", 10L)).willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of(
+                        packagingOption(201L, menu, "매장", 1, true),
+                        packagingOption(202L, menu, "포장", 2, false)));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "냉모밀", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(MenuOption::getName)
+                .containsExactly("매장", "포장");
+        assertThat(result.getName()).isEqualTo("냉모밀");
+        assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void updateMenuNameFromNaengmomilRemovesPackaging() {
+        Category category = category(1L);
+        Menu menu = menu(10L, category, "냉모밀", 1);
+        MenuOption store = packagingOption(201L, menu, "매장", 1, true);
+        MenuOption takeout = packagingOption(202L, menu, "포장", 2, false);
+        given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(1L, "삼겹소금", 10L)).willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of(store, takeout));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of());
+
+        MenuDetailResponse result = adminMenuService.updateMenu(10L, new MenuUpsertRequest(
+                1L, "삼겹소금", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        verify(orderItemOptionRepository).detachMenuOptions(List.of(201L, 202L));
+        verify(menuOptionRepository).deleteAll(List.of(store, takeout));
+        verify(menuOptionRepository, org.mockito.Mockito.atLeastOnce()).saveAll(any());
+        assertThat(result.getName()).isEqualTo("삼겹소금");
     }
 
     @Test
@@ -740,6 +929,21 @@ class AdminMenuServiceTest {
                 .additionalPrice(0)
                 .maxQuantity(1)
                 .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(option, "id", id);
+        return option;
+    }
+
+    private MenuOption packagingOption(
+            Long id, Menu menu, String name, int displayOrder, boolean defaultSelected) {
+        MenuOption option = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.PACKAGING)
+                .name(name)
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(defaultSelected)
+                .displayOrder(displayOrder)
                 .build();
         ReflectionTestUtils.setField(option, "id", id);
         return option;
