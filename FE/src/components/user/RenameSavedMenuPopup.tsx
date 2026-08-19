@@ -1,17 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { userPrimaryButtonClassName } from "./userPrimaryButton";
-
-function closestOverflowYAncestor(start: HTMLElement | null): HTMLElement | null {
-  let node = start?.parentElement ?? null;
-  while (node && node !== document.body && node !== document.documentElement) {
-    const overflowY = window.getComputedStyle(node).overflowY;
-    if (overflowY === "auto" || overflowY === "scroll" || overflowY === "hidden" || overflowY === "overlay") {
-      return node;
-    }
-    node = node.parentElement;
-  }
-  return null;
-}
+import { useSavedMenuPopupKeyboard } from "./useSavedMenuPopupKeyboard";
 
 export function RenameSavedMenuPopup({
   initialName,
@@ -27,22 +16,11 @@ export function RenameSavedMenuPopup({
   onSubmit: (customName: string) => void;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [customName, setCustomName] = useState(initialName);
 
-  useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
-
-    const ancestor = closestOverflowYAncestor(overlayRef.current);
-    if (!ancestor) return undefined;
-
-    const keepScroll = () => {
-      if (ancestor.scrollTop !== 0) ancestor.scrollTop = 0;
-    };
-    keepScroll();
-    ancestor.addEventListener("scroll", keepScroll, { passive: true });
-    return () => ancestor.removeEventListener("scroll", keepScroll);
-  }, []);
+  useSavedMenuPopupKeyboard({ overlayRef, cardRef, inputRef });
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -57,6 +35,7 @@ export function RenameSavedMenuPopup({
       className="absolute inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
     >
       <form
+        ref={cardRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="rename-menu-title"
