@@ -51,6 +51,9 @@ public class AdminMenuService {
             OptionGroupType.TOPPING_REMOVE,
             OptionGroupType.PACKAGING);
     private static final String NAENGMOMIL_NAME_MARKER = "냉모밀";
+    private static final String BIBIM_UDON_MENU_NAME = "참치불닭비빔우동";
+    private static final String SALT_PORK_MENU_NAME = "삼겹소금";
+    private static final String SESAME_OIL_REMOVE_NAME = "참기름 제외";
     private static final String PACKAGING_STORE_NAME = "매장";
     private static final String PACKAGING_TAKEOUT_NAME = "포장";
     private static final List<DefaultOption> DEFAULT_SIZES = List.of(
@@ -75,6 +78,11 @@ public class AdminMenuService {
     private static final List<DefaultOption> DEFAULT_PACKAGING = List.of(
             new DefaultOption(PACKAGING_STORE_NAME, 0, 1, true),
             new DefaultOption(PACKAGING_TAKEOUT_NAME, 0, 2, false)
+    );
+    private static final List<DefaultOption> BIBIM_UDON_TOPPING_REMOVES = List.of(
+            new DefaultOption("불닭소스 제외", 0, 1, false),
+            new DefaultOption("김가루 제외", 0, 2, false),
+            new DefaultOption("파 제외", 0, 3, false)
     );
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
@@ -282,8 +290,12 @@ public class AdminMenuService {
             syncNaengmomilPackaging(menu, toppingEnabled);
             return;
         }
+        if (isBibimUdonMenu(menu)) {
+            syncBibimUdonOptions(menu, toppingEnabled);
+            return;
+        }
 
-        // 메뉴명에서 냉모밀이 빠지면 PACKAGING 잔여 옵션을 제거한다.
+        // 전용 메뉴가 아니면 PACKAGING 잔여 옵션을 제거한다.
         deleteOptionsOfTypes(menu, PACKAGING_GROUP_TYPES);
 
         // 컵밥/세트가 아니면 기본 사이즈·토핑을 만들지도, 기존 커스텀 토핑을 지우지도 않는다.
@@ -339,8 +351,26 @@ public class AdminMenuService {
                         .displayOrder(remove.displayOrder())
                         .build())
                 .forEach(missingToppingOptions::add);
+        if (isSaltPorkMenu(menu) && !existingToppingNames.contains(SESAME_OIL_REMOVE_NAME)) {
+            missingToppingOptions.add(MenuOption.builder()
+                    .menu(menu)
+                    .groupType(OptionGroupType.TOPPING_REMOVE)
+                    .name(SESAME_OIL_REMOVE_NAME)
+                    .additionalPrice(0)
+                    .maxQuantity(1)
+                    .defaultSelected(false)
+                    .displayOrder(3)
+                    .build());
+        }
         if (!missingToppingOptions.isEmpty()) {
             menuOptionRepository.saveAll(missingToppingOptions);
+        }
+
+        if (!isSaltPorkMenu(menu)) {
+            deleteNamedOptions(currentToppings.stream()
+                    .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                    .filter(option -> SESAME_OIL_REMOVE_NAME.equals(option.getName()))
+                    .toList());
         }
 
         List<MenuOption> currentSizes = menuOptionRepository
@@ -372,7 +402,51 @@ public class AdminMenuService {
         }
 
         deleteOptionsOfTypes(menu, CUPBAP_OPTION_GROUP_TYPES);
+        ensurePackagingOptions(menu);
+    }
 
+    private void syncBibimUdonOptions(Menu menu, boolean toppingEnabled) {
+        if (!toppingEnabled) {
+            deleteOptionsOfTypes(menu, NAENGMOMIL_OFF_GROUP_TYPES);
+            return;
+        }
+
+        deleteOptionsOfTypes(menu, List.of(OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD));
+
+        List<MenuOption> currentRemoves = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.TOPPING_REMOVE));
+        Set<String> canonicalRemoveNames = BIBIM_UDON_TOPPING_REMOVES.stream()
+                .map(DefaultOption::name)
+                .collect(Collectors.toSet());
+        deleteNamedOptions(currentRemoves.stream()
+                .filter(option -> !canonicalRemoveNames.contains(option.getName()))
+                .toList());
+
+        Set<String> existingRemoveNames = menuOptionRepository
+                .findAllByMenuIdAndGroupTypeIn(menu.getId(), List.of(OptionGroupType.TOPPING_REMOVE))
+                .stream()
+                .map(MenuOption::getName)
+                .collect(Collectors.toSet());
+        List<MenuOption> missingRemoves = BIBIM_UDON_TOPPING_REMOVES.stream()
+                .filter(remove -> !existingRemoveNames.contains(remove.name()))
+                .map(remove -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.TOPPING_REMOVE)
+                        .name(remove.name())
+                        .additionalPrice(remove.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(remove.defaultSelected())
+                        .displayOrder(remove.displayOrder())
+                        .build())
+                .toList();
+        if (!missingRemoves.isEmpty()) {
+            menuOptionRepository.saveAll(missingRemoves);
+        }
+
+        ensurePackagingOptions(menu);
+    }
+
+    private void ensurePackagingOptions(Menu menu) {
         List<MenuOption> currentPackaging = menuOptionRepository
                 .findAllByMenuIdAndGroupTypeIn(menu.getId(), PACKAGING_GROUP_TYPES);
         Map<String, MenuOption> packagingByName = currentPackaging.stream()
@@ -405,6 +479,16 @@ public class AdminMenuService {
         if (!missingPackaging.isEmpty()) {
             menuOptionRepository.saveAll(missingPackaging);
         }
+    }
+
+    private void deleteNamedOptions(List<MenuOption> options) {
+        if (options == null || options.isEmpty()) {
+            return;
+        }
+        List<Long> optionIds = options.stream().map(MenuOption::getId).toList();
+        orderItemOptionRepository.detachMenuOptions(optionIds);
+        savedMenuOptionRepository.detachMenuOptions(optionIds);
+        menuOptionRepository.deleteAll(options);
     }
 
     private void deleteOptionsOfTypes(Menu menu, List<OptionGroupType> groupTypes) {
@@ -509,6 +593,23 @@ public class AdminMenuService {
     }
 
     /**
+     * 참치불닭비빔우동은 현재 옵션으로 토핑 가능 여부를 추론해 제외 토핑+PACKAGING을 맞춥니다.
+     */
+    @Transactional
+    public void healBibimUdonOptions(Menu menu) {
+        if (!isBibimUdonMenu(menu) || menu.getId() == null) {
+            return;
+        }
+        List<MenuOption> options = menuOptionRepository
+                .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menu.getId());
+        boolean toppingEnabled = options.stream().anyMatch(option ->
+                option.getGroupType() == OptionGroupType.TOPPING_ADD
+                        || option.getGroupType() == OptionGroupType.TOPPING_REMOVE
+                        || option.getGroupType() == OptionGroupType.PACKAGING);
+        syncBibimUdonOptions(menu, toppingEnabled);
+    }
+
+    /**
      * 메뉴명에 냉모밀이 포함된 경우 현재 옵션으로 토핑 가능 여부를 추론해 동기화합니다.
      * SIZE/토핑만 남은 과거 데이터와 PACKAGING 누락을 상세 조회 시 교정합니다.
      */
@@ -534,6 +635,14 @@ public class AdminMenuService {
     /** 메뉴명에 냉모밀이 포함되면 카테고리와 관계없이 냉모밀로 취급한다. */
     public static boolean isNaengmomilMenu(Menu menu) {
         return menu != null && menu.getName() != null && menu.getName().contains(NAENGMOMIL_NAME_MARKER);
+    }
+
+    public static boolean isBibimUdonMenu(Menu menu) {
+        return menu != null && BIBIM_UDON_MENU_NAME.equals(menu.getName());
+    }
+
+    public static boolean isSaltPorkMenu(Menu menu) {
+        return menu != null && SALT_PORK_MENU_NAME.equals(menu.getName());
     }
 
     /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */

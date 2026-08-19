@@ -381,7 +381,7 @@ class AdminMenuServiceTest {
                         "계란후라이", "햄구이", "밥 추가",
                         "삼겹소금 추가", "삼겹양념 추가", "참치마요 추가",
                         "모짜렐라치즈", "체다치즈",
-                        "김치 제외", "고추장 소스 제외")
+                        "김치 제외", "고추장 소스 제외", "참기름 제외")
                 .doesNotContain("고기 추가")
                 .doesNotContain("스팸");
         assertThat(toppingsAndRemoves)
@@ -407,6 +407,31 @@ class AdminMenuServiceTest {
                         org.assertj.core.groups.Tuple.tuple("싱글", 0),
                         org.assertj.core.groups.Tuple.tuple("더블", 1000),
                         org.assertj.core.groups.Tuple.tuple("점보", 2000));
+    }
+
+    @Test
+    void createOtherCupbapWithToppingEnabledDoesNotAddSesameOilRemove() {
+        Category category = category(1L);
+        given(categoryRepository.findById(1L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(1L, "참치마요")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 10L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of());
+
+        adminMenuService.createMenu(new MenuUpsertRequest(
+                1L, "참치마요", null, 3500, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository, org.mockito.Mockito.atLeastOnce()).saveAll(captor.capture());
+        assertThat(captor.getAllValues().get(0))
+                .extracting(MenuOption::getName)
+                .doesNotContain("참기름 제외");
     }
 
     @Test
@@ -458,7 +483,8 @@ class AdminMenuServiceTest {
                         org.assertj.core.groups.Tuple.tuple("모짜렐라치즈", 1000, 7),
                         org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 8),
                         org.assertj.core.groups.Tuple.tuple("김치 제외", 0, 1),
-                        org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 0, 2));
+                        org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 0, 2),
+                        org.assertj.core.groups.Tuple.tuple("참기름 제외", 0, 3));
         assertThat(captor.getValue()).extracting(MenuOption::getName).doesNotContain("고기 추가");
         assertThat(egg.getAdditionalPrice()).isEqualTo(1);
         verify(menuOptionRepository, never()).deleteAll(any());
@@ -768,17 +794,17 @@ class AdminMenuServiceTest {
     @Test
     void updateMenuWithToppingEnabledOnNoodleKeepsCustomToppingRemoves() {
         Category category = category(2L, "면", 2);
-        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        Menu menu = menu(11L, category, "김치우동", 3);
         MenuOption remove = noodleToppingRemove(101L, menu);
         given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
         given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
-        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "김치우동", 11L))
                 .willReturn(false);
         given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
                 .willReturn(List.of(remove));
 
         MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
-                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                2L, "김치우동", null, 5500, null, 3,
                 SaleStatus.AVAILABLE, true, MenuBadge.NONE));
 
         verify(menuOptionRepository, never()).deleteAll(any());
@@ -792,17 +818,17 @@ class AdminMenuServiceTest {
     @Test
     void updateMenuWithToppingDisabledOnNoodleDoesNotDeleteCustomToppingRemoves() {
         Category category = category(2L, "면", 2);
-        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        Menu menu = menu(11L, category, "김치우동", 3);
         MenuOption remove = noodleToppingRemove(101L, menu);
         given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
         given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
-        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "김치우동", 11L))
                 .willReturn(false);
         given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
                 .willReturn(List.of(remove));
 
         MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
-                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                2L, "김치우동", null, 5500, null, 3,
                 SaleStatus.AVAILABLE, false, MenuBadge.NONE));
 
         verify(menuOptionRepository, never()).deleteAll(any());
@@ -811,6 +837,124 @@ class AdminMenuServiceTest {
         assertThat(result.getOptions())
                 .extracting(option -> option.getName())
                 .containsExactly("불닭소스 제외");
+    }
+
+    @Test
+    void createBibimUdonWithToppingEnabledCreatesRemovesAndPackaging() {
+        Category category = category(2L, "우동", 2);
+        Menu savedMenu = menu(11L, category, "참치불닭비빔우동", 3);
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(2L, "참치불닭비빔우동")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 11L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of());
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(
+                        noodleToppingRemove(101L, savedMenu),
+                        packagingOption(201L, savedMenu, "매장", 1, true),
+                        packagingOption(202L, savedMenu, "포장", 2, false)));
+
+        MenuDetailResponse result = adminMenuService.createMenu(new MenuUpsertRequest(
+                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository, org.mockito.Mockito.atLeastOnce()).saveAll(captor.capture());
+        assertThat(captor.getAllValues().get(0))
+                .extracting(MenuOption::getGroupType, MenuOption::getName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "불닭소스 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "김가루 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "파 제외"));
+        assertThat(captor.getAllValues().get(1))
+                .extracting(MenuOption::getGroupType, MenuOption::getName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"));
+        assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void updateBibimUdonWithToppingDisabledRemovesOptionsAndReportsDisabled() {
+        Category category = category(2L, "우동", 2);
+        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        MenuOption remove = noodleToppingRemove(101L, menu);
+        MenuOption store = packagingOption(201L, menu, "매장", 1, true);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(
+                OptionGroupType.SIZE,
+                OptionGroupType.TOPPING_ADD,
+                OptionGroupType.TOPPING_REMOVE,
+                OptionGroupType.PACKAGING)))
+                .willReturn(List.of(remove, store));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of());
+
+        MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
+                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+
+        verify(menuOptionRepository).deleteAll(List.of(remove, store));
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+        assertThat(result.getOptions()).isEmpty();
+    }
+
+    @Test
+    void updateBibimUdonWithToppingEnabledDoesNotDuplicateExistingOptions() {
+        Category category = category(2L, "우동", 2);
+        Menu menu = menu(11L, category, "참치불닭비빔우동", 3);
+        MenuOption sauce = noodleToppingRemove(101L, menu);
+        MenuOption seaweed = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("김가루 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(2)
+                .build();
+        MenuOption greenOnion = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("파 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(3)
+                .build();
+        MenuOption store = packagingOption(201L, menu, "매장", 1, true);
+        MenuOption takeout = packagingOption(202L, menu, "포장", 2, false);
+        ReflectionTestUtils.setField(seaweed, "id", 102L);
+        ReflectionTestUtils.setField(greenOnion, "id", 103L);
+        given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(2L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(2L, "참치불닭비빔우동", 11L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(sauce, seaweed, greenOnion));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(11L, List.of(OptionGroupType.PACKAGING)))
+                .willReturn(List.of(store, takeout));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(11L))
+                .willReturn(List.of(sauce, seaweed, greenOnion, store, takeout));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(11L, new MenuUpsertRequest(
+                2L, "참치불닭비빔우동", null, 5500, null, 3,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions())
+                .extracting(option -> option.getName())
+                .containsExactly("불닭소스 제외", "김가루 제외", "파 제외", "매장", "포장");
     }
 
     @Test

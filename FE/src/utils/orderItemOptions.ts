@@ -1,7 +1,7 @@
 import type { OrderItemOptionResponse } from "../types/api";
 import { optionGroupRank, packagingDisplayRank, toppingAddDisplayRank } from "./optionSort";
 
-/** 사이즈 → 포장 여부 → 토핑 추가 → 토핑 제외 순으로 정렬 */
+/** 사이즈 → 토핑 추가 → 토핑 제외 → 포장 여부 순으로 정렬 */
 export function sortOrderItemOptions(
   options: OrderItemOptionResponse[],
 ): OrderItemOptionResponse[] {

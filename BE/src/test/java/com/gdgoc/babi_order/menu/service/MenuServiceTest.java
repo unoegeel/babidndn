@@ -122,7 +122,7 @@ class MenuServiceTest {
         Category category = category(2L, "면", 2);
         Menu menu = Menu.builder()
                 .category(category)
-                .name("참치불닭비빔우동")
+                .name("김치우동")
                 .basePrice(5500)
                 .displayOrder(3)
                 .saleStatus(SaleStatus.AVAILABLE)
@@ -145,7 +145,8 @@ class MenuServiceTest {
         MenuDetailResponse result = menuService.getMenu(11L);
 
         verify(adminMenuService, never()).ensureDefaultOptions(any());
-        assertThat(result.getName()).isEqualTo("참치불닭비빔우동");
+        verify(adminMenuService, never()).healBibimUdonOptions(any());
+        assertThat(result.getName()).isEqualTo("김치우동");
         assertThat(result.isToppingEnabled()).isTrue();
         assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())
                 .containsExactly("불닭소스 제외");
@@ -198,6 +199,7 @@ class MenuServiceTest {
 
         MenuDetailResponse result = menuService.getMenu(11L);
 
+        verify(adminMenuService).healBibimUdonOptions(menu);
         verify(adminMenuService, never()).ensureDefaultOptions(any());
         assertThat(result.isToppingEnabled()).isTrue();
         assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())

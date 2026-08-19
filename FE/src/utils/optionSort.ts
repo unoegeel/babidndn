@@ -1,12 +1,12 @@
 /**
  * 메뉴/주문/영수증 옵션의 공통 그룹 정렬 순위.
- * SIZE → PACKAGING → TOPPING_ADD → TOPPING_REMOVE (그 외는 뒤).
+ * SIZE → TOPPING_ADD → TOPPING_REMOVE → PACKAGING (그 외는 뒤).
  */
 export const OPTION_GROUP_ORDER: Record<string, number> = {
   SIZE: 0,
-  PACKAGING: 1,
-  TOPPING_ADD: 2,
-  TOPPING_REMOVE: 3,
+  TOPPING_ADD: 1,
+  TOPPING_REMOVE: 2,
+  PACKAGING: 3,
 };
 
 /** 유저 바텀시트 토핑 추가 표시 순서. */

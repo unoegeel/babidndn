@@ -2,7 +2,7 @@ import type { ReceiptOptionLine } from "../types/receipt";
 import { optionGroupRank, packagingDisplayRank, toppingAddDisplayRank } from "./optionSort";
 
 /**
- * 영수증 옵션을 사이즈 → 포장 여부 → 추가 토핑 → 제외 토핑 순으로 정렬.
+ * 영수증 옵션을 사이즈 → 추가 토핑 → 제외 토핑 → 포장 여부 순으로 정렬.
  * 원본 배열은 변경하지 않는다.
  */
 export function sortReceiptOptions(options: ReceiptOptionLine[]): ReceiptOptionLine[] {
