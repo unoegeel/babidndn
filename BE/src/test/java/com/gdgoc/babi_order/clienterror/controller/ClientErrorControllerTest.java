@@ -1,13 +1,15 @@
 package com.gdgoc.babi_order.clienterror.controller;
 
+import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
+import com.gdgoc.babi_order.clienterror.ClientErrorController;
 import com.gdgoc.babi_order.clienterror.ClientErrorService;
 import com.gdgoc.babi_order.clienterror.exception.ClientErrorExceptionHandler;
+import com.gdgoc.babi_order.clienterror.repository.ClientErrorRepository;
 import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.common.request.RequestIdFilterConfig;
 import com.gdgoc.babi_order.common.request.RequestIdSupport;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
-import com.gdgoc.babi_order.clienterror.ClientErrorController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -16,8 +18,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -38,6 +43,12 @@ class ClientErrorControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @MockitoBean
+    private ClientErrorRepository clientErrorRepository;
+
+    @MockitoBean
+    private BackendErrorRecordService backendErrorRecordService;
+
     @Test
     @WithAnonymousUser
     void acceptsValidReportFromAnonymousUser() throws Exception {
@@ -55,6 +66,8 @@ class ClientErrorControllerTest {
                                 """))
                 .andExpect(status().isNoContent())
                 .andExpect(header().exists(RequestIdSupport.HEADER_NAME));
+
+        verify(clientErrorRepository).save(any());
     }
 
     @Test

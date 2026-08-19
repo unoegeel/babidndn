@@ -1,10 +1,12 @@
 package com.gdgoc.babi_order.payment.exception;
 
+import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.exception.ErrorResponse;
 import com.gdgoc.babi_order.common.exception.ValidationErrorHelper;
 import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
 import com.gdgoc.babi_order.payment.controller.PaymentController;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,14 +16,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice(assignableTypes = PaymentController.class)
+@RequiredArgsConstructor
 public class PaymentExceptionHandler {
+
+    private final BackendErrorRecordService backendErrorRecordService;
 
     @ExceptionHandler(TossPaymentException.class)
     public ResponseEntity<ErrorResponse> handleTossPaymentException(
             TossPaymentException exception,
             HttpServletRequest request
     ) {
-        HttpErrorLogger.logServerError(request, HttpStatus.BAD_GATEWAY, exception);
+        backendErrorRecordService.recordServerError(request, HttpStatus.BAD_GATEWAY, exception);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(ErrorResponse.of(
                 HttpStatus.BAD_GATEWAY,
                 "TOSS_API_ERROR",

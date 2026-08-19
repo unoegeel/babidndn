@@ -22,7 +22,7 @@ public class ClientErrorController {
     private final ClientErrorService clientErrorService;
 
     @PostMapping
-    @Operation(summary = "Frontend 오류 리포트", description = "익명·관리자 모두 사용 가능. DB 저장 없이 structured log로 기록합니다.")
+    @Operation(summary = "Frontend 오류 리포트", description = "익명·관리자 모두 사용 가능. structured log와 DB에 기록합니다.")
     public ResponseEntity<Void> report(
             @Valid @RequestBody ClientErrorReportRequest request,
             HttpServletRequest httpRequest

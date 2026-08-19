@@ -42,7 +42,7 @@ export default function DeveloperOverviewPage() {
         <section className="grid gap-3 sm:grid-cols-2">
           <ModuleCard
             title="Errors"
-            description="Frontend/Backend structured error log 조회 (준비됨)"
+            description="Frontend/Backend error 목록·상세 조회 (/dev/errors)"
             status="Ready"
           />
           <ModuleCard

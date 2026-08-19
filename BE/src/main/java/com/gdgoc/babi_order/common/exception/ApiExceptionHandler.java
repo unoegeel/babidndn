@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.common.exception;
 
+import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
@@ -20,6 +21,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Order(Ordered.LOWEST_PRECEDENCE)
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private final BackendErrorRecordService backendErrorRecordService;
+
+    public ApiExceptionHandler(BackendErrorRecordService backendErrorRecordService) {
+        this.backendErrorRecordService = backendErrorRecordService;
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(
@@ -64,7 +71,7 @@ public class ApiExceptionHandler {
             ));
         }
 
-        HttpErrorLogger.logServerError(request, HttpStatus.INTERNAL_SERVER_ERROR, exception);
+        backendErrorRecordService.recordServerError(request, HttpStatus.INTERNAL_SERVER_ERROR, exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_SERVER_ERROR",
