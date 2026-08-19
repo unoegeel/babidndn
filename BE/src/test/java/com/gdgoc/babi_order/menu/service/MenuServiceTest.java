@@ -354,7 +354,7 @@ class MenuServiceTest {
 
         MenuDetailResponse result = menuService.getMenu(11L);
 
-        verify(adminMenuService).healNaengmomilOptions(menu);
+        verify(adminMenuService, never()).healNaengmomilOptions(any());
         assertThat(result.isToppingEnabled()).isTrue();
         assertThat(result.getOptions()).extracting(optionResponse -> optionResponse.getName())
                 .containsExactly("매장", "포장");
@@ -398,6 +398,99 @@ class MenuServiceTest {
         verify(adminMenuService, never()).ensureDefaultOptions(any());
         verify(adminMenuService, never()).healNaengmomilOptions(any());
         assertThat(result.isToppingEnabled()).isFalse();
+    }
+
+    @Test
+    void getMenuHealsBarbieUdonSetWhenToppingEnabled() {
+        Category category = category(5L, "바비우동세트", 5);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("참치마요+바비우동")
+                .basePrice(7900)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 12L);
+        MenuOption spam = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("스팸")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .displayOrder(8)
+                .build();
+        given(menuRepository.findWithCategoryById(12L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(12L))
+                .willReturn(List.of(spam));
+
+        MenuDetailResponse result = menuService.getMenu(12L);
+
+        verify(adminMenuService).ensureDefaultOptions(menu);
+        verify(adminMenuService, never()).healNaengmomilOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+    }
+
+    @Test
+    void getMenuDoesNotHealBarbieUdonSetWhenToppingDisabled() {
+        Category category = category(5L, "바비우동세트", 5);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("참치마요+바비우동")
+                .basePrice(7900)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(false)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 12L);
+        MenuOption spam = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("스팸")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .displayOrder(8)
+                .build();
+        given(menuRepository.findWithCategoryById(12L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(12L))
+                .willReturn(List.of(spam));
+
+        MenuDetailResponse result = menuService.getMenu(12L);
+
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+    }
+
+    @Test
+    void getMenuHealsNaengmomilSetCategoryWhenToppingEnabled() {
+        Category category = category(7L, "냉모밀세트", 7);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("참치마요+냉모밀")
+                .basePrice(8500)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 15L);
+        MenuOption size = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.SIZE)
+                .name("싱글")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .defaultSelected(true)
+                .displayOrder(1)
+                .build();
+        given(menuRepository.findWithCategoryById(15L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(15L))
+                .willReturn(List.of(size));
+
+        MenuDetailResponse result = menuService.getMenu(15L);
+
+        verify(adminMenuService).ensureDefaultOptions(menu);
+        verify(adminMenuService, never()).healNaengmomilOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
     }
 
     @Test

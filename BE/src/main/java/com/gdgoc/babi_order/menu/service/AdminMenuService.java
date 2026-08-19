@@ -51,6 +51,9 @@ public class AdminMenuService {
             OptionGroupType.TOPPING_REMOVE,
             OptionGroupType.PACKAGING);
     private static final String NAENGMOMIL_NAME_MARKER = "냉모밀";
+    private static final String NAENGMOMIL_STANDALONE_NAME = "냉모밀";
+    private static final String CUPBAP_CATEGORY_NAME = "컵밥";
+    private static final String SET_CATEGORY_SUFFIX = "세트";
     private static final String BIBIM_UDON_MENU_NAME = "참치불닭비빔우동";
     private static final Set<String> SALT_PORK_MENU_NAMES = Set.of(
             "삼겹소금",
@@ -91,7 +94,6 @@ public class AdminMenuService {
     );
     private static final Map<String, DefaultOption> DEFAULT_TOPPING_ADD_BY_NAME = DEFAULT_TOPPINGS.stream()
             .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
-    private static final Set<String> DEFAULT_OPTION_CATEGORY_NAMES = Set.of("컵밥", "세트");
     private static final String LEGACY_SPAM_TOPPING_NAME = "스팸";
     private static final String HAM_GRILL_TOPPING_NAME = "햄구이";
 
@@ -537,6 +539,7 @@ public class AdminMenuService {
                 .anyMatch(option -> option.getGroupType() == OptionGroupType.TOPPING_ADD
                         && HAM_GRILL_TOPPING_NAME.equals(option.getName()));
         if (hamGrillExists) {
+            deleteNamedOptions(List.of(spam));
             return;
         }
         DefaultOption def = DEFAULT_TOPPING_ADD_BY_NAME.get(HAM_GRILL_TOPPING_NAME);
@@ -634,17 +637,19 @@ public class AdminMenuService {
         return DEFAULT_TOPPING_ADD_BY_NAME.containsKey(name);
     }
 
-    /** 메뉴명에 냉모밀이 포함되면 카테고리와 관계없이 냉모밀로 취급한다. */
+    /** 메뉴명에 냉모밀이 포함되면 냉모밀 관련 메뉴로 본다. */
     public static boolean isNaengmomilMenu(Menu menu) {
         return menu != null && menu.getName() != null && menu.getName().contains(NAENGMOMIL_NAME_MARKER);
     }
 
-    /** 우동 등 컵밥/세트가 아닌 냉모밀 단품 */
+    /** 면 등 컵밥형이 아닌 카테고리의 단품 냉모밀 */
     public static boolean isNaengmomilStandalone(Menu menu) {
-        return isNaengmomilMenu(menu) && !usesDefaultSizeAndToppingOptions(menu);
+        return menu != null
+                && NAENGMOMIL_STANDALONE_NAME.equals(menu.getName())
+                && !usesDefaultSizeAndToppingOptions(menu);
     }
 
-    /** 컵밥/세트 카테고리의 냉모밀 포함 메뉴 */
+    /** 컵밥형 카테고리의 냉모밀 포함 메뉴 */
     public static boolean isNaengmomilSet(Menu menu) {
         return isNaengmomilMenu(menu) && usesDefaultSizeAndToppingOptions(menu);
     }
@@ -658,12 +663,21 @@ public class AdminMenuService {
         return menu != null && menu.getName() != null && SALT_PORK_MENU_NAMES.contains(menu.getName());
     }
 
-    /** 컵밥/세트만 기본 사이즈·토핑 보강 대상인지 */
-    public static boolean usesDefaultSizeAndToppingOptions(Menu menu) {
-        if (menu == null || menu.getCategory() == null || menu.getCategory().getName() == null) {
+    /**
+     * 컵밥형 카테고리: 이름이 정확히 컵밥이거나, 운영 세트 탭처럼 '세트'로 끝나는 경우.
+     * 면/음료수는 해당하지 않는다.
+     */
+    public static boolean isCupbapLikeCategory(Category category) {
+        if (category == null || category.getName() == null) {
             return false;
         }
-        return DEFAULT_OPTION_CATEGORY_NAMES.contains(menu.getCategory().getName());
+        String name = category.getName().trim();
+        return CUPBAP_CATEGORY_NAME.equals(name) || name.endsWith(SET_CATEGORY_SUFFIX);
+    }
+
+    /** 컵밥형 메뉴만 기본 사이즈·토핑 보강 대상인지 */
+    public static boolean usesDefaultSizeAndToppingOptions(Menu menu) {
+        return menu != null && isCupbapLikeCategory(menu.getCategory());
     }
 
     private Category findCategory(Long categoryId) {
