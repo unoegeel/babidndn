@@ -58,7 +58,7 @@ export default function DeveloperOverviewPage() {
           <ModuleCard
             title={DEV_LABELS.analytics}
             description="주문 퍼널 및 사용자 분석"
-            status="planned"
+            status="ready"
           />
         </section>
       </div>
