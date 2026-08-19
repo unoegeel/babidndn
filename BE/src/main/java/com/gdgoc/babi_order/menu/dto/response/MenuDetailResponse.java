@@ -2,7 +2,6 @@ package com.gdgoc.babi_order.menu.dto.response;
 
 import com.gdgoc.babi_order.menu.entity.Menu;
 import com.gdgoc.babi_order.menu.entity.MenuOption;
-import com.gdgoc.babi_order.menu.entity.OptionGroupType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
@@ -62,10 +61,7 @@ public class MenuDetailResponse {
                 .displayOrder(menu.getDisplayOrder())
                 .saleStatus(menu.getSaleStatus().name())
                 .badge(badgeName(menu))
-                .toppingEnabled(options.stream().anyMatch(option -> {
-                    OptionGroupType groupType = option.getGroupType();
-                    return groupType != null && groupType.enablesOptionSheet();
-                }))
+                .toppingEnabled(menu.isToppingEnabled())
                 .options(options.stream().map(MenuOptionResponse::from).toList())
                 .build();
     }

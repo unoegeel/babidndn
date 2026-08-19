@@ -195,8 +195,9 @@ public class AdminMenuService {
                 .displayOrder(request.getDisplayOrder())
                 .saleStatus(request.getSaleStatus())
                 .badge(request.getBadge())
+                .toppingEnabled(request.getToppingEnabled())
                 .build());
-        syncSizeAndToppingOptions(saved, request.getToppingEnabled());
+        syncSizeAndToppingOptions(saved, saved.isToppingEnabled());
         return detail(saved);
     }
 
@@ -214,9 +215,10 @@ public class AdminMenuService {
                 request.getImageUrl(),
                 request.getDisplayOrder(),
                 request.getSaleStatus(),
-                request.getBadge()
+                request.getBadge(),
+                Boolean.TRUE.equals(request.getToppingEnabled())
         );
-        syncSizeAndToppingOptions(menu, request.getToppingEnabled());
+        syncSizeAndToppingOptions(menu, menu.isToppingEnabled());
         return detail(menu);
     }
 
@@ -605,24 +607,18 @@ public class AdminMenuService {
     }
 
     /**
-     * 참치불닭비빔우동은 현재 옵션으로 토핑 가능 여부를 추론해 제외 토핑+PACKAGING을 맞춥니다.
+     * 참치불닭비빔우동은 저장된 toppingEnabled에 맞춰 제외 토핑+PACKAGING을 맞춥니다.
      */
     @Transactional
     public void healBibimUdonOptions(Menu menu) {
         if (!isBibimUdonMenu(menu) || menu.getId() == null) {
             return;
         }
-        List<MenuOption> options = menuOptionRepository
-                .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menu.getId());
-        boolean toppingEnabled = options.stream().anyMatch(option ->
-                option.getGroupType() == OptionGroupType.TOPPING_ADD
-                        || option.getGroupType() == OptionGroupType.TOPPING_REMOVE
-                        || option.getGroupType() == OptionGroupType.PACKAGING);
-        syncBibimUdonOptions(menu, toppingEnabled);
+        syncBibimUdonOptions(menu, menu.isToppingEnabled());
     }
 
     /**
-     * 냉모밀 단품은 현재 옵션으로 토핑 가능 여부를 추론해 PACKAGING만 맞춥니다.
+     * 냉모밀 단품은 저장된 toppingEnabled에 맞춰 PACKAGING만 맞춥니다.
      * SIZE/토핑만 남은 과거 데이터와 PACKAGING 누락을 상세 조회 시 교정합니다.
      */
     @Transactional
@@ -630,13 +626,7 @@ public class AdminMenuService {
         if (!isNaengmomilStandalone(menu) || menu.getId() == null) {
             return;
         }
-        List<MenuOption> options = menuOptionRepository
-                .findAllByMenuIdOrderByDisplayOrderAscIdAsc(menu.getId());
-        boolean toppingEnabled = options.stream().anyMatch(option ->
-                option.getGroupType() == OptionGroupType.TOPPING_ADD
-                        || option.getGroupType() == OptionGroupType.TOPPING_REMOVE
-                        || option.getGroupType() == OptionGroupType.PACKAGING);
-        syncNaengmomilPackaging(menu, toppingEnabled);
+        syncNaengmomilPackaging(menu, menu.isToppingEnabled());
     }
 
     /** SIZE 에 잘못 들어간 기본 토핑명인지 (밥 추가 등) */

@@ -683,6 +683,103 @@ class AdminMenuServiceTest {
     }
 
     @Test
+    void createDrinkWithToppingEnabledPersistsFlagWithoutOptions() {
+        Category category = category(4L, "음료수", 4);
+        given(categoryRepository.findById(4L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndName(4L, "사이다 245ml")).willReturn(false);
+        given(menuRepository.save(any())).willAnswer(invocation -> {
+            Menu menu = invocation.getArgument(0);
+            ReflectionTestUtils.setField(menu, "id", 40L);
+            return menu;
+        });
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(40L))
+                .willReturn(List.of());
+
+        MenuDetailResponse created = adminMenuService.createMenu(new MenuUpsertRequest(
+                4L, "사이다 245ml", null, 1200, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(created.isToppingEnabled()).isTrue();
+        assertThat(created.getOptions()).isEmpty();
+    }
+
+    @Test
+    void updateDrinkToppingEnabledTogglesWithoutCreatingOptions() {
+        Category category = category(4L, "음료수", 4);
+        Menu menu = menu(40L, category, "사이다 245ml", 1);
+        given(menuRepository.findWithCategoryById(40L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(4L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(4L, "사이다 245ml", 40L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(40L))
+                .willReturn(List.of());
+
+        MenuDetailResponse enabled = adminMenuService.updateMenu(40L, new MenuUpsertRequest(
+                4L, "사이다 245ml", null, 1200, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+        assertThat(enabled.isToppingEnabled()).isTrue();
+        assertThat(menu.isToppingEnabled()).isTrue();
+
+        MenuDetailResponse disabled = adminMenuService.updateMenu(40L, new MenuUpsertRequest(
+                4L, "사이다 245ml", null, 1200, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+        assertThat(disabled.isToppingEnabled()).isFalse();
+        assertThat(menu.isToppingEnabled()).isFalse();
+
+        MenuDetailResponse enabledAgain = adminMenuService.updateMenu(40L, new MenuUpsertRequest(
+                4L, "사이다 245ml", null, 1200, null, 1,
+                SaleStatus.AVAILABLE, true, MenuBadge.NONE));
+        assertThat(enabledAgain.isToppingEnabled()).isTrue();
+        verify(menuOptionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void updateBarbieUdonSetCategoryToppingDisabledPersistsFlag() {
+        Category category = category(5L, "바비우동세트", 5);
+        Menu menu = menu(12L, category, "삼겹소금+바비우동", 1);
+        MenuOption topping = option(100L, menu);
+        given(menuRepository.findWithCategoryById(12L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(5L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(5L, "삼겹소금+바비우동", 12L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(12L))
+                .willReturn(List.of(topping));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(12L, new MenuUpsertRequest(
+                5L, "삼겹소금+바비우동", null, 7500, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+        assertThat(menu.isToppingEnabled()).isFalse();
+        assertThat(result.getOptions())
+                .extracting(optionItem -> optionItem.getName())
+                .containsExactly("계란후라이");
+    }
+
+    @Test
+    void updateKimchiUdonSetCategoryToppingDisabledPersistsFlag() {
+        Category category = category(6L, "김치우동세트", 6);
+        Menu menu = menu(13L, category, "참치마요+김치우동", 1);
+        MenuOption topping = option(100L, menu);
+        given(menuRepository.findWithCategoryById(13L)).willReturn(Optional.of(menu));
+        given(categoryRepository.findById(6L)).willReturn(Optional.of(category));
+        given(menuRepository.existsByCategoryIdAndNameAndIdNot(6L, "참치마요+김치우동", 13L))
+                .willReturn(false);
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(13L))
+                .willReturn(List.of(topping));
+
+        MenuDetailResponse result = adminMenuService.updateMenu(13L, new MenuUpsertRequest(
+                6L, "참치마요+김치우동", null, 7900, null, 1,
+                SaleStatus.AVAILABLE, false, MenuBadge.NONE));
+
+        verify(menuOptionRepository, never()).saveAll(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+        assertThat(menu.isToppingEnabled()).isFalse();
+    }
+
+    @Test
     void createSetNaengmomilWithToppingEnabledKeepsCupbapOptionsAndAddsPackaging() {
         List<MenuOption> saved = createMenuAndCaptureSavedOptions(
                 3L, category(3L, "세트", 3), 12L, "세트 냉모밀");
@@ -960,7 +1057,7 @@ class AdminMenuServiceTest {
 
         verify(menuOptionRepository, never()).deleteAll(any());
         verify(orderItemOptionRepository, never()).detachMenuOptions(any());
-        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.isToppingEnabled()).isFalse();
         assertThat(result.getOptions())
                 .extracting(option -> option.getName())
                 .containsExactly("불닭소스 제외");

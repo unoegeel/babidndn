@@ -200,3 +200,12 @@ LEFT JOIN menu_options menu_option
     AND menu_option.name = option_source.name
 WHERE menu.name = '참치불닭비빔우동'
   AND menu_option.id IS NULL;
+
+-- 토핑 가능 여부 백필: ADD/REMOVE/PACKAGING이 있으면 true, SIZE만 있으면 false
+UPDATE menus menu
+SET menu.topping_enabled = EXISTS (
+    SELECT 1
+    FROM menu_options option_row
+    WHERE option_row.menu_id = menu.id
+      AND option_row.group_type IN ('TOPPING_ADD', 'TOPPING_REMOVE', 'PACKAGING')
+);

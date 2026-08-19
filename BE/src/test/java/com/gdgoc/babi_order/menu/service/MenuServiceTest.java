@@ -126,6 +126,7 @@ class MenuServiceTest {
                 .basePrice(5500)
                 .displayOrder(3)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 11L);
         MenuOption option = MenuOption.builder()
@@ -161,6 +162,7 @@ class MenuServiceTest {
                 .basePrice(5500)
                 .displayOrder(3)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 11L);
         MenuOption sauce = MenuOption.builder()
@@ -215,6 +217,7 @@ class MenuServiceTest {
                 .basePrice(8000)
                 .displayOrder(1)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 12L);
         MenuOption size = MenuOption.builder()
@@ -257,6 +260,7 @@ class MenuServiceTest {
                 .basePrice(5500)
                 .displayOrder(1)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 11L);
         MenuOption size = MenuOption.builder()
@@ -299,6 +303,7 @@ class MenuServiceTest {
                 .basePrice(5500)
                 .displayOrder(1)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(false)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 11L);
         given(menuRepository.findWithCategoryById(11L)).willReturn(Optional.of(menu));
@@ -322,6 +327,7 @@ class MenuServiceTest {
                 .basePrice(5500)
                 .displayOrder(1)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", 11L);
         MenuOption store = MenuOption.builder()
@@ -363,6 +369,60 @@ class MenuServiceTest {
                 .hasMessageContaining("999");
     }
 
+    @Test
+    void getMenuDoesNotHealWhenToppingDisabledEvenIfToppingsExist() {
+        Category category = category(1L, "컵밥", 1);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("삼겹소금")
+                .basePrice(3500)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(false)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 10L);
+        MenuOption topping = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_ADD)
+                .name("계란후라이")
+                .additionalPrice(700)
+                .maxQuantity(3)
+                .displayOrder(1)
+                .build();
+        given(menuRepository.findWithCategoryById(10L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(10L))
+                .willReturn(List.of(topping));
+
+        MenuDetailResponse result = menuService.getMenu(10L);
+
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+        verify(adminMenuService, never()).healNaengmomilOptions(any());
+        assertThat(result.isToppingEnabled()).isFalse();
+    }
+
+    @Test
+    void getMenuReturnsStoredToppingEnabledForDrinkWithoutOptions() {
+        Category category = category(4L, "음료수", 4);
+        Menu menu = Menu.builder()
+                .category(category)
+                .name("사이다 245ml")
+                .basePrice(1200)
+                .displayOrder(1)
+                .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
+                .build();
+        ReflectionTestUtils.setField(menu, "id", 40L);
+        given(menuRepository.findWithCategoryById(40L)).willReturn(Optional.of(menu));
+        given(menuOptionRepository.findAllByMenuIdOrderByDisplayOrderAscIdAsc(40L))
+                .willReturn(List.of());
+
+        MenuDetailResponse result = menuService.getMenu(40L);
+
+        verify(adminMenuService, never()).ensureDefaultOptions(any());
+        assertThat(result.isToppingEnabled()).isTrue();
+        assertThat(result.getOptions()).isEmpty();
+    }
+
     private Category category(Long id, String name, Integer displayOrder) {
         Category category = Category.builder()
                 .name(name)
@@ -381,6 +441,7 @@ class MenuServiceTest {
                 .imageUrl("https://example.com/menu.jpg")
                 .displayOrder(1)
                 .saleStatus(SaleStatus.AVAILABLE)
+                .toppingEnabled(true)
                 .build();
         ReflectionTestUtils.setField(menu, "id", id);
         return menu;

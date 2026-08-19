@@ -38,6 +38,13 @@ const PACKAGING_RANK = new Map<string, number>(
   PACKAGING_DISPLAY_ORDER.map((name, index) => [name, index]),
 );
 
+/** 유저 옵션시트를 열 수 있는 그룹인지. SIZE만으로는 시트를 열지 않는다. */
+export function enablesOptionSheet(groupType: string | null | undefined): boolean {
+  return groupType === "TOPPING_ADD"
+    || groupType === "TOPPING_REMOVE"
+    || groupType === "PACKAGING";
+}
+
 /** groupType → 정렬 순위. 미지정/알 수 없는 값은 99. */
 export function optionGroupRank(groupType: string | null | undefined): number {
   return OPTION_GROUP_ORDER[groupType ?? ""] ?? 99;
