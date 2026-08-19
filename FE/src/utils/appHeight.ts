@@ -1,4 +1,4 @@
-/** 브라우저 UI(상·하단 바)를 제외한 실제 가시 높이를 --app-height 로 동기화 */
+/** 브라우저 UI(상·하단 bar)를 제외한 실제 가시 높이를 --app-height 로 동기화 */
 
 /**
  * 주소창 변화는 보통 수십 px, 키보드는 그보다 훨씬 크다.
@@ -6,6 +6,9 @@
  * 입력 요소에 포커스가 있으면 키보드 overlay로 본다.
  */
 const KEYBOARD_OCCLUSION_MIN_PX = 150;
+
+/** 주소창 show/hide 수준과 키보드 애니메이션 중간값을 구분하는 slack */
+const ADDRESS_BAR_SLACK_PX = 80;
 
 /** 키보드가 없을 때 마지막으로 반영한 앱 높이 */
 let lastAppliedHeight: number | null = null;
@@ -33,6 +36,11 @@ function isKeyboardOccluding(layoutHeight: number, visibleHeight: number): boole
   return isEditableFocused() && isHeavilyOccluded(layoutHeight, visibleHeight);
 }
 
+/** layout에 가까운 정상 viewport (주소창만 반영된 상태) */
+function isNearLayoutHeight(layoutHeight: number, visibleHeight: number): boolean {
+  return layoutHeight - visibleHeight <= ADDRESS_BAR_SLACK_PX;
+}
+
 function applyAppHeight(heightPx: number): void {
   const rounded = Math.round(heightPx);
   lastAppliedHeight = rounded;
@@ -53,6 +61,14 @@ function syncAppHeight(force = false): void {
 
   // 포커스는 빠졌지만 키보드 닫힘 애니메이션이 남은 경우 — 직전 높이 유지
   if (!force && lastAppliedHeight != null && isHeavilyOccluded(layout, visible)) {
+    return;
+  }
+
+  /**
+   * 키보드 애니메이션 중간값(150px 미만 차이)이 focusout/focusin 타이밍에
+   * --app-height로 저장되는 것을 방지한다. layout에 가까워질 때만 갱신한다.
+   */
+  if (!force && !isNearLayoutHeight(layout, visible)) {
     return;
   }
 

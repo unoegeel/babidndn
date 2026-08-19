@@ -1,9 +1,7 @@
 import { useEffect, type RefObject } from "react";
 
-/** input 하단과 가시 영역 하단 사이 여백 */
-const INPUT_SAFE_MARGIN_PX = 12;
-/** 카드 상단이 visualViewport 밖으로 나가지 않게 하는 여백 */
-const CARD_TOP_MARGIN_PX = 8;
+/** input 하단 여백 최소값 */
+const INPUT_SAFE_MARGIN_MIN_PX = 16;
 
 function closestOverflowYAncestor(start: HTMLElement | null): HTMLElement | null {
   let node = start?.parentElement ?? null;
@@ -15,6 +13,11 @@ function closestOverflowYAncestor(start: HTMLElement | null): HTMLElement | null
     node = node.parentElement;
   }
   return null;
+}
+
+/** input 필드 높이 기반 여백 — 고정 키보드 px가 아님 */
+function inputSafeMargin(inputHeight: number): number {
+  return Math.max(INPUT_SAFE_MARGIN_MIN_PX, Math.round(inputHeight * 0.35));
 }
 
 /**
@@ -42,6 +45,7 @@ export function useSavedMenuPopupKeyboard({
     const viewport = window.visualViewport;
     let currentShift = 0;
     let rafId = 0;
+    let followUpTimer: ReturnType<typeof setTimeout> | undefined;
 
     const applyShift = (next: number) => {
       const rounded = Math.round(next);
@@ -65,46 +69,49 @@ export function useSavedMenuPopupKeyboard({
       const visualViewportBottom = offsetTop + visibleHeight;
 
       const inputRect = input.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
+      const safeMargin = inputSafeMargin(input.offsetHeight);
       const untransformedInputBottom = inputRect.bottom - currentShift;
-      const untransformedCardTop = cardRect.top - currentShift;
 
-      const overlap = untransformedInputBottom - (visualViewportBottom - INPUT_SAFE_MARGIN_PX);
-      let nextShift = overlap > 0 ? -overlap : 0;
-
-      const minShift = offsetTop + CARD_TOP_MARGIN_PX - untransformedCardTop;
-      if (nextShift < minShift) {
-        nextShift = Math.min(0, minShift);
-      }
+      const overlap = untransformedInputBottom - (visualViewportBottom - safeMargin);
+      const nextShift = overlap > 0 ? -overlap : 0;
 
       applyShift(nextShift);
     };
 
-    const scheduleUpdate = () => {
-      restoreAncestorScroll();
+    const scheduleUpdate = (withFollowUp = false) => {
       if (rafId) return;
       rafId = window.requestAnimationFrame(() => {
         rafId = 0;
         updateCardPosition();
       });
+
+      if (withFollowUp) {
+        if (followUpTimer) clearTimeout(followUpTimer);
+        followUpTimer = setTimeout(() => {
+          followUpTimer = undefined;
+          updateCardPosition();
+        }, 150);
+      }
     };
 
-    ancestor?.addEventListener("scroll", scheduleUpdate, { passive: true });
-    viewport?.addEventListener("resize", scheduleUpdate);
-    viewport?.addEventListener("scroll", scheduleUpdate);
-    window.addEventListener("resize", scheduleUpdate);
-    document.addEventListener("focusin", scheduleUpdate);
+    const onViewportChange = () => scheduleUpdate(true);
+    const onFocusIn = () => scheduleUpdate(true);
 
-    scheduleUpdate();
+    viewport?.addEventListener("resize", onViewportChange);
+    viewport?.addEventListener("scroll", onViewportChange);
+    window.addEventListener("resize", onViewportChange);
+    document.addEventListener("focusin", onFocusIn);
+
+    scheduleUpdate(true);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
+      if (followUpTimer) clearTimeout(followUpTimer);
       applyShift(0);
-      ancestor?.removeEventListener("scroll", scheduleUpdate);
-      viewport?.removeEventListener("resize", scheduleUpdate);
-      viewport?.removeEventListener("scroll", scheduleUpdate);
-      window.removeEventListener("resize", scheduleUpdate);
-      document.removeEventListener("focusin", scheduleUpdate);
+      viewport?.removeEventListener("resize", onViewportChange);
+      viewport?.removeEventListener("scroll", onViewportChange);
+      window.removeEventListener("resize", onViewportChange);
+      document.removeEventListener("focusin", onFocusIn);
     };
   }, [overlayRef, cardRef, inputRef]);
 }
