@@ -5,6 +5,7 @@ import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
 import type { OrderStatus } from "../../types/user";
+import { trackOrderStatusView } from "../../utils/userEvent/eventHelpers";
 
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -71,6 +72,12 @@ export const OrderStatusPage: React.FC = () => {
     prevStatusRef.current = nextStatus;
     return shouldCelebrate;
   }, []);
+
+  useEffect(() => {
+    if (orderId && order) {
+      trackOrderStatusView(orderId, order.status);
+    }
+  }, [orderId, order?.status]);
 
   // Context 주문 갱신 → READY UX (알림은 Context polling이 담당)
   useEffect(() => {

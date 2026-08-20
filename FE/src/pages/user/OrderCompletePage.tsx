@@ -5,6 +5,7 @@ import { orderService, mapOrderDetailToOrder } from "../../services/user/orderSe
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { claimReadyConfetti } from "../../utils/readyCall";
 import type { Order } from "../../types/user";
+import { trackOrderCompleted } from "../../utils/userEvent/eventHelpers";
 
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -19,6 +20,12 @@ export const OrderCompletePage: React.FC = () => {
   useEffect(() => {
     startConfettiRef.current = startConfetti;
   });
+
+  useEffect(() => {
+    if (orderId) {
+      trackOrderCompleted(orderId);
+    }
+  }, [orderId]);
 
   // 컨텍스트 폴링으로 갱신된 주문 반영
   useEffect(() => {

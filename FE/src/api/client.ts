@@ -1,4 +1,6 @@
-// API 요청을 위한 가벼운 fetch 래퍼입니다.
+import type { RelatedRequestIdCarrier } from "../types/clientError";
+import { REQUEST_ID_HEADER } from "../types/clientError";
+import { reportApiProcessingError } from "../utils/frontendError/reportFrontendError";
 // 웹·API 도메인이 분리되어 있으므로 호스트명으로 API 서버를 고릅니다.
 // 공개 요청(api)과 관리자 인증 요청(adminApi)을 분리해
 // 일반 API가 관리자 Bearer·세션에 종속되지 않도록 합니다.
@@ -94,15 +96,17 @@ interface ApiErrorBody {
 }
 
 /** HTTP 상태 코드와 서버 오류 코드를 함께 담는 에러 */
-export class ApiError extends Error {
+export class ApiError extends Error implements RelatedRequestIdCarrier {
   readonly status: number;
   readonly code?: string;
+  readonly relatedRequestId?: string;
 
-  constructor(status: number, code?: string, message?: string) {
+  constructor(status: number, code?: string, message?: string, relatedRequestId?: string) {
     super(message && message.trim() ? message : `API 요청 실패: ${status}`);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.relatedRequestId = relatedRequestId;
   }
 }
 
@@ -113,11 +117,32 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 
 type AuthMode = "public" | "admin";
 
-async function request<T>(
+export interface ApiCallResult<T> {
+  data: T;
+  relatedRequestId?: string;
+}
+
+function readResponseRequestId(response: Response): string | undefined {
+  const header = response.headers.get(REQUEST_ID_HEADER)
+    ?? response.headers.get(REQUEST_ID_HEADER.toLowerCase());
+  if (!header || header.trim() === "") {
+    return undefined;
+  }
+  return header.trim();
+}
+
+function attachRelatedRequestId(error: unknown, relatedRequestId?: string): never {
+  if (error instanceof Error && relatedRequestId) {
+    (error as Error & RelatedRequestIdCarrier).relatedRequestId = relatedRequestId;
+  }
+  throw error;
+}
+
+async function requestInternal<T>(
   path: string,
   options: RequestOptions = {},
   authMode: AuthMode = "public",
-): Promise<T> {
+): Promise<ApiCallResult<T>> {
   const { body, headers, baseUrl, ...rest } = options;
   const root = baseUrl ?? resolveApiBaseUrl();
 
@@ -133,6 +158,7 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  const relatedRequestId = readResponseRequestId(response);
   const text = await response.text();
 
   if (!response.ok) {
@@ -142,15 +168,31 @@ async function request<T>(
     } catch {
       // JSON 이 아닌 오류 응답은 상태 코드만 사용
     }
-    // 관리자 인증 요청에서만 토큰 만료 시 로그아웃 유도
     if (response.status === 401 && authMode === "admin" && token) {
       signOutAdmin();
     }
-    throw new ApiError(response.status, parsed?.code, parsed?.message);
+    throw new ApiError(response.status, parsed?.code, parsed?.message, relatedRequestId);
   }
 
-  // 응답 본문이 없는 경우(204 등)를 대비
-  return text ? (JSON.parse(text) as T) : (undefined as T);
+  if (!text) {
+    return { data: undefined as T, relatedRequestId };
+  }
+
+  try {
+    return { data: JSON.parse(text) as T, relatedRequestId };
+  } catch (parseError) {
+    reportApiProcessingError(parseError, relatedRequestId);
+    return attachRelatedRequestId(parseError, relatedRequestId);
+  }
+}
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  authMode: AuthMode = "public",
+): Promise<T> {
+  const { data } = await requestInternal<T>(path, options, authMode);
+  return data;
 }
 
 function createClient(authMode: AuthMode) {
@@ -159,6 +201,8 @@ function createClient(authMode: AuthMode) {
       request<T>(path, { ...options, method: "GET" }, authMode),
     post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
       request<T>(path, { ...options, method: "POST", body }, authMode),
+    postWithMeta: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+      requestInternal<T>(path, { ...options, method: "POST", body }, authMode),
     patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
       request<T>(path, { ...options, method: "PATCH", body }, authMode),
     put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

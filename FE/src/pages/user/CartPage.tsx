@@ -1,16 +1,34 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import MenuThumb from "../../components/user/MenuThumb";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import MarqueeText from "../../components/user/MarqueeText";
+import {
+  trackCartItemRemoved,
+  trackCartItemUpdated,
+  trackCartView,
+} from "../../utils/userEvent/eventHelpers";
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const { cart, cartTotal, updateCartQuantity, removeFromCart, clearCart } = useUserData();
 
-  const handleQtyChange = (cartItemId: string, currentQty: number, val: number) => {
-    updateCartQuantity(cartItemId, currentQty + val);
+  useEffect(() => {
+    if (cart.length > 0) {
+      trackCartView(cart.length);
+    }
+  }, [cart.length]);
+
+  const handleQtyChange = (cartItemId: string, currentQty: number, val: number, menuId: number) => {
+    const nextQty = currentQty + val;
+    updateCartQuantity(cartItemId, nextQty);
+    trackCartItemUpdated(menuId, nextQty, cart.length);
+  };
+
+  const handleRemove = (cartItemId: string, menuId: number) => {
+    removeFromCart(cartItemId);
+    trackCartItemRemoved(menuId, Math.max(0, cart.length - 1));
   };
 
   // 장바구니가 비어있을 때 예외 처리
@@ -68,7 +86,7 @@ export const CartPage: React.FC = () => {
                     <h3 className="text-sm font-bold text-gray-900 truncate pr-2">{item.menuName}</h3>
                     {/* 개별 삭제 버튼 */}
                     <button
-                      onClick={() => removeFromCart(item.cartItemId)}
+                      onClick={() => handleRemove(item.cartItemId, item.menuId)}
                       className="text-gray-400 hover:text-gray-600 focus:outline-none p-0.5 cursor-pointer"
                       aria-label="삭제"
                     >
@@ -93,7 +111,7 @@ export const CartPage: React.FC = () => {
                   {/* 수량 조작계 */}
                   <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5">
                     <button
-                      onClick={() => handleQtyChange(item.cartItemId, item.quantity, -1)}
+                      onClick={() => handleQtyChange(item.cartItemId, item.quantity, -1, item.menuId)}
                       className="w-5 h-5 text-gray-500 font-bold focus:outline-none flex items-center justify-center hover:bg-gray-200 rounded cursor-pointer"
                     >
                       -
@@ -102,7 +120,7 @@ export const CartPage: React.FC = () => {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => handleQtyChange(item.cartItemId, item.quantity, 1)}
+                      onClick={() => handleQtyChange(item.cartItemId, item.quantity, 1, item.menuId)}
                       className="w-5 h-5 text-gray-500 font-bold focus:outline-none flex items-center justify-center hover:bg-gray-200 rounded cursor-pointer"
                     >
                       +

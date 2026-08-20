@@ -1,7 +1,9 @@
 package com.gdgoc.babi_order.sales.exception;
 
 import com.gdgoc.babi_order.common.exception.ErrorResponse;
+import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
 import com.gdgoc.babi_order.sales.controller.SalesController;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -14,7 +16,10 @@ public class SalesExceptionHandler {
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingParameter(
-            MissingServletRequestParameterException exception) {
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request
+    ) {
+        HttpErrorLogger.logClientError(request, HttpStatus.BAD_REQUEST, exception);
         return ResponseEntity.badRequest().body(ErrorResponse.of(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_REQUEST",
@@ -24,7 +29,10 @@ public class SalesExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(
-            MethodArgumentTypeMismatchException exception) {
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request
+    ) {
+        HttpErrorLogger.logClientError(request, HttpStatus.BAD_REQUEST, exception);
         return ResponseEntity.badRequest().body(ErrorResponse.of(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_REQUEST",

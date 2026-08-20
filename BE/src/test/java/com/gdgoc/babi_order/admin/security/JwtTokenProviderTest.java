@@ -21,14 +21,27 @@ class JwtTokenProviderTest {
 
     @Test
     void createdTokenContainsAdminLoginId() {
-        String token = jwtTokenProvider.createToken("owner");
+        String token = jwtTokenProvider.createToken("owner", com.gdgoc.babi_order.admin.entity.AdminRole.ADMIN);
 
         assertThat(jwtTokenProvider.getValidLoginId(token)).contains("owner");
     }
 
     @Test
+    void createdDeveloperTokenContainsRole() {
+        String token = jwtTokenProvider.createToken(
+                "developer",
+                com.gdgoc.babi_order.admin.entity.AdminRole.DEVELOPER);
+
+        assertThat(jwtTokenProvider.parseValidClaims(token))
+                .hasValueSatisfying(claims -> {
+                    assertThat(claims.sub()).isEqualTo("developer");
+                    assertThat(claims.role()).isEqualTo("DEVELOPER");
+                });
+    }
+
+    @Test
     void modifiedTokenIsRejected() {
-        String token = jwtTokenProvider.createToken("owner");
+        String token = jwtTokenProvider.createToken("owner", com.gdgoc.babi_order.admin.entity.AdminRole.ADMIN);
         String modified = token.substring(0, token.length() - 1)
                 + (token.endsWith("a") ? "b" : "a");
 

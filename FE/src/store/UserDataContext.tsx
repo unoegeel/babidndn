@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, NotificationItem, NotificationType } from "../types/user";
 import { orderService } from "../services/user/orderService";
+import { trackOrderCreated } from "../utils/userEvent/eventHelpers";
 import type { OrderDetailResponse } from "../types/api";
 import { claimReadyCall, clearReadyBannerDismiss } from "../utils/readyCall";
 import { useOrderPolling } from "../hooks/useOrderPolling";
@@ -96,8 +97,10 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [orders]);
 
-  const createOrder = async (): Promise<OrderDetailResponse> => {
-    return orderService.createOrder(cart);
+  const createOrder = async (_paymentMethod?: string): Promise<OrderDetailResponse> => {
+    const { order, relatedRequestId } = await orderService.createOrderWithMeta(cart);
+    trackOrderCreated(order.id, order.totalAmount, relatedRequestId);
+    return order;
   };
 
   const saveOrderToState = useCallback((orderObj: Order) => {

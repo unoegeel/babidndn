@@ -55,13 +55,10 @@ public class AdminMenuService {
     private static final String CUPBAP_CATEGORY_NAME = "컵밥";
     private static final String SET_CATEGORY_SUFFIX = "세트";
     private static final String BIBIM_UDON_MENU_NAME = "참치불닭비빔우동";
-    private static final Set<String> SALT_PORK_MENU_NAMES = Set.of(
-            "삼겹소금",
-            "삼겹소금+바비우동",
-            "삼겹소금+김치우동",
-            "삼겹소금+냉모밀"
-    );
-    private static final String SESAME_OIL_REMOVE_NAME = "참기름 제외";
+    private static final String KIMCHI_PORK_FRIED_RICE_MARKER = "김치삼겹볶음밥";
+    private static final String SALT_PORK_MARKER = "삼겹소금";
+    private static final String SEASONED_PORK_MARKER = "삼겹양념";
+    private static final String MAYO_MARKER = "마요";
     private static final String PACKAGING_STORE_NAME = "매장";
     private static final String PACKAGING_TAKEOUT_NAME = "포장";
     private static final List<DefaultOption> DEFAULT_SIZES = List.of(
@@ -82,6 +79,16 @@ public class AdminMenuService {
     private static final List<DefaultOption> DEFAULT_TOPPING_REMOVES = List.of(
             new DefaultOption("김치 제외", 0, 1, false),
             new DefaultOption("고추장 소스 제외", 0, 2, false)
+    );
+    private static final List<DefaultOption> SALT_PORK_TOPPING_REMOVES = List.of(
+            new DefaultOption("김치 제외", 0, 1, false),
+            new DefaultOption("고추장 소스 제외", 0, 2, false),
+            new DefaultOption("참기름 제외", 0, 3, false),
+            new DefaultOption("김가루 제외", 0, 4, false)
+    );
+    private static final List<DefaultOption> MAYO_TOPPING_REMOVES = List.of(
+            new DefaultOption("단무지 제외", 0, 1, false),
+            new DefaultOption("김가루 제외", 0, 2, false)
     );
     private static final List<DefaultOption> DEFAULT_PACKAGING = List.of(
             new DefaultOption(PACKAGING_STORE_NAME, 0, 1, true),
@@ -349,38 +356,9 @@ public class AdminMenuService {
                         .displayOrder(topping.displayOrder())
                         .build())
                 .forEach(missingToppingOptions::add);
-        DEFAULT_TOPPING_REMOVES.stream()
-                .filter(remove -> !existingToppingNames.contains(remove.name()))
-                .map(remove -> MenuOption.builder()
-                        .menu(menu)
-                        .groupType(OptionGroupType.TOPPING_REMOVE)
-                        .name(remove.name())
-                        .additionalPrice(remove.additionalPrice())
-                        .maxQuantity(1)
-                        .defaultSelected(remove.defaultSelected())
-                        .displayOrder(remove.displayOrder())
-                        .build())
-                .forEach(missingToppingOptions::add);
-        if (isSaltPorkMenu(menu) && !existingToppingNames.contains(SESAME_OIL_REMOVE_NAME)) {
-            missingToppingOptions.add(MenuOption.builder()
-                    .menu(menu)
-                    .groupType(OptionGroupType.TOPPING_REMOVE)
-                    .name(SESAME_OIL_REMOVE_NAME)
-                    .additionalPrice(0)
-                    .maxQuantity(1)
-                    .defaultSelected(false)
-                    .displayOrder(3)
-                    .build());
-        }
+        appendCanonicalToppingRemoves(menu, currentToppings, missingToppingOptions);
         if (!missingToppingOptions.isEmpty()) {
             menuOptionRepository.saveAll(missingToppingOptions);
-        }
-
-        if (!isSaltPorkMenu(menu)) {
-            deleteNamedOptions(currentToppings.stream()
-                    .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
-                    .filter(option -> SESAME_OIL_REMOVE_NAME.equals(option.getName()))
-                    .toList());
         }
 
         List<MenuOption> currentSizes = menuOptionRepository
@@ -460,6 +438,80 @@ public class AdminMenuService {
         }
 
         ensurePackagingOptions(menu);
+    }
+
+    /**
+     * 컵밥형 메뉴의 TOPPING_REMOVE를 메뉴명 정책의 canonical 목록으로 맞춘다.
+     * 우선순위: 김치삼겹볶음밥 → 삼겹소금/삼겹양념 → 마요 → 기본.
+     * 주문/SavedMenu snapshot은 detach 후 옵션 행만 삭제한다.
+     */
+    private void appendCanonicalToppingRemoves(
+            Menu menu,
+            List<MenuOption> currentToppings,
+            List<MenuOption> missingToppingOptions
+    ) {
+        List<DefaultOption> canonical = canonicalToppingRemoves(menu);
+        Set<String> canonicalNames = canonical.stream()
+                .map(DefaultOption::name)
+                .collect(Collectors.toSet());
+
+        deleteNamedOptions(currentToppings.stream()
+                .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                .filter(option -> !canonicalNames.contains(option.getName()))
+                .toList());
+
+        Map<String, DefaultOption> canonicalByName = canonical.stream()
+                .collect(Collectors.toMap(DefaultOption::name, Function.identity()));
+        for (MenuOption option : currentToppings) {
+            if (option.getGroupType() != OptionGroupType.TOPPING_REMOVE) {
+                continue;
+            }
+            DefaultOption def = canonicalByName.get(option.getName());
+            if (def == null) {
+                continue;
+            }
+            if (option.getDisplayOrder() == null || option.getDisplayOrder() != def.displayOrder()) {
+                option.update(
+                        OptionGroupType.TOPPING_REMOVE,
+                        option.getName(),
+                        option.getAdditionalPrice(),
+                        option.getMaxQuantity(),
+                        option.isDefaultSelected(),
+                        def.displayOrder()
+                );
+            }
+        }
+
+        Set<String> remainingRemoveNames = currentToppings.stream()
+                .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                .map(MenuOption::getName)
+                .filter(canonicalNames::contains)
+                .collect(Collectors.toSet());
+        canonical.stream()
+                .filter(remove -> !remainingRemoveNames.contains(remove.name()))
+                .map(remove -> MenuOption.builder()
+                        .menu(menu)
+                        .groupType(OptionGroupType.TOPPING_REMOVE)
+                        .name(remove.name())
+                        .additionalPrice(remove.additionalPrice())
+                        .maxQuantity(1)
+                        .defaultSelected(remove.defaultSelected())
+                        .displayOrder(remove.displayOrder())
+                        .build())
+                .forEach(missingToppingOptions::add);
+    }
+
+    private List<DefaultOption> canonicalToppingRemoves(Menu menu) {
+        if (isKimchiPorkFriedRiceMenu(menu)) {
+            return List.of();
+        }
+        if (isSaltPorkMenu(menu)) {
+            return SALT_PORK_TOPPING_REMOVES;
+        }
+        if (isMayoMenu(menu)) {
+            return MAYO_TOPPING_REMOVES;
+        }
+        return DEFAULT_TOPPING_REMOVES;
     }
 
     private void ensurePackagingOptions(Menu menu) {
@@ -658,9 +710,26 @@ public class AdminMenuService {
         return menu != null && BIBIM_UDON_MENU_NAME.equals(menu.getName());
     }
 
-    /** 삼겹소금 계열만 참기름 제외 대상. 이름 부분 일치가 아니라 정확한 메뉴명으로 판별한다. */
+    /** 김치삼겹볶음밥 계열. 부분 일치이며 삼겹/마요 규칙보다 우선한다. */
+    public static boolean isKimchiPorkFriedRiceMenu(Menu menu) {
+        return menuNameContains(menu, KIMCHI_PORK_FRIED_RICE_MARKER);
+    }
+
+    /**
+     * 삼겹소금/삼겹양념 계열. 부분 일치.
+     * 김치삼겹볶음밥은 이 조건보다 먼저 걸러야 한다.
+     */
     public static boolean isSaltPorkMenu(Menu menu) {
-        return menu != null && menu.getName() != null && SALT_PORK_MENU_NAMES.contains(menu.getName());
+        return menuNameContains(menu, SALT_PORK_MARKER) || menuNameContains(menu, SEASONED_PORK_MARKER);
+    }
+
+    /** 마요 계열. 부분 일치. 김치삼겹볶음밥·삼겹 계열보다 후순위. */
+    public static boolean isMayoMenu(Menu menu) {
+        return menuNameContains(menu, MAYO_MARKER);
+    }
+
+    private static boolean menuNameContains(Menu menu, String marker) {
+        return menu != null && menu.getName() != null && menu.getName().contains(marker);
     }
 
     /**

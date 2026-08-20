@@ -20,12 +20,12 @@ export default function LoginPage() {
     try {
       setSubmitting(true);
       setError(null);
-      const { accessToken } = await authService.login({
+      const { accessToken, role } = await authService.login({
         loginId: id.trim(),
         password: pw,
       });
       signInAdmin(accessToken);
-      navigate("/admin/orders", { replace: true });
+      navigate(role === "DEVELOPER" ? "/dev" : "/admin/orders", { replace: true });
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
         setError("아이디 또는 비밀번호가 올바르지 않습니다.");

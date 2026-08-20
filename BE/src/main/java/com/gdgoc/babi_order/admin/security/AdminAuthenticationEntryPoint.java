@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.admin.security;
 
 import com.gdgoc.babi_order.common.exception.ErrorResponse;
+import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class AdminAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
+        HttpErrorLogger.logClientError(request, HttpStatus.UNAUTHORIZED, authException);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");

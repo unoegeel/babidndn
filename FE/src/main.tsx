@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Navigate, RouterProvider, Outlet } from "react-router-dom";
 import "./index.css";
 import { startAppHeightSync } from "./utils/appHeight";
+import { initFrontendErrorTracking } from "./utils/frontendError/initFrontendErrorTracking";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 import { AdminDataProvider } from "./store/AdminDataContext";
 import RequireAdminAuth from "./components/RequireAdminAuth";
 import { HomeRedirect, PwaEntryTracker } from "./components/PwaEntry";
@@ -36,8 +38,16 @@ import MyMenuPage from "./pages/user/MyMenuPage";
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
 
+import RequireDeveloperAuth from "./components/RequireDeveloperAuth";
+import DeveloperOverviewPage from "./pages/developer/DeveloperOverviewPage";
+import DeveloperErrorsPage from "./pages/developer/DeveloperErrorsPage";
+import DeveloperRequestsPage from "./pages/developer/DeveloperRequestsPage";
+import DeveloperEventsPage from "./pages/developer/DeveloperEventsPage";
+import DeveloperAnalyticsPage from "./pages/developer/DeveloperAnalyticsPage";
+
 // 태블릿/모바일 브라우저 상·하단 UI를 반영한 가시 높이 동기화
 startAppHeightSync();
+initFrontendErrorTracking();
 
 /**
  * 관리자 영역 공통 레이아웃.
@@ -56,10 +66,18 @@ function AdminLayout() {
 
 function RootLayout() {
   return (
-    <>
+    <AppErrorBoundary>
       <PwaEntryTracker />
       <Outlet />
-    </>
+    </AppErrorBoundary>
+  );
+}
+
+function DeveloperLayout() {
+  return (
+    <RequireDeveloperAuth>
+      <Outlet />
+    </RequireDeveloperAuth>
   );
 }
 
@@ -82,6 +100,17 @@ const router = createBrowserRouter([
           { path: "store", element: <StoreManagementPage /> },
           { path: "store/reviews", element: <StoreReviewsPage /> },
           { path: "settings", element: <SettingsPage /> },
+        ],
+      },
+      {
+        path: "/dev",
+        element: <DeveloperLayout />,
+        children: [
+          { index: true, element: <DeveloperOverviewPage /> },
+          { path: "errors", element: <DeveloperErrorsPage /> },
+          { path: "requests", element: <DeveloperRequestsPage /> },
+          { path: "events", element: <DeveloperEventsPage /> },
+          { path: "analytics", element: <DeveloperAnalyticsPage /> },
         ],
       },
       {

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { reviewService } from "../../services/reviewService";
+import { trackReviewSubmitted } from "../../utils/userEvent/eventHelpers";
 
 const MAX_LENGTH = 1000;
 
@@ -19,6 +20,7 @@ export default function ReviewPage() {
     setSubmitting(true);
     try {
       await reviewService.create(trimmed);
+      trackReviewSubmitted();
       setContent("");
       setSubmitted(true);
     } catch (err) {

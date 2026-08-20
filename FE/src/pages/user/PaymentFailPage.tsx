@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService } from "../../services/user/orderService";
 import type { OrderDetailResponse } from "../../types/api";
+import { trackPaymentFail } from "../../utils/userEvent/eventHelpers";
 
 export const PaymentFailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,8 @@ export const PaymentFailPage: React.FC = () => {
   const message = searchParams.get("message") || "결제 처리가 실패했거나 취소되었습니다.";
 
   useEffect(() => {
+    trackPaymentFail(code);
+
     const cleanup = async () => {
       // 결제 실패/취소 시 미결제 임시 주문 삭제
       try {

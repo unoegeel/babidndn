@@ -1,5 +1,7 @@
 package com.gdgoc.babi_order.common.exception;
 
+import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
@@ -13,6 +15,16 @@ public final class ValidationErrorHelper {
     }
 
     public static ErrorResponse from(MethodArgumentNotValidException exception) {
+        return buildResponse(exception);
+    }
+
+    public static ErrorResponse from(MethodArgumentNotValidException exception, HttpServletRequest request) {
+        ErrorResponse response = buildResponse(exception);
+        HttpErrorLogger.logClientError(request, HttpStatus.BAD_REQUEST, exception);
+        return response;
+    }
+
+    private static ErrorResponse buildResponse(MethodArgumentNotValidException exception) {
         String message = exception.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(error -> error.getDefaultMessage())

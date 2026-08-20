@@ -383,7 +383,7 @@ class AdminMenuServiceTest {
                         "계란후라이", "햄구이", "밥 추가",
                         "삼겹소금 추가", "삼겹양념 추가", "참치마요 추가",
                         "모짜렐라치즈", "체다치즈",
-                        "김치 제외", "고추장 소스 제외", "참기름 제외")
+                        "김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외")
                 .doesNotContain("고기 추가")
                 .doesNotContain("스팸");
         assertThat(toppingsAndRemoves)
@@ -431,9 +431,15 @@ class AdminMenuServiceTest {
         org.mockito.ArgumentCaptor<List<MenuOption>> captor =
                 org.mockito.ArgumentCaptor.forClass(List.class);
         verify(menuOptionRepository, org.mockito.Mockito.atLeastOnce()).saveAll(captor.capture());
-        assertThat(captor.getAllValues().get(0))
+        assertThat(captor.getAllValues().stream().flatMap(List::stream).toList())
+                .filteredOn(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                .extracting(MenuOption::getName, MenuOption::getDisplayOrder)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("단무지 제외", 1),
+                        org.assertj.core.groups.Tuple.tuple("김가루 제외", 2));
+        assertThat(captor.getAllValues().stream().flatMap(List::stream).toList())
                 .extracting(MenuOption::getName)
-                .doesNotContain("참기름 제외");
+                .doesNotContain("김치 제외", "고추장 소스 제외", "참기름 제외");
     }
 
     @Test
@@ -486,7 +492,8 @@ class AdminMenuServiceTest {
                         org.assertj.core.groups.Tuple.tuple("체다치즈", 500, 8),
                         org.assertj.core.groups.Tuple.tuple("김치 제외", 0, 1),
                         org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 0, 2),
-                        org.assertj.core.groups.Tuple.tuple("참기름 제외", 0, 3));
+                        org.assertj.core.groups.Tuple.tuple("참기름 제외", 0, 3),
+                        org.assertj.core.groups.Tuple.tuple("김가루 제외", 0, 4));
         assertThat(captor.getValue()).extracting(MenuOption::getName).doesNotContain("고기 추가");
         assertThat(egg.getAdditionalPrice()).isEqualTo(1);
         verify(menuOptionRepository, never()).deleteAll(any());
@@ -903,65 +910,65 @@ class AdminMenuServiceTest {
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "김치 제외"),
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "고추장 소스 제외"),
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "참기름 제외"),
+                        org.assertj.core.groups.Tuple.tuple(OptionGroupType.TOPPING_REMOVE, "김가루 제외"),
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "매장"),
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.PACKAGING, "포장"),
                         org.assertj.core.groups.Tuple.tuple(OptionGroupType.SIZE, "싱글"));
     }
 
     @Test
-    void createTunaMayoNaengmomilSetDoesNotAddSesameOil() {
+    void createTunaMayoNaengmomilSetUsesMayoRemoves() {
         List<MenuOption> saved = createMenuAndCaptureSavedOptions(
                 3L, category(3L, "세트", 3), 12L, "참치마요+냉모밀");
 
+        assertThat(removeNamesInOrder(saved)).containsExactly("단무지 제외", "김가루 제외");
         assertThat(saved).extracting(MenuOption::getName)
-                .contains("매장", "포장", "김치 제외")
-                .doesNotContain("참기름 제외");
+                .contains("매장", "포장")
+                .doesNotContain("김치 제외", "고추장 소스 제외", "참기름 제외");
     }
 
     @Test
-    void createSeasonedPorkNaengmomilSetDoesNotAddSesameOil() {
+    void createSeasonedPorkNaengmomilSetUsesSaltPorkRemoves() {
         List<MenuOption> saved = createMenuAndCaptureSavedOptions(
                 3L, category(3L, "세트", 3), 12L, "삼겹양념(매운맛)+냉모밀");
 
+        assertThat(removeNamesInOrder(saved)).containsExactly(
+                "김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외");
+        assertThat(saved).extracting(MenuOption::getName).contains("매장", "포장");
+    }
+
+    @Test
+    void createOtherNaengmomilSetsUseMayoRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "치킨마요+냉모밀")))
+                .containsExactly("단무지 제외", "김가루 제외");
+    }
+
+    @Test
+    void createSpamMayoNaengmomilSetUsesMayoRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "스팸마요+냉모밀")))
+                .containsExactly("단무지 제외", "김가루 제외");
+    }
+
+    @Test
+    void createKimchiPorkNaengmomilSetHasNoToppingRemoves() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "김치삼겹볶음밥+냉모밀");
+        assertThat(removeNamesInOrder(saved)).isEmpty();
+        assertThat(saved).extracting(MenuOption::getName)
+                .contains("매장", "포장", "싱글")
+                .doesNotContain("김치 제외", "고추장 소스 제외", "참기름 제외");
+    }
+
+    @Test
+    void createBulgogiSaltPorkMayoNaengmomilSetUsesMayoNotSaltPork() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                3L, category(3L, "세트", 3), 12L, "불고기맛소금삼겹마요+냉모밀");
+        assertThat(removeNamesInOrder(saved)).containsExactly("단무지 제외", "김가루 제외");
         assertThat(saved).extracting(MenuOption::getName)
                 .contains("매장", "포장")
-                .doesNotContain("참기름 제외");
-    }
-
-    @Test
-    void createOtherNaengmomilSetsDoNotAddSesameOil() {
-        assertThat(createMenuAndCaptureSavedOptions(
-                3L, category(3L, "세트", 3), 12L, "치킨마요+냉모밀"))
-                .extracting(MenuOption::getName)
-                .contains("매장", "포장")
-                .doesNotContain("참기름 제외");
-    }
-
-    @Test
-    void createSpamMayoNaengmomilSetDoesNotAddSesameOil() {
-        assertThat(createMenuAndCaptureSavedOptions(
-                3L, category(3L, "세트", 3), 12L, "스팸마요+냉모밀"))
-                .extracting(MenuOption::getName)
-                .contains("매장", "포장")
-                .doesNotContain("참기름 제외");
-    }
-
-    @Test
-    void createKimchiPorkNaengmomilSetDoesNotAddSesameOil() {
-        assertThat(createMenuAndCaptureSavedOptions(
-                3L, category(3L, "세트", 3), 12L, "김치삼겹볶음밥+냉모밀"))
-                .extracting(MenuOption::getName)
-                .contains("매장", "포장")
-                .doesNotContain("참기름 제외");
-    }
-
-    @Test
-    void createBulgogiSaltPorkMayoNaengmomilSetDoesNotAddSesameOil() {
-        assertThat(createMenuAndCaptureSavedOptions(
-                3L, category(3L, "세트", 3), 12L, "불고기맛소금삼겹마요+냉모밀"))
-                .extracting(MenuOption::getName)
-                .contains("매장", "포장")
-                .doesNotContain("참기름 제외");
+                .doesNotContain("김치 제외", "참기름 제외");
     }
 
     @Test
@@ -1147,7 +1154,7 @@ class AdminMenuServiceTest {
         verify(menuOptionRepository, atLeastOnce()).saveAll(captor.capture());
         List<MenuOption> saved = captor.getAllValues().stream().flatMap(List::stream).toList();
         assertThat(saved).extracting(MenuOption::getName)
-                .contains("싱글", "김치 제외", "고추장 소스 제외", "참기름 제외", "매장", "포장");
+                .contains("싱글", "김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외", "매장", "포장");
     }
 
     @Test
@@ -1528,6 +1535,16 @@ class AdminMenuServiceTest {
         return captor.getAllValues().stream().flatMap(List::stream).toList();
     }
 
+    private List<String> removeNamesInOrder(List<MenuOption> saved) {
+        return saved.stream()
+                .filter(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                .sorted(java.util.Comparator.comparing(
+                        MenuOption::getDisplayOrder,
+                        java.util.Comparator.nullsLast(Integer::compareTo)))
+                .map(MenuOption::getName)
+                .toList();
+    }
+
     @Test
     void saltPorkAndNaengmomilClassifiersUseExactNamesAndCategory() {
         Category cupbap = category(1L);
@@ -1559,9 +1576,133 @@ class AdminMenuServiceTest {
         assertThat(AdminMenuService.isSaltPorkMenu(menu(8L, kimchiSet, "삼겹소금+김치우동", 1))).isTrue();
         assertThat(AdminMenuService.isSaltPorkMenu(menu(9L, naengmomilSet, "삼겹소금+냉모밀", 1))).isTrue();
         assertThat(AdminMenuService.isSaltPorkMenu(menu(10L, naengmomilSet, "삼겹양념(매운맛)+냉모밀", 1)))
-                .isFalse();
+                .isTrue();
         assertThat(AdminMenuService.isSaltPorkMenu(menu(11L, naengmomilSet, "참치마요+냉모밀", 1))).isFalse();
         assertThat(AdminMenuService.isSaltPorkMenu(menu(12L, naengmomilSet, "불고기맛소금삼겹마요+냉모밀", 1)))
                 .isFalse();
+        assertThat(AdminMenuService.isMayoMenu(menu(13L, cupbap, "참치마요", 1))).isTrue();
+        assertThat(AdminMenuService.isMayoMenu(menu(14L, cupbap, "불고기맛소금삼겹마요", 1))).isTrue();
+        assertThat(AdminMenuService.isKimchiPorkFriedRiceMenu(menu(15L, cupbap, "김치삼겹볶음밥", 1)))
+                .isTrue();
+        assertThat(AdminMenuService.isKimchiPorkFriedRiceMenu(
+                menu(16L, barbieSet, "김치삼겹볶음밥+바비우동", 1))).isTrue();
+        assertThat(AdminMenuService.isSaltPorkMenu(menu(17L, cupbap, "김치삼겹볶음밥", 1))).isFalse();
+    }
+
+    @Test
+    void createSaltPorkCupbapHasFourCanonicalRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 20L, "삼겹소금")))
+                .containsExactly("김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외");
+    }
+
+    @Test
+    void createSaltPorkPlusNaengmomilHasFourCanonicalRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 21L, "삼겹소금+냉모밀")))
+                .containsExactly("김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외");
+    }
+
+    @Test
+    void createSeasonedPorkCupbapHasFourCanonicalRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 22L, "삼겹양념(매운맛)")))
+                .containsExactly("김치 제외", "고추장 소스 제외", "참기름 제외", "김가루 제외");
+    }
+
+    @Test
+    void createTunaMayoCupbapHasTwoCanonicalRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 23L, "참치마요")))
+                .containsExactly("단무지 제외", "김가루 제외");
+    }
+
+    @Test
+    void createChickenMayoCupbapHasTwoCanonicalRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 24L, "치킨마요")))
+                .containsExactly("단무지 제외", "김가루 제외");
+    }
+
+    @Test
+    void createBulgogiSaltPorkMayoCupbapUsesMayoPolicy() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 25L, "불고기맛소금삼겹마요")))
+                .containsExactly("단무지 제외", "김가루 제외");
+    }
+
+    @Test
+    void createKimchiPorkFriedRiceHasNoRemoves() {
+        List<MenuOption> saved = createMenuAndCaptureSavedOptions(
+                1L, category(1L), 26L, "김치삼겹볶음밥");
+        assertThat(removeNamesInOrder(saved)).isEmpty();
+        assertThat(saved)
+                .extracting(MenuOption::getGroupType)
+                .contains(OptionGroupType.SIZE, OptionGroupType.TOPPING_ADD)
+                .doesNotContain(OptionGroupType.TOPPING_REMOVE);
+    }
+
+    @Test
+    void createKimchiPorkFriedRiceBarbieUdonHasNoRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 27L, "김치삼겹볶음밥+바비우동")))
+                .isEmpty();
+    }
+
+    @Test
+    void createGenericCupbapKeepsDefaultRemoves() {
+        assertThat(removeNamesInOrder(createMenuAndCaptureSavedOptions(
+                1L, category(1L), 28L, "제육덮밥")))
+                .containsExactly("김치 제외", "고추장 소스 제외");
+    }
+
+    @Test
+    void ensureDefaultOptionsReplacesExtraRemovesWithCanonicalList() {
+        Menu menu = menu(10L, category(1L), "삼겹소금", 1);
+        MenuOption kimchi = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("김치 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(1)
+                .build();
+        MenuOption extra = MenuOption.builder()
+                .menu(menu)
+                .groupType(OptionGroupType.TOPPING_REMOVE)
+                .name("불닭소스 제외")
+                .additionalPrice(0)
+                .maxQuantity(1)
+                .displayOrder(9)
+                .build();
+        ReflectionTestUtils.setField(extra, "id", 88L);
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(OptionGroupType.SIZE)))
+                .willReturn(List.of(
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("싱글").additionalPrice(0).maxQuantity(1).displayOrder(1).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("더블").additionalPrice(1000).maxQuantity(1).displayOrder(2).build(),
+                        MenuOption.builder().menu(menu).groupType(OptionGroupType.SIZE)
+                                .name("점보").additionalPrice(2000).maxQuantity(1).displayOrder(3).build()
+                ));
+        given(menuOptionRepository.findAllByMenuIdAndGroupTypeIn(10L, List.of(
+                OptionGroupType.TOPPING_ADD, OptionGroupType.TOPPING_REMOVE)))
+                .willReturn(List.of(kimchi, extra));
+
+        adminMenuService.ensureDefaultOptions(menu);
+
+        verify(orderItemOptionRepository).detachMenuOptions(List.of(88L));
+        verify(savedMenuOptionRepository).detachMenuOptions(List.of(88L));
+        verify(menuOptionRepository).deleteAll(List.of(extra));
+        org.mockito.ArgumentCaptor<List<MenuOption>> captor =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(menuOptionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .filteredOn(option -> option.getGroupType() == OptionGroupType.TOPPING_REMOVE)
+                .extracting(MenuOption::getName, MenuOption::getDisplayOrder)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("고추장 소스 제외", 2),
+                        org.assertj.core.groups.Tuple.tuple("참기름 제외", 3),
+                        org.assertj.core.groups.Tuple.tuple("김가루 제외", 4));
     }
 }

@@ -6,7 +6,13 @@ import { isHiddenToppingAdd, packagingDisplayRank, toppingAddDisplayRank } from 
 import { savedMenuService } from "../../services/user/savedMenuService";
 import { getLatestMatchingSavedMenu, isCombinationSaved, toOptionQuantities } from "../../utils/savedMenuCombo";
 import { ApiError } from "../../api/client";
+import {
+  trackOptionSelected,
+  trackSavedMenuCreated,
+  trackSavedMenuDeleted,
+} from "../../utils/userEvent/eventHelpers";
 import { SaveMenuPopup } from "./SaveMenuPopup";
+import { HorizontalScrollHintRow } from "./HorizontalScrollHintRow";
 import { USER_PRIMARY_BUTTON_COLOR, userPrimaryButtonClassName } from "./userPrimaryButton";
 
 interface MenuOptionModalProps {
@@ -122,10 +128,14 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
   const handleSizeChange = (id: number) => {
     setSelectedSizeId(id);
+    const option = sizeOptions.find((o) => o.id === id);
+    if (option) trackOptionSelected(menuDetail.id, option);
   };
 
   const handlePackagingChange = (id: number) => {
     setSelectedPackagingId(id);
+    const option = packagingOptions.find((o) => o.id === id);
+    if (option) trackOptionSelected(menuDetail.id, option);
   };
 
   // SIZE 및 TOPPING_REMOVE, null 옵션 클릭 처리
@@ -143,6 +153,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           ...prev,
           [option.id]: 1,
         }));
+        trackOptionSelected(menuDetail.id, option, 1);
       }
     } else {
       setSelectedOtherOptions((prev) => {
@@ -151,6 +162,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           delete next[option.id];
         } else {
           next[option.id] = 1;
+          trackOptionSelected(menuDetail.id, option, 1);
         }
         return next;
       });
@@ -188,6 +200,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         ...prev,
         [option.id]: nextQty,
       }));
+      if (val > 0) {
+        trackOptionSelected(menuDetail.id, option, nextQty);
+      }
     }
   };
 
@@ -273,6 +288,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         setSaveDeleting(true);
         try {
           await savedMenuService.remove(target.id);
+          trackSavedMenuDeleted(target.id);
           setSavedMenus((prev) => prev.filter((item) => item.id !== target.id));
         } catch (err) {
           alert(
@@ -300,6 +316,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         customName,
         options: toOptionQuantities(selectedForSave),
       });
+      trackSavedMenuCreated(created.id, menuDetail.id);
       setSavedMenus((prev) => [created, ...prev]);
       setSaveOpen(false);
     } catch (err) {
@@ -324,6 +341,15 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
   const toppingRemoveOptions = otherOptions.filter((o) => o.groupType === "TOPPING_REMOVE");
   const extraOptions = otherOptions.filter((o) => o.groupType === null);
 
+  /** 마요 계열 REMOVE(단무지/김가루) — API 옵션명으로만 판별, 메뉴명 규칙 없음 */
+  const useWideToppingRemoveLayout = toppingRemoveOptions.some((o) => o.name === "단무지 제외");
+  /** SIZE+ADD+REMOVE+PACKAGING 4섹션 — 김치삼겹볶음밥+냉모밀(REMOVE 없음)은 제외 */
+  const useTallOptionSheet =
+    sizeOptions.length > 0
+    && toppingAddOptions.length > 0
+    && toppingRemoveOptions.length > 0
+    && packagingOptions.length > 0;
+
   const modal = (
     <div className="absolute inset-0 z-[60] flex flex-col justify-end">
       {/* 오버레이 — 시트와 분리해 닫힐 때 페이드 (시트 슬라이드가 가려지지 않도록) */}
@@ -339,9 +365,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
       {/* 바텀시트 — 사이즈·토핑추가·토핑제외가 한 화면에 보이도록 높게 */}
       <div
-        className={`relative z-[1] bg-[#F8F9FA] rounded-t-[32px] max-h-[94%] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
-          isClosing ? "animate-sheet-out" : "animate-sheet-in"
-        }`}
+        className={`relative z-[1] bg-[#F8F9FA] rounded-t-[32px] flex flex-col overflow-hidden shadow-2xl border-t border-gray-100 ${
+          useTallOptionSheet ? "max-h-[98%]" : "max-h-[94%]"
+        } ${isClosing ? "animate-sheet-out" : "animate-sheet-in"}`}
       >
         {/* 헤더 */}
         <div className="px-6 pt-4 pb-2.5 bg-white flex justify-between items-start border-b border-gray-100">
@@ -363,7 +389,9 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
         </div>
 
         {/* 바디 — 세로 스크롤 없이 한 화면에 맞춤 */}
-        <div className="overflow-hidden px-6 py-3 space-y-3">
+        <div
+          className={`overflow-hidden px-6 py-3 ${useTallOptionSheet ? "space-y-2.5" : "space-y-3"}`}
+        >
           {/* 메뉴 설명 */}
           {menuDetail.description && (
             <p className="line-clamp-2 text-[11px] text-gray-500 leading-snug bg-white px-3 py-2 rounded-xl border border-gray-100">
@@ -416,9 +444,10 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
-              {/* overflow-x-auto는 세로도 clip → 배지(-top/-right 1.5 = 6px)보다 큰 padding으로 잘림 방지 */}
-              <div className="-mx-1.5 overflow-x-auto px-1.5 pb-1.5 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <h3 className="mb-0 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              <HorizontalScrollHintRow
+                measureKey={`${menuDetail.id}-add-${toppingAddOptions.length}`}
+              >
                 <div className="flex w-max gap-2">
                   {toppingAddOptions.map((opt) => {
                     const qty = selectedOtherOptions[opt.id] || 0;
@@ -496,43 +525,85 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
                     );
                   })}
                 </div>
-              </div>
+              </HorizontalScrollHintRow>
             </div>
           )}
 
-          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈와 동일한 1줄 균등 분할 */}
+          {/* 3) 토핑 제외 (TOPPING_REMOVE) — 마요(2개): PACKAGING과 동일 flex-1 / 그 외: 고정폭 스크롤 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
-              <div className="flex flex-nowrap gap-2">
-                {[...toppingRemoveOptions]
-                  .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-                  .map((opt) => {
-                    const isSelected = !!selectedOtherOptions[opt.id];
-                    const removeLabel =
-                      opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
-                    const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleOtherOptionToggle(opt)}
-                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
-                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
-                        }`}
-                      >
-                        <div className={`w-full text-center font-semibold leading-snug line-clamp-2 ${nameClass}`}>
-                          {removeLabel}
-                        </div>
-                        {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
-                            ✓
+              <h3
+                className={`${
+                  useWideToppingRemoveLayout ? "mb-2" : "mb-0"
+                } text-xs font-bold uppercase tracking-wider text-gray-500`}
+              >
+                토핑 제외
+              </h3>
+              {useWideToppingRemoveLayout ? (
+                <div className="flex flex-nowrap gap-2">
+                  {[...toppingRemoveOptions]
+                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                    .map((opt) => {
+                      const isSelected = !!selectedOtherOptions[opt.id];
+                      const removeLabel =
+                        opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
+                      const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleOtherOptionToggle(opt)}
+                          className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                            isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                          }`}
+                        >
+                          <div className={`w-full text-center font-semibold leading-snug ${nameClass}`}>
+                            {removeLabel}
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
-              </div>
+                          {isSelected && (
+                            <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
+                              ✓
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : (
+                <HorizontalScrollHintRow
+                  measureKey={`${menuDetail.id}-remove-${toppingRemoveOptions.length}`}
+                >
+                  <div className="flex w-max gap-2">
+                    {[...toppingRemoveOptions]
+                      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                      .map((opt) => {
+                        const isSelected = !!selectedOtherOptions[opt.id];
+                        const removeLabel =
+                          opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
+                        const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => handleOtherOptionToggle(opt)}
+                            className={`relative flex h-[56px] w-[108px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                              isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                            }`}
+                          >
+                            <div className={`w-full truncate text-center font-semibold leading-snug ${nameClass}`}>
+                              {removeLabel}
+                            </div>
+                            {isSelected && (
+                              <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
+                                ✓
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </HorizontalScrollHintRow>
+              )}
             </div>
           )}
 
@@ -630,7 +701,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           {/* 최대 수량 안내 영역 (고정 공간 확보 및 aria-live/role="status" 설정) */}
           <div
-            className="h-6 flex items-center justify-center mt-2 mb-1"
+            className="mt-1 h-6 flex items-center justify-center"
             role="status"
             aria-live="polite"
           >

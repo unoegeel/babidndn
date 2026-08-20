@@ -8,6 +8,11 @@ import MarqueeText from "../../components/user/MarqueeText";
 import { WaitingStatusBar } from "../../components/user/WaitingStatusBar";
 import { QuickCartBar } from "../../components/user/QuickCartBar";
 import { enablesOptionSheet } from "../../utils/optionSort";
+import {
+  trackAddToCart,
+  trackMenuOptionOpen,
+  trackMenuView,
+} from "../../utils/userEvent/eventHelpers";
 
 const SWIPE_THRESHOLD_PX = 56;
 
@@ -30,7 +35,7 @@ const MENU_BADGE_CLASS: Record<Exclude<MenuBadge, "NONE">, string> = {
 };
 
 export const MenuPage: React.FC = () => {
-  const { addToCart } = useUserData();
+  const { addToCart, cart } = useUserData();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
@@ -154,6 +159,9 @@ export const MenuPage: React.FC = () => {
 
   // 특정 메뉴 선택 시 상세 조회 → 토핑 불가면 바로 담기, 가능하면 옵션 시트 오픈
   const handleMenuSelect = async (menuId: number) => {
+    const categoryId = selectedCategoryId ?? currentCategory?.categoryId ?? 0;
+    trackMenuView(menuId, categoryId);
+
     try {
       setModalLoading(true);
       const detail = await menuService.getMenuDetail(menuId);
@@ -170,9 +178,11 @@ export const MenuPage: React.FC = () => {
           sizeOptions.find((o) => o.defaultSelected) ?? sizeOptions[0] ?? null;
         const selectedOptions = defaultSize ? [defaultSize] : [];
         addToCart(detail, selectedOptions, 1);
+        trackAddToCart(detail.id, 1, Math.max(1, cart.length + 1));
         return;
       }
 
+      trackMenuOptionOpen(detail.id, detail.categoryId);
       setActiveMenuDetail(detail);
     } catch (err) {
       console.error(err);
@@ -186,6 +196,7 @@ export const MenuPage: React.FC = () => {
   const handleAddToCartConfirm = (selectedOptions: MenuOption[], qty: number) => {
     if (activeMenuDetail) {
       addToCart(activeMenuDetail, selectedOptions, qty);
+      trackAddToCart(activeMenuDetail.id, qty, Math.max(1, cart.length + 1));
       setActiveMenuDetail(null);
     }
   };

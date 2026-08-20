@@ -109,7 +109,8 @@ WHERE category.name IN ('컵밥', '세트')
   AND menu_option.name = '밥 추가'
   AND menu_option.group_type = 'SIZE';
 
--- 컵밥과 세트 메뉴에 사이즈 3종, 추가 토핑 6종, 제외 토핑 2종을 연결합니다.
+-- 컵밥과 세트 메뉴에 사이즈 3종, 추가 토핑 8종을 연결합니다.
+-- TOPPING_REMOVE는 메뉴명 정책에 따라 아래에서 따로 넣습니다.
 -- 세트 메뉴의 옵션은 세트에 포함된 컵밥에 적용합니다.
 INSERT INTO menu_options (
     menu_id,
@@ -152,13 +153,143 @@ CROSS JOIN (
     UNION ALL SELECT 'TOPPING_ADD', '참치마요 추가', 1200, 3, FALSE, 6
     UNION ALL SELECT 'TOPPING_ADD', '모짜렐라치즈', 1000, 3, FALSE, 7
     UNION ALL SELECT 'TOPPING_ADD', '체다치즈', 500, 3, FALSE, 8
-    UNION ALL SELECT 'TOPPING_REMOVE', '김치 제외', 0, 1, FALSE, 1
+) AS option_source
+LEFT JOIN menu_options menu_option
+    ON menu_option.menu_id = menu.id
+    AND menu_option.name = option_source.name
+WHERE category.name IN ('컵밥', '세트')
+  AND menu_option.id IS NULL;
+
+-- 기본 TOPPING_REMOVE: 김치삼겹볶음밥 / 삼겹소금·삼겹양념 / 마요 계열이 아닌 컵밥·세트
+INSERT INTO menu_options (
+    menu_id,
+    group_type,
+    name,
+    additional_price,
+    max_quantity,
+    default_selected,
+    display_order,
+    created_at,
+    updated_at
+)
+SELECT
+    menu.id,
+    option_source.group_type,
+    option_source.name,
+    option_source.additional_price,
+    option_source.max_quantity,
+    option_source.default_selected,
+    option_source.display_order,
+    NOW(6),
+    NOW(6)
+FROM menus menu
+JOIN categories category ON category.id = menu.category_id
+CROSS JOIN (
+    SELECT
+        'TOPPING_REMOVE' AS group_type,
+        '김치 제외' AS name,
+        0 AS additional_price,
+        1 AS max_quantity,
+        FALSE AS default_selected,
+        1 AS display_order
     UNION ALL SELECT 'TOPPING_REMOVE', '고추장 소스 제외', 0, 1, FALSE, 2
 ) AS option_source
 LEFT JOIN menu_options menu_option
     ON menu_option.menu_id = menu.id
     AND menu_option.name = option_source.name
 WHERE category.name IN ('컵밥', '세트')
+  AND menu.name NOT LIKE '%김치삼겹볶음밥%'
+  AND menu.name NOT LIKE '%삼겹소금%'
+  AND menu.name NOT LIKE '%삼겹양념%'
+  AND menu.name NOT LIKE '%마요%'
+  AND menu_option.id IS NULL;
+
+-- 삼겹소금 / 삼겹양념 계열 TOPPING_REMOVE 4종
+INSERT INTO menu_options (
+    menu_id,
+    group_type,
+    name,
+    additional_price,
+    max_quantity,
+    default_selected,
+    display_order,
+    created_at,
+    updated_at
+)
+SELECT
+    menu.id,
+    option_source.group_type,
+    option_source.name,
+    option_source.additional_price,
+    option_source.max_quantity,
+    option_source.default_selected,
+    option_source.display_order,
+    NOW(6),
+    NOW(6)
+FROM menus menu
+JOIN categories category ON category.id = menu.category_id
+CROSS JOIN (
+    SELECT
+        'TOPPING_REMOVE' AS group_type,
+        '김치 제외' AS name,
+        0 AS additional_price,
+        1 AS max_quantity,
+        FALSE AS default_selected,
+        1 AS display_order
+    UNION ALL SELECT 'TOPPING_REMOVE', '고추장 소스 제외', 0, 1, FALSE, 2
+    UNION ALL SELECT 'TOPPING_REMOVE', '참기름 제외', 0, 1, FALSE, 3
+    UNION ALL SELECT 'TOPPING_REMOVE', '김가루 제외', 0, 1, FALSE, 4
+) AS option_source
+LEFT JOIN menu_options menu_option
+    ON menu_option.menu_id = menu.id
+    AND menu_option.name = option_source.name
+WHERE category.name IN ('컵밥', '세트')
+  AND menu.name NOT LIKE '%김치삼겹볶음밥%'
+  AND (menu.name LIKE '%삼겹소금%' OR menu.name LIKE '%삼겹양념%')
+  AND menu_option.id IS NULL;
+
+-- 마요 계열 TOPPING_REMOVE 2종
+INSERT INTO menu_options (
+    menu_id,
+    group_type,
+    name,
+    additional_price,
+    max_quantity,
+    default_selected,
+    display_order,
+    created_at,
+    updated_at
+)
+SELECT
+    menu.id,
+    option_source.group_type,
+    option_source.name,
+    option_source.additional_price,
+    option_source.max_quantity,
+    option_source.default_selected,
+    option_source.display_order,
+    NOW(6),
+    NOW(6)
+FROM menus menu
+JOIN categories category ON category.id = menu.category_id
+CROSS JOIN (
+    SELECT
+        'TOPPING_REMOVE' AS group_type,
+        '단무지 제외' AS name,
+        0 AS additional_price,
+        1 AS max_quantity,
+        FALSE AS default_selected,
+        1 AS display_order
+    UNION ALL SELECT 'TOPPING_REMOVE', '김가루 제외', 0, 1, FALSE, 2
+) AS option_source
+LEFT JOIN menu_options menu_option
+    ON menu_option.menu_id = menu.id
+    AND menu_option.name = option_source.name
+WHERE category.name IN ('컵밥', '세트')
+  AND menu.name NOT LIKE '%김치삼겹볶음밥%'
+  AND menu.name NOT LIKE '%삼겹소금%'
+  AND menu.name NOT LIKE '%삼겹양념%'
+  AND menu.name LIKE '%마요%'
   AND menu_option.id IS NULL;
 
 -- 참치불닭비빔우동: 컵밥 기본 토핑 없이 제외 토핑 3종만 연결합니다.

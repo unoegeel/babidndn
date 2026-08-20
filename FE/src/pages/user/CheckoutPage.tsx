@@ -6,6 +6,7 @@ import { orderService } from "../../services/user/orderService";
 import { resolveApiBaseUrl } from "../../api/client";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import MarqueeText from "../../components/user/MarqueeText";
+import { trackCheckoutView, trackPaymentStart } from "../../utils/userEvent/eventHelpers";
 
 declare global {
   interface Window {
@@ -30,8 +31,12 @@ export const CheckoutPage: React.FC = () => {
   useEffect(() => {
     if (cart.length === 0 && !isProcessing) {
       navigate("/user", { replace: true });
+      return;
     }
-  }, [cart, navigate, isProcessing]);
+    if (cart.length > 0) {
+      trackCheckoutView(cart.length, cartTotal);
+    }
+  }, [cart, cartTotal, navigate, isProcessing]);
 
   if (cart.length === 0 && !isProcessing) {
     return null;
@@ -45,6 +50,8 @@ export const CheckoutPage: React.FC = () => {
 
       // 1. 백엔드 실제 주문 생성 (POST /api/orders)
       const createdOrder = await createOrder(selectedMethod);
+
+      trackPaymentStart(createdOrder.id, createdOrder.totalAmount, selectedMethod);
 
       // 2. 모바일 페이지 이동 및 성공/실패 콜백 대비 저장 (장바구니는 먼저 비우지 않음)
       const pendingJson = JSON.stringify(createdOrder);

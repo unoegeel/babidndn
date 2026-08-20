@@ -1,10 +1,17 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { isAdminSignedIn } from "../constants/adminAccount";
+import { getAuthRole, isStaffSignedIn } from "../constants/adminAccount";
 
-/** 사장님 계정으로 로그인한 경우에만 관리자 화면에 진입할 수 있도록 보호 */
+/** ROLE_ADMIN 계정만 사장님 관리자 화면에 진입 */
 export default function RequireAdminAuth({ children }: { children: ReactNode }) {
-  if (!isAdminSignedIn()) {
+  if (!isStaffSignedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+  const role = getAuthRole();
+  if (role === "DEVELOPER") {
+    return <Navigate to="/dev" replace />;
+  }
+  if (role !== "ADMIN") {
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;
