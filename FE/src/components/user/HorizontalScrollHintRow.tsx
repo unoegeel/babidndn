@@ -103,7 +103,7 @@ export function HorizontalScrollHintRow({ children, measureKey }: HorizontalScro
     <div className="relative -mx-1.5">
       <div
         ref={scrollRef}
-        className="overflow-x-auto px-1.5 pb-1.5 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="overflow-x-auto px-1.5 pb-1.5 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>

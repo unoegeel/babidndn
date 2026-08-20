@@ -444,7 +444,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 2) 토핑 추가 (TOPPING_ADD) - 1줄 가로 스크롤 */}
           {toppingAddOptions.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
+              <h3 className="mb-0 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 추가</h3>
               <HorizontalScrollHintRow
                 measureKey={`${menuDetail.id}-add-${toppingAddOptions.length}`}
               >
@@ -532,7 +532,13 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
           {/* 3) 토핑 제외 (TOPPING_REMOVE) — 마요(2개): PACKAGING과 동일 flex-1 / 그 외: 고정폭 스크롤 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
+              <h3
+                className={`${
+                  useWideToppingRemoveLayout ? "mb-2" : "mb-0"
+                } text-xs font-bold uppercase tracking-wider text-gray-500`}
+              >
+                토핑 제외
+              </h3>
               {useWideToppingRemoveLayout ? (
                 <div className="flex flex-nowrap gap-2">
                   {[...toppingRemoveOptions]
@@ -695,7 +701,7 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
 
           {/* 최대 수량 안내 영역 (고정 공간 확보 및 aria-live/role="status" 설정) */}
           <div
-            className="h-6 flex items-center justify-center mt-2 mb-1"
+            className="mt-1 h-6 flex items-center justify-center"
             role="status"
             aria-live="polite"
           >
