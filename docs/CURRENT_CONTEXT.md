@@ -1,243 +1,151 @@
 # 바비든든 스마트 오더 — Current Development Context
 
-> 기준일: 2026-08-20
-> 목적: 현재 개발 상태와 최근 변경 맥락을 보존하는 살아있는 개발 문서
-> 주의: 코드가 변경되면 이 문서의 상태도 함께 갱신한다.
+> **기준일: 2026-08-20**  
+> 살아있는 개발 문서 — 코드 변경 시 함께 갱신  
+> 구조 상세: [ARCHITECTURE.md](ARCHITECTURE.md) · 실행: [README.md](../README.md)
 
-## 1. Current Snapshot
+---
 
-현재 바비오더는 다음 핵심 기능이 구현된 상태다.
+## 1. Current Snapshot (Confirmed)
 
-- 고객 메뉴 조회
-- 메뉴 옵션/토핑 선택
-- 장바구니
-- 주문 생성
-- Toss Payments 결제
-- 주문 상태 추적
-- 관리자 주문 대시보드
-- 관리자 SSE
-- 메뉴/옵션 관리
-- 결제 취소
-- 매출 분석
-- Saved Menu(나만의 메뉴)
-- Web Push
-- PWA
-- Developer Console
-- User Event Analytics
-- FE/BE Error Tracking
-- Request Tracking
+다음 기능은 **코드에 구현되어 있음**.
 
-## 2. Recently Changed / Important Context
+### Core
 
-### TOPPING_REMOVE 메뉴명 정책 (2026-08-20)
-- Backend `AdminMenuService` canonical sync
-- FE `MenuOptionModal` UI 보정 (동일일): 마요 REMOVE 넓은 버튼, 냉모밀세트 4섹션 시트 높이
-- 신규 설치: `BE/scripts/initial-menu-data.sql`
-- 기존 DB: `BE/scripts/sync-menu-topping-remove-policies.sql` (운영 미적용, 파일만 추가)
-- 관련 테스트: `AdminMenuServiceTest`
+- 고객: 메뉴·옵션·장바구니·Toss 결제·주문 추적(polling)·Web Push·PWA
+- 관리자: JWT · 주문 SSE · 메뉴/옵션 CRUD · 결제/취소 · 매출 · 팝업/리뷰 · S3
+- Saved Menu: CRUD · `X-Client-Key` · snapshot · `resolveStatus()`
 
-### Saved Menu
-- CRUD 구현 완료
-- `X-Client-Key` 기반 식별
-- snapshot 기반 저장
-- `resolveStatus()` 런타임 상태 계산
-- 원본 메뉴/옵션 변경 시 `DISCONTINUED`, `OPTIONS_STALE`, `SOLDOUT` 등 상태가 계산됨
+### Observability & Developer Console
 
-### Menu / Option / Topping
-- 별도 Topping Entity는 없음
-- `MenuOption` + `OptionGroupType` + `Menu.toppingEnabled`로 토핑 표현
-- 주요 그룹:
-  - `SIZE`
-  - `PACKAGING`
-  - `TOPPING_ADD`
-  - `TOPPING_REMOVE`
-- 옵션은 메뉴 소속 여부 및 수량 제한을 검증함
-- 컵밥형 `TOPPING_REMOVE`는 메뉴명 부분 일치 정책으로 동기화한다.
-  - `김치삼겹볶음밥` → 0개
-  - `삼겹소금` / `삼겹양념` → 4개(김치, 고추장 소스, 참기름, 김가루)
-  - `마요` → 2개(단무지, 김가루)
-  - 그 외 컵밥형 → 기본 2개
-  - `참치불닭비빔우동` 전용 3종은 기존 분기 유지
-- 정책은 `AdminMenuService`에만 있으며 FE `MenuOptionModal`은 API 옵션을 그대로 표시한다.
-- `TOPPING_REMOVE` 버튼: 삼겹 등 다수 REMOVE는 `108px × 56px` 고정폭 + 가로 스크롤, 마요(단무지 제외 옵션 존재)는 PACKAGING과 동일한 `flex-1` 넓은 버튼.
-- 가로 스크롤 옵션 행(`TOPPING_ADD`, 스크롤형 `TOPPING_REMOVE`)에 edge 기반 스크롤 힌트 overlay 추가 — `scrollWidth > clientWidth`일 때만, 왼쪽/중간/오른쪽 위치에 따라 `‹`/`›` fade 표시.
-- 냉모밀세트 4섹션(SIZE+ADD+REMOVE+PACKAGING) 메뉴만 옵션 시트 `max-h`를 98%로 올려 포장 여부가 잘리지 않게 함. 김치삼겹볶음밥+냉모밀(REMOVE 없음)은 기존 94% 유지.
-- 운영 DB 반영은 `BE/scripts/sync-menu-topping-remove-policies.sql`을 환경별로 실행해야 한다. 애플리케이션 코드만으로는 기존 row가 즉시 바뀌지 않고, 메뉴 저장/상세 heal 시점에 동기화된다.
+- Request ID · `http_request_records`
+- `client_errors` · `backend_errors` · `client_events`
+- `/dev` Overview Dashboard · `/dev/errors|requests|events|analytics`
+- `GET /api/dev/overview` · `GET /api/dev/analytics/menu-options`
+- Menu×Option 선택률 (분모 `MENU_OPTION_OPEN`, 분자 `OPTION_SELECTED` + `menuId`)
 
-### Mobile Keyboard
-최근 iPhone 키보드/viewport 관련 수정 이력이 존재한다.
+### Menu / UX (2026-08)
 
-핵심 파일:
-- `FE/src/utils/appHeight.ts`
-- `FE/src/utils/useSavedMenuPopupKeyboard.ts` 또는 실제 repository의 동일 역할 파일
-- `FE/src/pages/user/ContactPage.tsx`
-- `FE/src/pages/user/ReviewPage.tsx`
+- `AdminMenuService` TOPPING_REMOVE 메뉴명 정책 (부분 일치)
+- 옵션 시트: 마요 REMOVE 넓은 버튼 · 냉모밀세트 tall sheet · `HorizontalScrollHintRow`
+- iPhone keyboard/viewport 보정 (`appHeight`, Saved Menu popup keyboard)
 
-과거 증상:
-- iPhone Chrome에서 input focus 시 키보드로 페이지가 밀림
-- 리뷰/문의 화면은 수정 이력이 있음
-- Saved Menu popup에도 keyboard 보정 로직이 적용됨
+### Not in repo
 
-주의:
-- 실제 모든 기기에서 완전히 해결되었다고 단정하지 않는다.
-- UI 수정 시 기존 visualViewport / height freeze 로직을 우회하지 않는다.
+- Android 프린터 앱 · CPP-3000/ESC-POS · QR 코드
 
-### Printer
-현재 물리 CPP-3000 프린터 코드는 repository에 없음.
+---
 
-현재 존재:
-- Android WebView bridge 계약
-- `window.Android.printKitchenTicket`
-- `window.Android.printCustomerReceipt`
+## 2. Recently Changed
 
-현재 미존재:
-- CPP-3000 USB/Serial 구현
-- ESC/POS 실제 구현
-- Android 프린터 앱 소스
+| 일자 | 영역 | 내용 |
+|------|------|------|
+| 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
+| 2026-08-20 | Menu policy | TOPPING_REMOVE canonical sync · `sync-menu-topping-remove-policies.sql` |
+| 2026-08-20 | FE UX | 마요 REMOVE · 냉모밀 시트 · scroll hint · user guide step 11 |
+| 2026-08 (이전) | Observability | Request tracking · client errors · events · dev console 1~8단계 · analytics funnel |
 
-따라서 프린터 기능 변경 시 bridge contract와 실제 Android 앱을 별도 범위로 관리한다.
+---
 
-### Observability / Developer Console
-최근 8단계 수준의 관찰성 구조가 들어가 있다.
+## 3. Status Matrix
 
-- Request ID
-- HTTP request records
-- Client errors
-- Backend errors
-- Client events
-- Developer Console
-- Analytics
-- Error → Request 연결
-- Event → Request 연결
+### Confirmed (코드·테스트로 확인)
 
-**2026-08-20 추가**
-- `/api/dev/errors` 500: 운영 DB에 `client_errors`/`backend_errors` 미생성 또는 schema drift 가능성. `BE/scripts/create-developer-error-tables.sql` 수동 실행 + `ddl-auto: update` 확인. Service sort 시 `createdAt` null 방어 추가.
-- `GET /api/dev/overview` — Dashboard KPI (오류 24h / 요청·이벤트 오늘 / Analytics funnel 위임)
-- `/dev` Overview — 2×2 KPI Dashboard (클릭 시 상세 페이지)
-- `GET /api/dev/analytics/menu-options?menuId=` — Menu × Option 선택률 (분모: `MENU_OPTION_OPEN`, 분자: `OPTION_SELECTED` + `metadata.menuId`, `anonymousId` distinct)
-- 기존 `/api/dev/analytics/options` response contract 유지
+- Developer package tests: `./gradlew test --tests "com.gdgoc.babi_order.dev.*"` **PASS** (43 tests, 2026-08-20)
+- FE `npm run build` **PASS**
+- `OPTION_SELECTED` metadata에 `menuId` 포함 (`eventHelpers.ts`)
+- `/api/dev/analytics/options` response shape **미변경**
 
-이 기능은 신규 기능 개발 시 사용자 행동/오류 추적을 연결할 수 있는 기반으로 취급한다.
+### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-## 3. Current Risks
+- `/api/dev/errors` 운영 환경 200 응답 — `client_errors`/`backend_errors` 테이블 존재 확인 필요
+- `BE/scripts/sync-menu-topping-remove-policies.sql` · `create-developer-error-tables.sql` **운영 DB 미적용 가능**
+- Developer Overview / menu-options KPI **운영 데이터 spot check**
+- iPhone keyboard **전 기종 regression**
+- Developer 계정 bootstrap / role 운영 절차
 
-### Critical
-1. 고객 주문 API 접근 제어 재검토 필요
-   - 현재 고객 API 대부분이 `permitAll`
-   - `orderId` 기반 주문 조회의 타인 접근 가능성 확인 필요
-   - 실제 ID 생성 방식과 응답 민감정보를 추가 검증해야 함
+### Known Issue (현재 존재하는 문제)
 
-2. Production DB schema 관리
-   - Hibernate `ddl-auto: update`
-   - Flyway/Liquibase 미사용
-   - 운영 migration 추적/rollback 전략 부족
+| 이슈 | 설명 |
+|------|------|
+| BE full test suite | `./gradlew test` 시 다수 실패 (~71, 2026-08-20) — WebMvcTest 등 `BackendErrorRecordService` mock 누락 등 **기존 테스트 infra** |
+| FE lint | `npm run lint` **53 errors** (기존, 이번 Dev Console 변경과 무관) |
+| Production schema | Flyway 없음 · `ddl-auto: update` only · migration 추적/rollback 부족 |
+| Customer API ACL | 대부분 `permitAll` · `orderId` 타인 접근 가능성 **미재검증** |
+| Cart | 메모리 only — 새로고침 시 유실 |
 
-### High
-3. Developer role/bootstrap 흐름 검증 필요
-4. 장바구니가 메모리 only
-5. Analytics가 MySQL native SQL에 의존
+---
 
-### Medium
-6. FE UI/E2E 테스트 부족
-7. SavedMenu stale 상태의 UX 보강 필요
-8. SSE 장기 연결 동작/운영 모니터링 검토
+## 4. TOPPING_REMOVE 정책 (요약)
 
-### Low
-9. Dead code / placeholder 정리
-10. `pages/owner` 폴더와 `/admin` URL 명칭 불일치
+Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시.
 
-## 4. Current Test State
+| 조건 | REMOVE |
+|------|--------|
+| 메뉴명에 `김치삼겹볶음밥` | 없음 |
+| `삼겹소금` / `삼겹양념` 포함 | 김치·고추장 소스·참기름·김가루 (4) |
+| `마요` 포함 (위보다 후순위) | 단무지·김가루 (2) |
+| 그 외 컵밥형 | 김치·고추장 소스 (2) |
+| `참치불닭비빔우동` | 전용 3종 + PACKAGING |
 
-### Backend
-- Order
-- Payment
-- Menu
-- SavedMenu
-- Developer Console
-- Observability
+운영 DB: `BE/scripts/sync-menu-topping-remove-policies.sql` 또는 메뉴 저장/heal 시 동기화.
 
-에 대한 Controller/Service 테스트 존재
+---
 
-### Frontend
-- 일부 utility 테스트 존재
-- 핵심 UI flow 테스트 부족
+## 5. Business Rules (Must Not Break)
 
-### Missing / Recommended
-- Checkout UI test
-- Cart UI test
-- SavedMenu UI test
-- Admin dashboard test
-- Toss sandbox E2E
-- 전체 user/admin E2E
-- iOS/mobile keyboard regression
+상세 flow는 [ARCHITECTURE.md](ARCHITECTURE.md) 참고. 변경 시 특히:
 
-## 5. Business Rules That Must Not Be Broken
+1. 결제 전 `pickupNumber=0` · 결제 후 발급  
+2. Backend 주문 금액 source of truth · Payment 3중 검증  
+3. OrderItem/Option **snapshot**  
+4. SavedMenu `X-Client-Key` · `resolveStatus()`  
+5. Observability 실패가 주문/결제 rollback 유발하면 안 됨  
+6. Analytics Menu×Option: **시간순 menu↔option 추론 금지**
 
-1. 결제 전 `pickupNumber=0`
-2. 결제 완료 시 `activateAfterPayment()`에서 픽업번호 발급
-3. 픽업번호는 Asia/Seoul 기준 당일 순환
-4. Backend가 주문 총액의 source of truth
-5. 결제 confirm은 주문/요청/Toss 응답 금액을 검증
-6. 불일치 시 Toss cancel
-7. webhook payload를 직접 신뢰하지 않고 Toss 재조회
-8. 미결제 주문만 `/unpaid` 삭제 가능
-9. 품절 메뉴는 주문 생성 거부
-10. 옵션 수량 제한 준수
-11. 같은 `menuOptionId` 중복 선택 금지
-12. 옵션은 해당 Menu에 속해야 함
-13. OrderItem/OrderItemOption은 생성 시점 snapshot 보존
-14. SavedMenu는 `X-Client-Key` 사용
-15. SavedMenu status는 DB 저장하지 않고 런타임 계산
-16. 원본 Menu 삭제 시 SavedMenu는 `DISCONTINUED`
-17. 원본 Option 변경/삭제 시 `OPTIONS_STALE` 가능
-18. 관리자 주문 실시간 이벤트는 SSE
-19. 고객 주문 추적은 polling
-20. 고객 로그인은 의도적으로 없음
-21. 관리자/개발자는 JWT role 기반 접근
-22. Observability 저장 실패가 비즈니스 트랜잭션을 깨뜨리면 안 됨
+---
 
-## 6. Current Development Priorities
+## 6. Test State (2026-08-20)
 
-1. 고객 주문 API 접근 제어 재검토
-2. Developer 계정 bootstrap / role 흐름 확인
-3. Production schema migration 전략 검토
-4. 결제 E2E 강화
-5. Checkout / Payment FE 테스트
-6. SavedMenu stale UX
-7. Analytics 성능/index 검토
-8. 모바일 keyboard regression 검증
-9. Android printer bridge/실제 앱 경계 정리
-10. 핵심 user/admin E2E 도입
+| Command | Result |
+|---------|--------|
+| `cd BE && ./gradlew test --tests "com.gdgoc.babi_order.dev.*"` | PASS |
+| `cd BE && ./gradlew test` (full) | FAIL (~71) |
+| `cd FE && npm run build` | PASS |
+| `cd FE && npm run lint` | FAIL (53 errors) |
+| `cd FE && npm test` | (utility tests — CI 미고정) |
 
-## 7. Working Rules For Future Changes
+---
 
-- 수정 전 관련 entity/service/controller/component의 실제 호출 관계를 확인한다.
-- 이미 존재하는 business rule을 임의로 제거하지 않는다.
-- 결제 관련 수정은 Order + Payment + Webhook + SSE 흐름을 함께 확인한다.
-- SavedMenu 수정은 Menu/Option snapshot과 `resolveStatus()` 영향을 함께 확인한다.
-- 모바일 UI 수정은 기존 `visualViewport` 처리와 충돌 여부를 확인한다.
-- observability 대상 기능은 event/error/request 추적 연결 여부를 함께 검토한다.
-- 물리 프린터 관련 작업에서는 FE bridge와 외부 Android 앱을 같은 repository에 있다고 가정하지 않는다.
+## 7. Current Priorities
 
-## 8. Update Policy
+1. 고객 주문 API 접근 제어 재검토  
+2. Production schema / error tables 운영 반영  
+3. BE WebMvcTest infra 정리 (`BackendErrorRecordService` mock 일괄)  
+4. FE lint 점진적 해소  
+5. 결제·Checkout E2E  
+6. Analytics index/volume (데이터 증가 후)  
+7. 모바일 keyboard regression  
 
-이 파일은 살아있는 문서다.
+---
 
-기능이 크게 변경되면:
-- Current Snapshot
-- Recently Changed
-- Current Risks
-- Business Rules
-- Priorities
+## 8. Working Rules
 
-를 갱신한다.
+- 수정 전 entity/service/controller **실제 호출 관계** 확인  
+- 결제: Order + Payment + Webhook + SSE  
+- SavedMenu: snapshot + `resolveStatus()`  
+- Observability 연동 flow: event/error/request  
+- 프린터: FE bridge ≠ Android 앱 repo  
 
-특히 아래 상황에서는 반드시 갱신한다.
-- 새로운 핵심 기능 추가
-- DB 구조 변경
-- 결제 flow 변경
-- 인증/권한 변경
-- SavedMenu/Menus/Orders 구조 변경
-- 모바일 keyboard 처리 변경
-- 배포 구조 변경
-- Critical/High bug 수정
+---
+
+## 9. Update Policy
+
+다음 변경 시 **반드시 이 파일 갱신**:
+
+- 핵심 기능 추가/제거  
+- DB·auth·배포 변경  
+- Critical/High bug fix 또는 Pending → Confirmed 전환  
+- 테스트/lint 상태 significant change  
+
+Completed work를 Known Issue로 남기지 않는다.

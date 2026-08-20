@@ -1,391 +1,268 @@
 # 바비든든 스마트 오더 — Architecture
 
-> 기준일: 2026-08-20
-> 분석 기준: Cursor가 실제 `d:\DEV\babidndn` 저장소를 분석해 작성한 인수인계 문서
-> 원칙: 실제 코드에서 확인된 현재 구조를 기준으로 유지한다.
+> 기준일: 2026-08-20  
+> Source of truth: 실제 `babidndn` 저장소 코드  
+> 입문·실행: [README.md](../README.md) · 코딩 규칙: [CONVENTIONS.md](CONVENTIONS.md) · 현재 상태: [CURRENT_CONTEXT.md](CURRENT_CONTEXT.md)
 
 ## 1. Project Overview
 
-바비든든 스마트 오더(표시명: 바비오더)는 매장 픽업 주문을 위한 FE + BE 모노레포 PWA 서비스다.
+바비오더는 매장 픽업 주문 PWA + Spring Boot API 모노레포입니다.
 
-- 고객: `/user/*`
-- 관리자: `/admin/*`
-- 개발자 콘솔: `/dev/*`
-- 고객 로그인: 없음
-- 관리자/개발자: JWT 인증
-- 결제: Toss Payments
-- 이미지: AWS S3 Presigned URL
-- 알림: Web Push(VAPID)
-- 문의: SMTP
-- 관리자 실시간 주문: SSE
-- 고객 주문 추적: 3초 polling
-- 물리 프린터: 실제 프린터 코드는 미구현, Android WebView bridge만 존재
+| 영역 | Route | 인증 |
+|------|-------|------|
+| 고객 | `/user/*` | 없음 |
+| 관리자 | `/admin/*` | JWT `ROLE_ADMIN` |
+| 개발자 | `/dev/*` | JWT `ROLE_DEVELOPER` |
+
+외부 연동: Toss Payments · AWS S3 · Web Push(VAPID) · SMTP · Android WebView printer bridge
 
 ## 2. Repository Structure
 
 ```text
 babidndn/
-├── FE/
-│   ├── src/
-│   │   ├── pages/user/
-│   │   ├── pages/owner/
-│   │   ├── pages/developer/
-│   │   ├── store/
-│   │   ├── services/
-│   │   ├── api/client.ts
-│   │   └── utils/
-│   ├── vite.config.ts
-│   └── index.html
-├── BE/
-│   ├── src/main/java/com/gdgoc/babi_order/
-│   │   ├── admin/
-│   │   ├── menu/
-│   │   ├── order/
-│   │   ├── payment/
-│   │   ├── savedmenu/
-│   │   ├── store/
-│   │   ├── sales/
-│   │   ├── clientevent/
-│   │   ├── clienterror/
-│   │   ├── backenderror/
-│   │   ├── httprequest/
-│   │   ├── dev/
-│   │   └── config/
-│   ├── scripts/*.sql
-│   ├── Dockerfile
-│   └── compose.yml
+├── FE/src/
+│   ├── pages/user/           # 고객
+│   ├── pages/owner/          # 관리자 (URL은 /admin)
+│   ├── pages/developer/      # Developer Console
+│   ├── components/           # user / owner / developer
+│   ├── services/             # API 호출
+│   ├── store/                # UserDataContext, AdminDataContext
+│   ├── api/client.ts         # HTTP + JWT
+│   ├── utils/                # optionSort, appHeight, userEvent, …
+│   └── types/
+├── BE/src/main/java/com/gdgoc/babi_order/
+│   ├── admin/ menu/ order/ payment/ savedmenu/ sales/ store/ push/ contact/
+│   ├── clientevent/ clienterror/ backenderror/ httprequest/
+│   ├── dev/                  # overview, error, request, event, analytics
+│   └── config/
+├── BE/scripts/
+├── BE/compose.yml
 ├── .github/workflows/deploy-backend.yml
-├── vercel.json
-└── README.md
+└── vercel.json
 ```
 
 ## 3. Technology Stack
 
-### Frontend
-- React 19
-- Vite 8
-- Tailwind 4
-- React Router 7
-- React Context 기반 전역 상태
-- Zustand/Redux 없음
-- PWA
-- Toss Payments SDK
-- Web Push
+**Frontend:** React 19 · Vite 8 · Tailwind 4 · React Router 7 · Context (Zustand/Redux 없음) · PWA · vitest
 
-### Backend
-- Spring Boot 4.1
-- Java 21
-- MySQL 8.4
-- JPA / Spring Data JPA
-- JWT 기반 관리자 인증
-- REST API
-- SSE
-- SMTP
-- AWS S3
+**Backend:** Java 21 · Spring Boot 4.1 · JPA · JWT Security · SSE · MySQL 8.4
 
-### Infrastructure
-- Frontend: Vercel
-- Backend: GitHub Actions → ECR → EC2 Docker
-- Domain: `babidndn.shop`, `dev.babidndn.shop`, `dev-api.babidndn.shop`
-- Local DB/서비스 보조: Docker Compose
-- Schema management: Hibernate `ddl-auto: update`
-- Flyway/Liquibase: 사용하지 않음
+**Infrastructure:** Vercel(FE) · GitHub Actions → ECR → EC2 Docker(BE) · `ddl-auto: update` (Flyway 없음)
 
 ## 4. System Architecture
 
 ```text
-Customer PWA (/user)
-        │
-        ├── REST API ───────────────┐
-        │                           │
-Admin (/admin)                      ▼
-        │                  Spring Boot API :8080
-        └── Bearer JWT              │
-                                    ├── MySQL
-                                    ├── Toss Payments
-                                    ├── AWS S3
-                                    ├── Web Push
-                                    └── SMTP
+Customer PWA (/user) ──REST──┐
+Admin (/admin) ──JWT─────────┼──► Spring Boot :8080
+Developer (/dev) ──JWT───────┘         │
+                                       ├── MySQL
+                                       ├── Toss Payments
+                                       ├── AWS S3
+                                       ├── Web Push / SMTP
+                                       └── Observability tables
 
-Admin SSE
-GET /api/orders/stream
-        │
-        ▼
-OrderEventService
-
-Customer Order Polling
-useOrderPolling (3 sec)
-        │
-        ▼
-GET /api/orders/{id}
-
-Android WebView
-window.Android.*
-        │
-        ▼
-외부 프린터 앱 / 물리 프린터
+Admin SSE: GET /api/orders/stream
+Customer polling: ~3s (주문 현황)
+Android: window.Android.printKitchenTicket / printCustomerReceipt
 ```
 
 ## 5. Routing & Authorization
 
-| Prefix | Layout | 인증 |
-|---|---|---|
-| `/user/*` | `UserShell` + `UserDataContext` | 없음 |
-| `/admin/*` | `AdminDataProvider` | `ROLE_ADMIN` |
-| `/dev/*` | `DeveloperShell` | `ROLE_DEVELOPER` |
-| `/login`, `/signup` | 없음 | 없음 |
+### Frontend (`FE/src/main.tsx`)
 
-Backend security:
-- 고객 API: 대부분 `permitAll`
-- `/api/admin/**`: `ROLE_ADMIN`
-- `/api/dev/**`: `ROLE_DEVELOPER`
-- 관리자 JWT 저장 위치: `sessionStorage: gdgoc-admin-token`
+| Prefix | Shell | Guard |
+|--------|-------|-------|
+| `/user/*` | `UserShell` | 없음 |
+| `/admin/*` | Admin layout | `RequireAdminAuth` |
+| `/dev/*` | `DeveloperShell` | `RequireDeveloperAuth` |
 
-## 6. Core Business Domains
+관리자 JWT: `sessionStorage` `gdgoc-admin-token`
 
-### Menu
-- `Menu`
-- `Category`
-- `MenuOption`
-- 옵션 그룹: `SIZE`, `PACKAGING`, `TOPPING_ADD`, `TOPPING_REMOVE`
-- 별도 `Topping` Entity 없음
-- 토핑은 `MenuOption` + `OptionGroupType` + `Menu.toppingEnabled`
-- 컵밥형 메뉴의 `TOPPING_REMOVE`는 Backend `AdminMenuService`가 source of truth다. Frontend는 메뉴명으로 필터하지 않는다.
-- 메뉴명 부분 일치 우선순위: `김치삼겹볶음밥` → `삼겹소금`/`삼겹양념` → `마요` → 기본
-  - 김치삼겹볶음밥: `TOPPING_REMOVE` 없음 (`SIZE` + `TOPPING_ADD`만)
-  - 삼겹소금/삼겹양념: `김치 제외`, `고추장 소스 제외`, `참기름 제외`, `김가루 제외`
-  - 마요: `단무지 제외`, `김가루 제외`
-  - 기본: `김치 제외`, `고추장 소스 제외`
-- `참치불닭비빔우동`은 기존 전용 `TOPPING_REMOVE` 3종 분기를 유지한다.
-- 저장/상세 조회 heal(`ensureDefaultOptions`)에서도 동일 canonical 목록으로 동기화한다.
-- 옵션 삭제 시 주문/`SavedMenu`의 `menu_option_id`만 detach하고 snapshot 컬럼은 유지한다.
+### Backend (`SecurityConfig`)
 
-### Order
-- `Order`
-- `OrderItem`
-- `OrderItemOption`
-- 주문 아이템/옵션은 생성 시점 snapshot을 보존
+| Pattern | Role |
+|---------|------|
+| 대부분 고객 API | `permitAll` |
+| `/api/admin/**` | `ROLE_ADMIN` |
+| `/api/dev/**` | `ROLE_DEVELOPER` |
 
-### Payment
-- `Payment`
-- Toss Payments 연동
-- 결제 승인 시 주문 금액 / 요청 금액 / Toss 응답 금액 3중 검증
-- webhook payload를 직접 신뢰하지 않고 Toss 재조회
+## 6. Core Domains
+
+### Menu / Option
+
+- Entity: `Category` → `Menu` → `MenuOption`
+- `OptionGroupType`: `SIZE`, `TOPPING_ADD`, `TOPPING_REMOVE`, `PACKAGING`
+- 별도 Topping Entity 없음 · `Menu.toppingEnabled` + 옵션 row로 표현
+- **TOPPING_REMOVE 정책 source of truth:** `AdminMenuService` (FE는 API 응답 그대로 렌더)
+- 메뉴명 **부분 일치** 우선순위: `김치삼겹볶음밥`(REMOVE 없음) → `삼겹소금`/`삼겹양념`(4종) → `마요`(2종) → 컵밥형 기본(2종) · `참치불닭비빔우동` 전용 분기 유지
+- 옵션 삭제 시 주문/SavedMenu의 FK는 detach, **snapshot 컬럼 유지**
+
+### Order / Payment
+
+- `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
+- `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
+- 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
 
 ### Saved Menu
-- `SavedMenu`
-- `SavedMenuOption`
-- `X-Client-Key`로 사용자 식별
-- snapshot 저장
-- status는 DB에 직접 저장하지 않고 `resolveStatus()`로 런타임 계산
 
-### Observability
-- `ClientEvent`
-- `ClientError`
-- `BackendError`
-- `HttpRequestRecord`
-- Request ID
-- Developer Console
-- Analytics
+- `SavedMenu` / `SavedMenuOption` · 식별: `X-Client-Key`
+- status는 DB 저장 안 함 · `SavedMenuService.resolveStatus()` 런타임: `DISCONTINUED`, `OPTIONS_STALE`, `SOLDOUT` 등
 
-## 7. Order Lifecycle
+## 7. Order & Payment Flow
 
 ```text
-주문 생성
-→ PREPARING / UNPAID / pickupNumber=0
-→ Toss 결제
-→ payment confirm
-→ activateAfterPayment()
-→ pickupNumber 발급
-→ 관리자 SSE ORDER_CREATED
-→ PREPARING / READY
-→ 관리자 상태 변경
-→ SSE ORDER_STATUS_CHANGED
-→ COMPLETED 또는 CANCELED
+Checkout → POST /api/orders (UNPAID)
+→ Toss requestPayment → confirm/webhook
+→ Payment 저장 → activateAfterPayment → SSE ORDER_CREATED
+→ Admin: PREPARING → READY → COMPLETED / CANCELED
+→ Customer: polling + READY 시 Web Push
 ```
 
-중요 규칙:
-- 결제 전 pickupNumber는 0
-- 결제 완료 후 1~99 범위의 픽업번호 발급
-- 완료/취소 이후 상태 변경 불가
-- 품절 메뉴는 주문 생성 거부
-- 옵션 수량 제한 검증
-- 옵션은 해당 Menu 소속인지 검증
+## 8. Real-time & Notifications
 
-## 8. Payment Flow
+| 대상 | 방식 |
+|------|------|
+| 관리자 주문 | SSE `ORDER_CREATED`, `ORDER_STATUS_CHANGED` |
+| 고객 주문 | HTTP polling |
+| 준비 완료 | Web Push (VAPID) |
+
+## 9. Frontend State
+
+| 상태 | 위치 | 영속 |
+|------|------|------|
+| Cart | `UserDataContext` / `useCartState` | 메모리 (결제 중 backup) |
+| Orders | `UserDataContext` | `localStorage` |
+| SavedMenu clientKey | `utils/clientKey.ts` | `localStorage` |
+| Admin data | `AdminDataContext` | 서버 |
+
+## 10. Mobile / Option Sheet UX
+
+- Viewport: `interactive-widget=overlays-content`, `--app-height` (`appHeight.ts`)
+- 키보드: `visualViewport` freeze · Saved Menu popup `useSavedMenuPopupKeyboard.ts`
+- 옵션 시트: `MenuOptionModal` (portal) · 마요 REMOVE 넓은 버튼 · 냉모밀세트 tall sheet
+- 가로 스크롤 힌트: `HorizontalScrollHintRow` (`scrollWidth > clientWidth`일 때 edge `‹`/`›`)
+
+기기별 완전 해결은 코드만으로 단정하지 않음.
+
+## 11. Android Printer
+
+Repository에 CPP-3000/ESC-POS 구현 없음.
 
 ```text
-CheckoutPage
-→ POST /api/orders
-→ Toss requestPayment()
-→ success redirect
-→ /api/payments/confirm
-→ 금액 3중 검증
-→ Payment 저장
-→ activateAfterPayment()
-→ 주문 활성화
+FE → window.Android.printKitchenTicket(JSON)
+   → window.Android.printCustomerReceipt(JSON)
+   → 외부 Android WebView 앱 → 물리 프린터
 ```
 
-Webhook:
-```text
-Toss webhook
-→ payload 직접 신뢰하지 않음
-→ Toss API 재조회
-→ 상태 동기화
-```
+Contract: `FE/src/types/android.ts`
 
-## 9. Saved Menu Lifecycle
+## 12. Database
 
 ```text
-SavedMenu
- ├── Menu FK
- ├── customName
- ├── snapshot
- └── SavedMenuOption
-       ├── MenuOption FK
-       └── snapshot
+Category → Menu → MenuOption
+Order → OrderItem → OrderItemOption, Payment
+SavedMenu → SavedMenuOption
+Observability: client_events, client_errors, backend_errors, http_request_records
 ```
 
-status:
-- `DISCONTINUED`: 원본 Menu 삭제/null
-- `OPTIONS_STALE`: 옵션 삭제/그룹 변경/수량 초과 등
-- `SOLDOUT`: 원본 Menu가 품절
-- status 자체는 DB 저장이 아닌 `resolveStatus()` 계산
+Schema: Hibernate `ddl-auto: update` + `BE/scripts/*.sql` (운영 1회)
 
-## 10. Real-time
+## 13. Observability
 
-### Admin
-- SSE: `GET /api/orders/stream`
-- Event:
-  - `ORDER_CREATED`
-  - `ORDER_STATUS_CHANGED`
-
-### Customer
-- WebSocket 없음
-- HTTP polling: 3초
-
-## 11. Frontend State
-
-| 상태 | 관리 위치 | 영속화 |
-|---|---|---|
-| Cart | `UserDataContext` / `useCartState` | 메모리 only, 결제 중 backup |
-| Orders | `UserDataContext` | `localStorage: babi_user_orders` |
-| Notifications | `useUserNotifications` | localStorage |
-| SavedMenu clientKey | `utils/clientKey.ts` | localStorage |
-| Admin JWT | sessionStorage | `gdgoc-admin-token` |
-| Admin menus/orders | `AdminDataContext` | 서버 state |
-
-## 12. Mobile / iOS
-
-현재 확인된 핵심 파일:
-- `index.html`
-- `utils/appHeight.ts`
-- `useSavedMenuPopupKeyboard.ts`
-- `ContactPage.tsx`
-- `ReviewPage.tsx`
-
-현재 적용된 처리:
-- `viewport-fit=cover`
-- `interactive-widget=overlays-content`
-- `visualViewport`
-- `--app-height`
-- keyboard-open 시 freeze
-- SavedMenu popup input의 translateY 보정
-
-모든 기기/브라우저에서 완전 해결됐다고 코드만으로 단정하지 않는다.
-
-## 13. Android Printer
-
-현재 repository에는 CPP-3000/ESC-POS 실제 구현이 없다.
-
-현재 구조:
-```text
-FE
-→ window.Android.printKitchenTicket()
-→ window.Android.printCustomerReceipt()
-→ 외부 Android 앱
-→ 실제 프린터
-```
-
-따라서 프린터 작업 시 FE bridge contract와 실제 Android 앱 구현을 별개로 취급한다.
-
-## 14. Database
-
-주요 관계:
+### Request tracing
 
 ```text
-Category
- └── Menu
-      └── MenuOption
-
-Order
- ├── OrderItem
- │    └── OrderItemOption
- └── Payment
-
-SavedMenu
- └── SavedMenuOption
+RequestIdFilter → MDC → access log → http_request_records
 ```
 
-Schema:
-- Flyway/Liquibase 미사용
-- Hibernate `ddl-auto: update`
-- 수동 SQL은 `BE/scripts/*.sql`
-
-## 15. Observability
+### Error tracking
 
 ```text
-RequestIdFilter
-→ MDC
-→ access log
-→ http_request_records
-
-POST /api/client-errors
-→ client_errors
-
-POST /api/client-events
-→ client_events
-
-/dev
-→ GET /api/dev/overview (Dashboard KPI)
-
-/dev/errors
-/dev/requests
-/dev/events
-/dev/analytics
-→ GET /api/dev/analytics/menu-options (Menu × Option 선택률)
+POST /api/client-errors → client_errors (+ structured log)
+Uncaught BE exception → backend_errors (+ ApiExceptionHandler)
 ```
 
-관찰성 저장 실패는 비즈니스 트랜잭션에 영향을 주지 않도록 분리되어 있다.
+### User events
 
-## 16. Important Files
+```text
+POST /api/client-events → client_events (JSON metadata)
+```
 
-1. `FE/src/main.tsx`
-2. `FE/src/api/client.ts`
-3. `FE/src/store/UserDataContext.tsx`
-4. `FE/src/store/AdminDataContext.tsx`
-5. `FE/src/pages/user/CheckoutPage.tsx`
-6. `FE/src/pages/user/PaymentSuccessPage.tsx`
-7. `BE/.../order/service/OrderService.java`
-8. `BE/.../payment/service/PaymentService.java`
-9. `BE/.../config/SecurityConfig.java`
-10. `BE/.../savedmenu/service/SavedMenuService.java`
-11. `BE/.../menu/entity/MenuOption.java`
-12. `BE/.../order/service/OrderEventService.java`
-13. `FE/src/utils/appHeight.ts`
-14. `FE/src/utils/userEvent/trackEvent.ts`
-15. `FE/src/types/android.ts`
-16. `BE/.../clientevent/entity/ClientEvent.java`
-17. `BE/.../dev/analytics/DeveloperAnalyticsService.java`
-18. `BE/src/main/resources/application.yml`
-19. `.github/workflows/deploy-backend.yml`
-20. `README.md`
+FE: `utils/userEvent/trackEvent.ts`, `eventHelpers.ts` · BE allow-list: `ClientEventType`
 
-## 17. Architecture Rules
+### Developer Console
 
-- Frontend와 Backend의 실제 구조를 우선한다.
-- Order/Payment/SavedMenu의 snapshot/business rule을 함부로 제거하지 않는다.
-- 결제 금액은 Frontend 값을 신뢰하지 않고 Backend 계산값을 사용한다.
-- 주문/결제 상태 변경 흐름을 직접 건드릴 때 관련 SSE 이벤트를 함께 검토한다.
-- SavedMenu status는 `resolveStatus()`와 원본 Menu/Option 관계를 함께 고려한다.
-- 프린터는 현재 FE bridge와 실제 Android 앱을 분리해서 본다.
+| FE Route | BE API | 역할 |
+|----------|--------|------|
+| `/dev` | `GET /api/dev/overview` | Dashboard KPI (오류 24h, 요청·이벤트 오늘, funnel 위임) |
+| `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 오류 merge 목록·상세 |
+| `/dev/requests` | `GET /api/dev/requests`, `/{id}` | HTTP 요청 기록 |
+| `/dev/events` | `GET /api/dev/events`, `/{id}` | Client events |
+| `/dev/analytics` | `/api/dev/analytics/*` | KPI, funnel, menus, options, **menu-options** |
+
+Observability 저장 실패는 주문/결제 트랜잭션과 분리 (비즈니스 flow에 영향 주지 않음).
+
+## 14. Analytics
+
+### Event identity (ClientEvent)
+
+| 필드 | 용도 |
+|------|------|
+| `eventId` | 멱등 (unique) |
+| `eventType` | allow-list enum |
+| `anonymousId` | `getClientKey()` — **집계 기본 키** |
+| `sessionId` | 세션 scoped |
+| `metadata` | JSON (menuId, optionId, …) |
+| `occurredAt` | 이벤트 시각 |
+
+### OPTION_SELECTED metadata (FE → BE)
+
+`menuId`, `optionId`, `optionGroup`, `quantity`, `additionalPrice`  
+(`FE/src/utils/userEvent/eventHelpers.ts`)
+
+### Menu × Option 분석 (`GET /api/dev/analytics/menu-options`)
+
+**시간순 event matching 사용하지 않음.**
+
+```text
+engagedUsers = COUNT(DISTINCT anonymous_id)
+  WHERE event_type = MENU_OPTION_OPEN AND metadata.menuId = M
+
+selectedUsers = COUNT(DISTINCT anonymous_id)
+  WHERE event_type = OPTION_SELECTED AND metadata.menuId = M AND optionId = O
+
+selectionRate = selectedUsers / engagedUsers × 100  (분모 0 → 0%)
+```
+
+구현: `AnalyticsQueryRepository` (MySQL native, JSON_EXTRACT) · `DeveloperAnalyticsService.menuOptions()`
+
+기존 `GET /api/dev/analytics/options`는 전역 옵션 선택 **횟수** 순위 (response contract 유지).
+
+### Funnel
+
+`DeveloperAnalyticsService.funnel()` — 기간 내 단계별 distinct `anonymousId` (sequential session funnel 아님).
+
+## 15. Important Files
+
+| 영역 | Path |
+|------|------|
+| FE routes | `FE/src/main.tsx` |
+| API client | `FE/src/api/client.ts` |
+| Checkout | `FE/src/pages/user/CheckoutPage.tsx` |
+| Option modal | `FE/src/components/user/MenuOptionModal.tsx` |
+| User events | `FE/src/utils/userEvent/trackEvent.ts` |
+| Order | `BE/.../order/service/OrderService.java` |
+| Payment | `BE/.../payment/service/PaymentService.java` |
+| Menu policy | `BE/.../menu/service/AdminMenuService.java` |
+| SavedMenu | `BE/.../savedmenu/service/SavedMenuService.java` |
+| Security | `BE/.../config/SecurityConfig.java` |
+| Dev overview | `BE/.../dev/overview/DeveloperOverviewService.java` |
+| Dev analytics | `BE/.../dev/analytics/DeveloperAnalyticsService.java` |
+| Deploy | `.github/workflows/deploy-backend.yml` |
+
+## 16. Architecture Rules
+
+- Order/Payment/SavedMenu snapshot·상태 전이 규칙을 임의 변경하지 않는다.
+- 메뉴/옵션 business rule은 Backend `AdminMenuService` 우선.
+- Developer Analytics는 MySQL native SQL·JSON metadata에 의존 — DB vendor 변경 시 영향 큼.
+- 프린터·Android 앱은 FE bridge와 별도 lifecycle.
