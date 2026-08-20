@@ -516,38 +516,40 @@ export const MenuOptionModal: React.FC<MenuOptionModalProps> = ({
             </div>
           )}
 
-          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 사이즈와 동일한 1줄 균등 분할 */}
+          {/* 3) 토핑 제외 (TOPPING_REMOVE) - 토핑 추가와 동일한 고정폭 + 가로 스크롤 */}
           {toppingRemoveOptions.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">토핑 제외</h3>
-              <div className="flex flex-nowrap gap-2">
-                {[...toppingRemoveOptions]
-                  .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-                  .map((opt) => {
-                    const isSelected = !!selectedOtherOptions[opt.id];
-                    const removeLabel =
-                      opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
-                    const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleOtherOptionToggle(opt)}
-                        className={`relative flex h-[56px] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
-                          isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
-                        }`}
-                      >
-                        <div className={`w-full text-center font-semibold leading-snug line-clamp-2 ${nameClass}`}>
-                          {removeLabel}
-                        </div>
-                        {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
-                            ✓
+              <div className="-mx-1.5 overflow-x-auto px-1.5 pb-1.5 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max gap-2">
+                  {[...toppingRemoveOptions]
+                    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+                    .map((opt) => {
+                      const isSelected = !!selectedOtherOptions[opt.id];
+                      const removeLabel =
+                        opt.name === "고추장소스 제외" ? "고추장 소스 제외" : opt.name;
+                      const nameClass = removeLabel.length <= 6 ? "text-[11px]" : "text-[10px]";
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleOtherOptionToggle(opt)}
+                          className={`relative flex h-[56px] w-[108px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-1.5 py-1 text-center transition-all ${
+                            isSelected ? "border-black text-black" : "border-gray-200 text-gray-400"
+                          }`}
+                        >
+                          <div className={`w-full truncate text-center font-semibold leading-snug ${nameClass}`}>
+                            {removeLabel}
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                          {isSelected && (
+                            <div className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-white bg-black text-[10px] font-bold text-white">
+                              ✓
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
             </div>
           )}
