@@ -30,8 +30,8 @@
 ## 2. Recently Changed / Important Context
 
 ### TOPPING_REMOVE 메뉴명 정책 (2026-08-20)
-- Backend `AdminMenuService` canonical sync로 반영 완료
-- FE는 메뉴명 필터 없이 `MenuOptionModal` 레이아웃만 ADD와 동일한 고정폭 스크롤로 맞춤
+- Backend `AdminMenuService` canonical sync
+- FE `MenuOptionModal` UI 보정 (동일일): 마요 REMOVE 넓은 버튼, 냉모밀세트 4섹션 시트 높이
 - 신규 설치: `BE/scripts/initial-menu-data.sql`
 - 기존 DB: `BE/scripts/sync-menu-topping-remove-policies.sql` (운영 미적용, 파일만 추가)
 - 관련 테스트: `AdminMenuServiceTest`
@@ -59,7 +59,8 @@
   - 그 외 컵밥형 → 기본 2개
   - `참치불닭비빔우동` 전용 3종은 기존 분기 유지
 - 정책은 `AdminMenuService`에만 있으며 FE `MenuOptionModal`은 API 옵션을 그대로 표시한다.
-- `TOPPING_REMOVE` 버튼은 `TOPPING_ADD`와 동일하게 `108px × 56px` 고정폭 + 가로 스크롤이다.
+- `TOPPING_REMOVE` 버튼: 삼겹 등 다수 REMOVE는 `108px × 56px` 고정폭 + 가로 스크롤, 마요(단무지 제외 옵션 존재)는 PACKAGING과 동일한 `flex-1` 넓은 버튼.
+- 냉모밀세트 4섹션(SIZE+ADD+REMOVE+PACKAGING) 메뉴만 옵션 시트 `max-h`를 98%로 올려 포장 여부가 잘리지 않게 함. 김치삼겹볶음밥+냉모밀(REMOVE 없음)은 기존 94% 유지.
 - 운영 DB 반영은 `BE/scripts/sync-menu-topping-remove-policies.sql`을 환경별로 실행해야 한다. 애플리케이션 코드만으로는 기존 row가 즉시 바뀌지 않고, 메뉴 저장/상세 heal 시점에 동기화된다.
 
 ### Mobile Keyboard
