@@ -56,4 +56,21 @@ export interface AnalyticsOptions {
   topOptions: OptionAnalyticsItem[];
 }
 
+export interface MenuOptionAnalyticsItem {
+  optionId: number;
+  optionName: string;
+  optionGroup: string | null;
+  selectedUsers: number;
+  selectionRate: number;
+  additionalPrice: number | null;
+}
+
+export interface AnalyticsMenuOptions {
+  period: AnalyticsPeriod;
+  menuId: number;
+  menuName: string;
+  engagedUsers: number;
+  options: MenuOptionAnalyticsItem[];
+}
+
 export type PeriodPreset = "today" | "7d" | "30d" | "custom";

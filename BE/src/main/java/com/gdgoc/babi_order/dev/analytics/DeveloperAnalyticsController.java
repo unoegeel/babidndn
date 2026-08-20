@@ -1,6 +1,7 @@
 package com.gdgoc.babi_order.dev.analytics;
 
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsFunnelResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenuOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenusResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOverviewResponse;
@@ -73,6 +74,17 @@ public class DeveloperAnalyticsController {
     ) {
         Instant[] range = resolveRange(from, to);
         return analyticsService.options(range[0], range[1]);
+    }
+
+    @GetMapping("/menu-options")
+    @Operation(summary = "Menu × Option Analytics", description = "메뉴별 옵션 선택률 (MENU_OPTION_OPEN 기준)")
+    public AnalyticsMenuOptionsResponse menuOptions(
+            @RequestParam long menuId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        Instant[] range = resolveRange(from, to);
+        return analyticsService.menuOptions(menuId, range[0], range[1]);
     }
 
     /**

@@ -8,6 +8,7 @@ import {
 } from "../../services/developer/analyticsService";
 import type {
   AnalyticsFunnel,
+  AnalyticsMenuOptions,
   AnalyticsMenus,
   AnalyticsOptions,
   AnalyticsOverview,
@@ -218,6 +219,53 @@ function OptionTable({ items }: { items: OptionAnalyticsItem[] }) {
   );
 }
 
+// ────────── Menu × Option Table ──────────
+
+function MenuOptionAnalysisTable({
+  menuOptions,
+  loading,
+}: {
+  menuOptions: AnalyticsMenuOptions | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <p className="text-sm text-gray-500">불러오는 중...</p>;
+  }
+  if (!menuOptions) {
+    return <p className="text-sm text-gray-500">메뉴를 선택하세요.</p>;
+  }
+  if (menuOptions.options.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        선택 기간 내 옵션 선택 데이터가 없습니다. (옵션 시트 진입 {fmt(menuOptions.engagedUsers)}명)
+      </p>
+    );
+  }
+
+  return (
+    <table className="min-w-full text-xs">
+      <thead className="text-[11px] text-gray-500">
+        <tr>
+          <th className="pb-1 text-left font-medium">옵션</th>
+          <th className="pb-1 text-left font-medium">그룹</th>
+          <th className="pb-1 text-right font-medium">선택률</th>
+          <th className="pb-1 text-right font-medium">선택 사용자</th>
+        </tr>
+      </thead>
+      <tbody>
+        {menuOptions.options.map((item) => (
+          <tr key={`${item.optionId}-${item.optionGroup ?? "none"}`} className="border-t border-white/5">
+            <td className="py-1.5 text-gray-200">{item.optionName}</td>
+            <td className="py-1.5 font-mono text-gray-500">{item.optionGroup ?? "-"}</td>
+            <td className="py-1.5 text-right font-mono text-indigo-200">{pct(item.selectionRate)}</td>
+            <td className="py-1.5 text-right font-mono text-gray-300">{fmt(item.selectedUsers)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ────────── Main Page ──────────
 
 export default function DeveloperAnalyticsPage() {
@@ -229,6 +277,9 @@ export default function DeveloperAnalyticsPage() {
   const [funnel, setFunnel] = useState<AnalyticsFunnel | null>(null);
   const [menus, setMenus] = useState<AnalyticsMenus | null>(null);
   const [options, setOptions] = useState<AnalyticsOptions | null>(null);
+  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null);
+  const [menuOptions, setMenuOptions] = useState<AnalyticsMenuOptions | null>(null);
+  const [menuOptionsLoading, setMenuOptionsLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +299,13 @@ export default function DeveloperAnalyticsPage() {
       setFunnel(fn);
       setMenus(mn);
       setOptions(op);
+      const firstMenuId = mn.topMenusByViews[0]?.menuId ?? null;
+      setSelectedMenuId((prev) => {
+        if (prev != null && mn.topMenusByViews.some((m) => m.menuId === prev)) {
+          return prev;
+        }
+        return firstMenuId;
+      });
     } catch (err) {
       console.error(err);
       setError("분석 데이터를 불러오지 못했습니다.");
@@ -259,6 +317,36 @@ export default function DeveloperAnalyticsPage() {
   useEffect(() => {
     void load(preset, customFrom, customTo);
   }, [load, preset, customFrom, customTo]);
+
+  useEffect(() => {
+    if (selectedMenuId == null) {
+      setMenuOptions(null);
+      return;
+    }
+    const range = resolveRange(preset, customFrom, customTo);
+    let cancelled = false;
+    void (async () => {
+      try {
+        setMenuOptionsLoading(true);
+        const data = await developerAnalyticsService.menuOptions(
+          selectedMenuId,
+          range.from,
+          range.to,
+        );
+        if (!cancelled) setMenuOptions(data);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setMenuOptions(null);
+      } finally {
+        if (!cancelled) setMenuOptionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMenuId, preset, customFrom, customTo]);
+
+  const menuChoices = menus?.topMenusByViews ?? [];
 
   const PRESETS: { value: PeriodPreset; label: string }[] = [
     { value: "today", label: "오늘" },
@@ -399,7 +487,45 @@ export default function DeveloperAnalyticsPage() {
           </div>
         </section>
 
-        {/* 옵션 분석 */}
+        {/* Menu × Option 분석 */}
+        <section className="rounded-lg border border-white/10 bg-[#171b24] p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            메뉴별 옵션 선택 패턴
+          </p>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <label className="text-xs text-gray-400" htmlFor="menu-option-select">
+              메뉴
+            </label>
+            <select
+              id="menu-option-select"
+              value={selectedMenuId ?? ""}
+              onChange={(e) => setSelectedMenuId(e.target.value ? Number(e.target.value) : null)}
+              disabled={loading || menuChoices.length === 0}
+              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-1.5 text-xs text-gray-100"
+            >
+              {menuChoices.length === 0 ? (
+                <option value="">메뉴 데이터 없음</option>
+              ) : (
+                menuChoices.map((menu) => (
+                  <option key={menu.menuId} value={menu.menuId}>
+                    {menu.menuName}
+                  </option>
+                ))
+              )}
+            </select>
+            {menuOptions && !menuOptionsLoading && (
+              <span className="text-[11px] text-gray-500">
+                옵션 시트 진입 {fmt(menuOptions.engagedUsers)}명 기준
+              </span>
+            )}
+          </div>
+          <MenuOptionAnalysisTable menuOptions={menuOptions} loading={loading || menuOptionsLoading} />
+          <p className="mt-3 text-[11px] text-gray-600">
+            * 분모: MENU_OPTION_OPEN + menuId 기준 고유 사용자. 시간순 추론 없이 OPTION_SELECTED metadata.menuId 사용.
+          </p>
+        </section>
+
+        {/* 옵션 분석 (전체 순위) */}
         <section className="rounded-lg border border-white/10 bg-[#171b24] p-4">
           {loading ? (
             <p className="text-sm text-gray-500">불러오는 중...</p>
@@ -407,7 +533,7 @@ export default function DeveloperAnalyticsPage() {
             <OptionTable items={options?.topOptions ?? []} />
           )}
           <p className="mt-3 text-[11px] text-gray-600">
-            * 선택률은 정확한 노출 수를 알 수 없어 제공하지 않습니다.
+            * 전체 옵션 선택 횟수 순위 (메뉴별 선택률은 위 섹션 참고)
           </p>
         </section>
       </div>

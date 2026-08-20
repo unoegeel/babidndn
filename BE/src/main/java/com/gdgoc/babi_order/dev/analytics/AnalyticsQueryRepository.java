@@ -166,6 +166,91 @@ public class AnalyticsQueryRepository {
         return result;
     }
 
+    // ───────────── Menu × Option Analytics ─────────────
+
+    /** MENU_OPTION_OPEN + metadata.menuId 기준 distinct anonymous_id */
+    public long countMenuEngagedUsers(long menuId, Instant from, Instant to) {
+        String sql = """
+                SELECT COUNT(DISTINCT anonymous_id)
+                FROM client_events
+                WHERE event_type = 'MENU_OPTION_OPEN'
+                  AND occurred_at >= :from
+                  AND occurred_at <= :to
+                  AND JSON_EXTRACT(metadata, '$.menuId') IS NOT NULL
+                  AND CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.menuId')) AS UNSIGNED) = :menuId
+                """;
+        Number result = (Number) em.createNativeQuery(sql)
+                .setParameter("from", from)
+                .setParameter("to", to)
+                .setParameter("menuId", menuId)
+                .getSingleResult();
+        return result != null ? result.longValue() : 0L;
+    }
+
+    /**
+     * OPTION_SELECTED + metadata.menuId 기준 option별 distinct anonymous_id.
+     * menu_options JOIN으로 optionName, additionalPrice 획득.
+     */
+    @SuppressWarnings("unchecked")
+    public List<MenuOptionSelectionRow> menuOptionSelections(long menuId, Instant from, Instant to) {
+        String sql = """
+                SELECT
+                    CAST(JSON_UNQUOTE(JSON_EXTRACT(ce.metadata, '$.optionId')) AS UNSIGNED) AS option_id,
+                    MAX(mo.name)                                                              AS option_name,
+                    JSON_UNQUOTE(JSON_EXTRACT(ce.metadata, '$.optionGroup'))                  AS option_group,
+                    COUNT(DISTINCT ce.anonymous_id)                                           AS selected_users,
+                    MAX(mo.additional_price)                                                  AS additional_price
+                FROM client_events ce
+                LEFT JOIN menu_options mo
+                       ON mo.id = CAST(JSON_UNQUOTE(JSON_EXTRACT(ce.metadata, '$.optionId')) AS UNSIGNED)
+                WHERE ce.event_type = 'OPTION_SELECTED'
+                  AND ce.occurred_at >= :from
+                  AND ce.occurred_at <= :to
+                  AND JSON_EXTRACT(ce.metadata, '$.menuId') IS NOT NULL
+                  AND CAST(JSON_UNQUOTE(JSON_EXTRACT(ce.metadata, '$.menuId')) AS UNSIGNED) = :menuId
+                  AND JSON_EXTRACT(ce.metadata, '$.optionId') IS NOT NULL
+                GROUP BY option_id, option_group
+                ORDER BY selected_users DESC
+                """;
+        List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("from", from)
+                .setParameter("to", to)
+                .setParameter("menuId", menuId)
+                .getResultList();
+
+        List<MenuOptionSelectionRow> result = new ArrayList<>(rows.size());
+        for (Object[] row : rows) {
+            result.add(new MenuOptionSelectionRow(
+                    toLong(row[0]),
+                    row[1] != null ? row[1].toString() : "삭제된 옵션",
+                    row[2] != null ? row[2].toString() : null,
+                    toLong(row[3]),
+                    row[4] != null ? ((Number) row[4]).intValue() : null
+            ));
+        }
+        return result;
+    }
+
+    public String resolveMenuName(long menuId) {
+        String sql = "SELECT name FROM menus WHERE id = :menuId";
+        List<?> rows = em.createNativeQuery(sql)
+                .setParameter("menuId", menuId)
+                .getResultList();
+        if (rows.isEmpty() || rows.getFirst() == null) {
+            return "삭제된 메뉴";
+        }
+        return rows.getFirst().toString();
+    }
+
+    public record MenuOptionSelectionRow(
+            long optionId,
+            String optionName,
+            String optionGroup,
+            long selectedUsers,
+            Integer additionalPrice
+    ) {
+    }
+
     // ───────────── helpers ─────────────
 
     private List<MenuAnalyticsItem> toMenuItems(List<Object[]> rows, int cartAddsColOffset) {

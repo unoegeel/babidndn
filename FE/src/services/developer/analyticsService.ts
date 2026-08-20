@@ -1,6 +1,7 @@
 import { adminApi } from "../../api/client";
 import type {
   AnalyticsFunnel,
+  AnalyticsMenuOptions,
   AnalyticsMenus,
   AnalyticsOptions,
   AnalyticsOverview,
@@ -26,6 +27,11 @@ export const developerAnalyticsService = {
 
   options(from: string, to: string): Promise<AnalyticsOptions> {
     return adminApi.get<AnalyticsOptions>(`/api/dev/analytics/options${buildQuery(from, to)}`);
+  },
+
+  menuOptions(menuId: number, from: string, to: string): Promise<AnalyticsMenuOptions> {
+    const params = new URLSearchParams({ menuId: String(menuId), from, to });
+    return adminApi.get<AnalyticsMenuOptions>(`/api/dev/analytics/menu-options?${params.toString()}`);
   },
 };
 

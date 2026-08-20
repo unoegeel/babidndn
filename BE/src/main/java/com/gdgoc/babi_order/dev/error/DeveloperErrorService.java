@@ -78,7 +78,10 @@ public class DeveloperErrorService {
                     .forEach(error -> merged.add(toBackendSummary(error)));
         }
 
-        merged.sort(Comparator.comparing(DeveloperErrorSummaryResponse::getCreatedAt).reversed());
+        merged.sort(Comparator.comparing(
+                DeveloperErrorSummaryResponse::getCreatedAt,
+                Comparator.nullsLast(Comparator.naturalOrder())
+        ).reversed());
 
         int fromIndex = Math.min(safePage * safeSize, merged.size());
         int toIndex = Math.min(fromIndex + safeSize, merged.size());

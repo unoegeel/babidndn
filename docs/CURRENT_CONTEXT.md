@@ -110,6 +110,13 @@
 - Error → Request 연결
 - Event → Request 연결
 
+**2026-08-20 추가**
+- `/api/dev/errors` 500: 운영 DB에 `client_errors`/`backend_errors` 미생성 또는 schema drift 가능성. `BE/scripts/create-developer-error-tables.sql` 수동 실행 + `ddl-auto: update` 확인. Service sort 시 `createdAt` null 방어 추가.
+- `GET /api/dev/overview` — Dashboard KPI (오류 24h / 요청·이벤트 오늘 / Analytics funnel 위임)
+- `/dev` Overview — 2×2 KPI Dashboard (클릭 시 상세 페이지)
+- `GET /api/dev/analytics/menu-options?menuId=` — Menu × Option 선택률 (분모: `MENU_OPTION_OPEN`, 분자: `OPTION_SELECTED` + `metadata.menuId`, `anonymousId` distinct)
+- 기존 `/api/dev/analytics/options` response contract 유지
+
 이 기능은 신규 기능 개발 시 사용자 행동/오류 추적을 연결할 수 있는 기반으로 취급한다.
 
 ## 3. Current Risks

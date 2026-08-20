@@ -346,10 +346,14 @@ POST /api/client-errors
 POST /api/client-events
 → client_events
 
+/dev
+→ GET /api/dev/overview (Dashboard KPI)
+
 /dev/errors
 /dev/requests
 /dev/events
 /dev/analytics
+→ GET /api/dev/analytics/menu-options (Menu × Option 선택률)
 ```
 
 관찰성 저장 실패는 비즈니스 트랜잭션에 영향을 주지 않도록 분리되어 있다.

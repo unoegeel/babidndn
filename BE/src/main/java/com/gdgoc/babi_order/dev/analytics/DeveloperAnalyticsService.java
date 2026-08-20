@@ -2,11 +2,13 @@ package com.gdgoc.babi_order.dev.analytics;
 
 import com.gdgoc.babi_order.clientevent.ClientEventType;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsFunnelResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenuOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenusResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOverviewResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsPeriod;
 import com.gdgoc.babi_order.dev.analytics.dto.FunnelStepResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.MenuOptionAnalyticsItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -131,6 +133,43 @@ public class DeveloperAnalyticsService {
                 .period(period(from, to))
                 .topOptions(queryRepository.topOptions(from, to, TOP_N))
                 .build();
+    }
+
+    /**
+     * Menu × Option 선택률.
+     * 분모: MENU_OPTION_OPEN + menuId distinct anonymousId
+     * 분자: OPTION_SELECTED + menuId + optionId distinct anonymousId
+     */
+    public AnalyticsMenuOptionsResponse menuOptions(long menuId, Instant from, Instant to) {
+        long engagedUsers = queryRepository.countMenuEngagedUsers(menuId, from, to);
+        List<AnalyticsQueryRepository.MenuOptionSelectionRow> rows =
+                queryRepository.menuOptionSelections(menuId, from, to);
+
+        List<MenuOptionAnalyticsItem> options = rows.stream()
+                .map(row -> MenuOptionAnalyticsItem.builder()
+                        .optionId(row.optionId())
+                        .optionName(row.optionName())
+                        .optionGroup(row.optionGroup())
+                        .selectedUsers(row.selectedUsers())
+                        .selectionRate(calcSelectionRate(row.selectedUsers(), engagedUsers))
+                        .additionalPrice(row.additionalPrice())
+                        .build())
+                .toList();
+
+        return AnalyticsMenuOptionsResponse.builder()
+                .period(period(from, to))
+                .menuId(menuId)
+                .menuName(queryRepository.resolveMenuName(menuId))
+                .engagedUsers(engagedUsers)
+                .options(options)
+                .build();
+    }
+
+    private static double calcSelectionRate(long selectedUsers, long engagedUsers) {
+        if (engagedUsers <= 0) {
+            return 0.0;
+        }
+        return round2((double) selectedUsers / engagedUsers * 100.0);
     }
 
     // ───────────── helpers ─────────────
