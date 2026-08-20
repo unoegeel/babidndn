@@ -47,12 +47,12 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
   },
   {
     step: 4,
-    title: "토핑 가로 스크롤",
-    description: "보이지 않는 토핑는 좌우로 스크롤하면 있어요!",
+    title: "옵션 가로 스크롤",
+    description: "보이지 않는 옵션은 좌우로 스크롤하면 있어요!",
     images: [
       {
         src: "/guide/guide_step_4.png",
-        alt: "보이지 않는 토핑는 좌우로 스크롤하면 있어요!",
+        alt: "보이지 않는 옵션은 좌우로 스크롤하면 있어요!",
       },
     ],
   },
@@ -129,6 +129,22 @@ export const USER_GUIDE_STEPS: UserGuideStep[] = [
       {
         src: "/guide/guide_step_10-2.png",
         alt: "서비스 이용에 관한 의견은 서비스 문의로! (서비스 문의 화면)",
+      },
+    ],
+  },
+  {
+    step: 11,
+    title: "홈 화면에 추가하기",
+    description:
+      `바비든든을 홈 화면에 추가하시면,<br/>앱으로 편리하게 사용할 수 있습니다!`,
+    images: [
+      {
+        src: "/guide/guide_step_11-1.png",
+        alt: "바비든든을 홈 화면에 추가하시면, 앱으로 편리하게 사용할 수 있습니다!",
+      },
+      {
+        src: "/guide/guide_step_11-2.png",
+        alt: "바비든든을 홈 화면에 추가하시면, 앱으로 편리하게 사용할 수 있습니다!",
       },
     ],
   },
