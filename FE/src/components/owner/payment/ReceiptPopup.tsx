@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ReceiptTemplate } from "../../user/ReceiptTemplate";
 import type { ReceiptViewModel } from "../../../types/receipt";
+import { notifyFileDownloadStarted } from "../../../utils/downloadFeedback";
 import {
   downloadReceiptPdf,
   downloadReceiptPng,
@@ -25,11 +26,11 @@ export function ReceiptPopup({
         pickupNumber: receipt.pickupNumber,
         orderedAt: receipt.orderedAt,
       };
-      if (kind === "png") {
-        await downloadReceiptPng(receiptRef.current, meta);
-      } else {
-        await downloadReceiptPdf(receiptRef.current, meta);
-      }
+      const result =
+        kind === "png"
+          ? await downloadReceiptPng(receiptRef.current, meta)
+          : await downloadReceiptPdf(receiptRef.current, meta);
+      notifyFileDownloadStarted(result);
     } catch (err) {
       console.error("영수증 다운로드 실패:", err);
       alert("영수증 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.");

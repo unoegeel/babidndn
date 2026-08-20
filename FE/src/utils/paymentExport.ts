@@ -2,6 +2,8 @@ import type { Payment } from "../types/admin";
 import type { OrderDetailResponse } from "../types/api";
 import { formatOrderItemOptionLabels } from "./orderItemOptions";
 import { seoulDateKey, seoulDayBoundsMs } from "./serverDate";
+import type { FileDownloadResult } from "./triggerFileDownload";
+import { triggerFileDownload } from "./triggerFileDownload";
 
 export type PaymentExportFormat = "csv" | "txt";
 
@@ -63,48 +65,17 @@ export function buildPaymentExportText(
   return lines.join("\r\n") + "\r\n";
 }
 
-/** UTF-8 bytes → standard base64 (한글 포함 문자열용. btoa(raw) 금지) */
-function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
-function downloadBlob(body: string, mime: string, filename: string) {
-  const blob = new Blob([body], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-export function downloadPaymentExport(
+export async function downloadPaymentExport(
   content: string,
   format: PaymentExportFormat,
   fileStem: string,
-) {
+): Promise<FileDownloadResult> {
   const bom = "\uFEFF";
   const mime =
     format === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
   const filename = `${fileStem}.${format}`;
-  const body = bom + content;
-  const downloadFile = window.Android?.downloadFile;
-  if (typeof downloadFile === "function") {
-    try {
-      downloadFile.call(window.Android, filename, mime, utf8ToBase64(body));
-      return;
-    } catch {
-      // native 호출 실패 시에만 웹 다운로드로 되돌림
-    }
-  }
-  downloadBlob(body, mime, filename);
+  const blob = new Blob([bom + content], { type: mime });
+  return triggerFileDownload(blob, filename, mime);
 }
 
 /** date(YYYY-MM-DD) 또는 datetime-local → 서울 달력일 포함 시작/종료(ms) */
