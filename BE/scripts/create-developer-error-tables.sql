@@ -9,8 +9,9 @@ CREATE TABLE IF NOT EXISTS client_errors (
     source              VARCHAR(30)  NOT NULL,
     error_name          VARCHAR(200) NOT NULL,
     message             VARCHAR(2000) NOT NULL,
-    stack               VARCHAR(8000) NULL,
-    component_stack     VARCHAR(8000) NULL,
+    -- TEXT: VARCHAR(8000) x2 + 기타 VARCHAR 가 utf8mb4 기준 InnoDB row size(65535)를 초과함 (ERROR 1118)
+    stack               TEXT         NULL,
+    component_stack     TEXT         NULL,
     route               VARCHAR(500) NOT NULL,
     user_agent          VARCHAR(500) NULL,
     browser             VARCHAR(100) NULL,

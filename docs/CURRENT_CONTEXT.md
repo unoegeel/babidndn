@@ -20,6 +20,7 @@
 
 - Request ID · `http_request_records`
 - `client_errors` · `backend_errors` · `client_events`
+  - `client_errors.stack` / `component_stack` = MySQL `TEXT` (VARCHAR(8000)은 utf8mb4 row-size ERROR 1118)
 - `/dev` Overview Dashboard · `/dev/errors|requests|events|analytics`
 - `GET /api/dev/overview` · `GET /api/dev/analytics/menu-options`
 - Menu×Option 선택률 (분모 `MENU_OPTION_OPEN`, 분자 `OPTION_SELECTED` + `menuId`)
@@ -40,6 +41,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-20 | Dev Console | `client_errors` stack/component_stack → TEXT (MySQL ERROR 1118 재발 방지). **dev** `babi_order_dev`: table 생성·`/api/dev/errors`·`/overview` 200 확인 |
 | 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
 | 2026-08-20 | Menu policy | TOPPING_REMOVE canonical sync · `sync-menu-topping-remove-policies.sql` |
 | 2026-08-20 | FE UX | 마요 REMOVE · 냉모밀 시트 · scroll hint · user guide step 11 |
@@ -55,11 +57,12 @@
 - FE `npm run build` **PASS**
 - `OPTION_SELECTED` metadata에 `menuId` 포함 (`eventHelpers.ts`)
 - `/api/dev/analytics/options` response shape **미변경**
+- **dev DB `babi_order_dev`:** `backend_errors` 존재 · `client_errors`는 VARCHAR(8000) DDL로 ERROR 1118 → `TEXT`로 생성 후 `/api/dev/errors`·`/api/dev/overview` 200
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-- `/api/dev/errors` 운영 환경 200 응답 — `client_errors`/`backend_errors` 테이블 존재 확인 필요
-- `BE/scripts/sync-menu-topping-remove-policies.sql` · `create-developer-error-tables.sql` **운영 DB 미적용 가능**
+- **production `babi_order`:** `client_errors` / `backend_errors` 존재 여부 및 `stack`/`component_stack` 타입 확인 — 수정된 `create-developer-error-tables.sql` 적용 여부는 main 배포 전 별도 검증
+- `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
 - Developer Overview / menu-options KPI **운영 데이터 spot check**
 - iPhone keyboard **전 기종 regression**
 - Developer 계정 bootstrap / role 운영 절차
@@ -120,7 +123,7 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 ## 7. Current Priorities
 
 1. 고객 주문 API 접근 제어 재검토  
-2. Production schema / error tables 운영 반영  
+2. Production `babi_order` error tables schema 확인 및 수정 DDL 적용 여부  
 3. BE WebMvcTest infra 정리 (`BackendErrorRecordService` mock 일괄)  
 4. FE lint 점진적 해소  
 5. 결제·Checkout E2E  

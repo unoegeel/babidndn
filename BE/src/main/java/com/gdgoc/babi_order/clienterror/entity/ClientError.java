@@ -52,10 +52,10 @@ public class ClientError {
     @Column(nullable = false, length = 2000)
     private String message;
 
-    @Column(length = 8000)
+    @Column(columnDefinition = "TEXT")
     private String stack;
 
-    @Column(name = "component_stack", length = 8000)
+    @Column(name = "component_stack", columnDefinition = "TEXT")
     private String componentStack;
 
     @Column(nullable = false, length = 500)
