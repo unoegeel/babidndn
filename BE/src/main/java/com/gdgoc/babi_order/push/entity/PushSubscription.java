@@ -85,9 +85,8 @@ public class PushSubscription {
         if (orderId == null) {
             return;
         }
-        this.orderIds.add(orderId);
-        // 하위 호환: 마지막 연결 주문도 단일 컬럼에 유지
         this.orderId = orderId;
+        this.orderIds.add(orderId);
     }
 
     @PostLoad
