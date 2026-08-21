@@ -10,6 +10,7 @@ import com.gdgoc.babi_order.common.request.RequestIdFilterConfig;
 import com.gdgoc.babi_order.common.request.RequestIdSupport;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
+import com.gdgoc.babi_order.httprequest.RequestRecordService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -48,6 +49,9 @@ class ClientErrorControllerTest {
 
     @MockitoBean
     private BackendErrorRecordService backendErrorRecordService;
+
+    @MockitoBean
+    private RequestRecordService requestRecordService;
 
     @Test
     @WithAnonymousUser

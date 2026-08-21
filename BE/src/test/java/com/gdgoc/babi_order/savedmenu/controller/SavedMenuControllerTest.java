@@ -7,6 +7,7 @@ import com.gdgoc.babi_order.savedmenu.dto.response.SavedMenuResponse;
 import com.gdgoc.babi_order.savedmenu.exception.SavedMenuApiException;
 import com.gdgoc.babi_order.savedmenu.exception.SavedMenuExceptionHandler;
 import com.gdgoc.babi_order.savedmenu.service.SavedMenuService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -31,7 +32,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SavedMenuController.class)
-@Import({SecurityConfig.class, CorsProperties.class, SavedMenuExceptionHandler.class, ApiExceptionHandler.class})
+@Import({
+        SecurityConfig.class,
+        CorsProperties.class,
+        SavedMenuExceptionHandler.class,
+        ApiExceptionHandler.class,
+        WebMvcSliceTestConfig.class
+})
 class SavedMenuControllerTest {
 
     private static final String CLIENT_A = "11111111-1111-1111-1111-111111111111";

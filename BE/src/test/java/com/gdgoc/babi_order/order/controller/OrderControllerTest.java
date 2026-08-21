@@ -11,6 +11,7 @@ import com.gdgoc.babi_order.order.exception.OrderExceptionHandler;
 import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
 import com.gdgoc.babi_order.order.service.OrderService;
 import com.gdgoc.babi_order.order.service.OrderEventService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,7 +35,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
-@Import({SecurityConfig.class, CorsProperties.class, OrderExceptionHandler.class, ApiExceptionHandler.class})
+@Import({
+        SecurityConfig.class,
+        CorsProperties.class,
+        OrderExceptionHandler.class,
+        ApiExceptionHandler.class,
+        WebMvcSliceTestConfig.class
+})
 @WithMockUser(roles = "ADMIN")
 class OrderControllerTest {
 

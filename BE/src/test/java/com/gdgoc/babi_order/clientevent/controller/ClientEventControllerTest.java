@@ -9,6 +9,7 @@ import com.gdgoc.babi_order.common.request.RequestIdFilterConfig;
 import com.gdgoc.babi_order.common.request.RequestIdSupport;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -36,7 +37,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         ClientEventExceptionHandler.class,
         ClientEventService.class,
         ApiExceptionHandler.class,
-        RequestIdFilterConfig.class
+        RequestIdFilterConfig.class,
+        WebMvcSliceTestConfig.class
 })
 class ClientEventControllerTest {
 

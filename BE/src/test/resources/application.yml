@@ -10,6 +10,11 @@ spring:
       ddl-auto: create-drop
     open-in-view: false
 
+  # contextLoads / @SpringBootTest에서 JavaMailSender 자동구성용 (실발송 없음)
+  mail:
+    host: localhost
+    port: 25
+
 toss:
   payments:
     secret-key: test-secret-key

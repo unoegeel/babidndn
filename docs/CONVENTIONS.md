@@ -139,13 +139,15 @@ iOS keyboard 관련 변경 시 확인:
 
 - Business logic: `@DataJpaTest` + `@Import(Service)` 또는 service unit test (프로젝트 선례 따름)
 - Controller: `@WebMvcTest` + Security import
-- **`ApiExceptionHandler` 사용 WebMvcTest:** `@MockitoBean BackendErrorRecordService` 필요 (확인된 패턴)
+- **WebMvc slice 공통 mock:** `@Import(WebMvcSliceTestConfig.class)` — `ApiExceptionHandler`(`@RestControllerAdvice` 자동 포함)용 `BackendErrorRecordService`, `RequestIdFilterConfig`용 `RequestRecordService`. 개별 `@MockitoBean`도 동일 목적이면 허용
 - Analytics native SQL: H2 `JSON_EXTRACT` 미지원 → service layer mock test
 
 ### Frontend
 
 - `npm run build` (tsc + vite)
-- `npm run lint`
+- `npm run lint` — `eslint-plugin-react-hooks` v7 recommended (set-state-in-effect / purity / refs 포함)
+- prop→local state sync: effect 대신 render 중 조정(React 권장) 또는 fetch는 `await Promise.resolve()` 후 setState
+- 폴링 콜백: `useEffectEvent` (ref 렌더 접근 회피)
 - `npm test` (vitest) — utility 위주
 
 ---

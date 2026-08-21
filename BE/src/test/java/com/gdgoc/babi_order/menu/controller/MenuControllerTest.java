@@ -7,6 +7,7 @@ import com.gdgoc.babi_order.menu.dto.response.MenuDetailResponse;
 import com.gdgoc.babi_order.menu.exception.MenuExceptionHandler;
 import com.gdgoc.babi_order.menu.exception.MenuNotFoundException;
 import com.gdgoc.babi_order.menu.service.MenuService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -22,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MenuController.class)
-@Import({SecurityConfig.class, CorsProperties.class, MenuExceptionHandler.class})
+@Import({SecurityConfig.class, CorsProperties.class, MenuExceptionHandler.class, WebMvcSliceTestConfig.class})
 class MenuControllerTest {
 
     @Autowired
