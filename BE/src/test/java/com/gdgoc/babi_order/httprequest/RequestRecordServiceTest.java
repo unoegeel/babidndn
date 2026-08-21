@@ -61,4 +61,29 @@ class RequestRecordServiceTest {
 
         MDC.clear();
     }
+
+    @Test
+    void doesNotPersistOrderAccessTokenHeader() {
+        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
+        HttpServletResponse response = org.mockito.Mockito.mock(HttpServletResponse.class);
+
+        MDC.put("requestId", "req-secret");
+        when(request.getRequestURI()).thenReturn("/api/orders/1");
+        when(request.getMethod()).thenReturn("GET");
+        when(response.getStatus()).thenReturn(200);
+        // header가 있어도 User-Agent만 저장 경로에 쓰임 — 토큰 헤더를 읽지 않는지 확인
+        given(request.getHeader("User-Agent")).willReturn("Mozilla/5.0");
+        given(httpRequestRecordRepository.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        requestRecordService.persistIfApplicable(request, response, System.nanoTime());
+
+        ArgumentCaptor<com.gdgoc.babi_order.httprequest.entity.HttpRequestRecord> captor =
+                ArgumentCaptor.forClass(com.gdgoc.babi_order.httprequest.entity.HttpRequestRecord.class);
+        verify(httpRequestRecordRepository).save(captor.capture());
+        assertThat(captor.getValue().getUserAgent()).isEqualTo("Mozilla/5.0");
+        verify(request, org.mockito.Mockito.never()).getHeader("X-Order-Access-Token");
+        verify(request, org.mockito.Mockito.never()).getHeaderNames();
+
+        MDC.clear();
+    }
 }

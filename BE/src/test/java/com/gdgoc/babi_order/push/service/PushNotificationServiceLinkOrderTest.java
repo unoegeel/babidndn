@@ -1,5 +1,8 @@
 package com.gdgoc.babi_order.push.service;
 
+import com.gdgoc.babi_order.order.entity.Order;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
+import com.gdgoc.babi_order.order.security.OrderAccessTokens;
 import com.gdgoc.babi_order.push.config.PushProperties;
 import com.gdgoc.babi_order.push.entity.PushSubscription;
 import com.gdgoc.babi_order.push.repository.PushSubscriptionRepository;
@@ -18,7 +21,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import({PushNotificationService.class, PushNotificationServiceLinkOrderTest.PushTestConfig.class})
+@Import({
+        PushNotificationService.class,
+        OrderAccessGuard.class,
+        PushNotificationServiceLinkOrderTest.PushTestConfig.class
+})
 class PushNotificationServiceLinkOrderTest {
 
     @Autowired
@@ -34,6 +41,7 @@ class PushNotificationServiceLinkOrderTest {
     void cleanPushTables() {
         entityManager.getEntityManager().createNativeQuery("DELETE FROM push_subscription_orders").executeUpdate();
         entityManager.getEntityManager().createNativeQuery("DELETE FROM push_subscriptions").executeUpdate();
+        entityManager.getEntityManager().createNativeQuery("DELETE FROM orders").executeUpdate();
         entityManager.flush();
         commitAndRestartTransaction();
     }
@@ -41,20 +49,22 @@ class PushNotificationServiceLinkOrderTest {
     @Test
     void linkOrderCreatesSubscriptionOrderRelation() {
         persistSubscription("https://push.example/create");
+        OrderToken order = persistOrderWithToken();
 
-        pushNotificationService.linkOrder("https://push.example/create", 92L);
+        pushNotificationService.linkOrder("https://push.example/create", order.id(), order.rawToken());
         entityManager.clear();
 
         assertThat(countLinks()).isEqualTo(1);
-        assertThat(findSubscription("https://push.example/create").getOrderIds()).containsExactly(92L);
+        assertThat(findSubscription("https://push.example/create").getOrderIds()).containsExactly(order.id());
     }
 
     @Test
     void linkOrderIsIdempotentForSameSubscriptionAndOrder() {
         persistSubscription("https://push.example/idempotent");
+        OrderToken order = persistOrderWithToken();
 
-        pushNotificationService.linkOrder("https://push.example/idempotent", 92L);
-        pushNotificationService.linkOrder("https://push.example/idempotent", 92L);
+        pushNotificationService.linkOrder("https://push.example/idempotent", order.id(), order.rawToken());
+        pushNotificationService.linkOrder("https://push.example/idempotent", order.id(), order.rawToken());
         entityManager.clear();
 
         assertThat(countLinks()).isEqualTo(1);
@@ -63,23 +73,26 @@ class PushNotificationServiceLinkOrderTest {
     @Test
     void linkOrderAllowsDifferentOrdersForSameSubscription() {
         persistSubscription("https://push.example/multi-order");
+        OrderToken first = persistOrderWithToken();
+        OrderToken second = persistOrderWithToken();
 
-        pushNotificationService.linkOrder("https://push.example/multi-order", 92L);
-        pushNotificationService.linkOrder("https://push.example/multi-order", 93L);
+        pushNotificationService.linkOrder("https://push.example/multi-order", first.id(), first.rawToken());
+        pushNotificationService.linkOrder("https://push.example/multi-order", second.id(), second.rawToken());
         entityManager.clear();
 
         assertThat(countLinks()).isEqualTo(2);
         assertThat(findSubscription("https://push.example/multi-order").getOrderIds())
-                .containsExactlyInAnyOrder(92L, 93L);
+                .containsExactlyInAnyOrder(first.id(), second.id());
     }
 
     @Test
     void linkOrderAllowsSameOrderForDifferentSubscriptions() {
         persistSubscription("https://push.example/sub-a");
         persistSubscription("https://push.example/sub-b");
+        OrderToken order = persistOrderWithToken();
 
-        pushNotificationService.linkOrder("https://push.example/sub-a", 92L);
-        pushNotificationService.linkOrder("https://push.example/sub-b", 92L);
+        pushNotificationService.linkOrder("https://push.example/sub-a", order.id(), order.rawToken());
+        pushNotificationService.linkOrder("https://push.example/sub-b", order.id(), order.rawToken());
         entityManager.clear();
 
         assertThat(countLinks()).isEqualTo(2);
@@ -107,15 +120,28 @@ class PushNotificationServiceLinkOrderTest {
     @Test
     void linkOrderDoesNotThrowWhenRelationAlreadyExistsInDatabase() {
         PushSubscription subscription = persistSubscription("https://push.example/prelinked");
-        insertLinkDirectly(subscription.getId(), 92L);
+        OrderToken order = persistOrderWithToken();
+        insertLinkDirectly(subscription.getId(), order.id());
         entityManager.flush();
         commitAndRestartTransaction();
         entityManager.clear();
 
-        pushNotificationService.linkOrder("https://push.example/prelinked", 92L);
+        pushNotificationService.linkOrder("https://push.example/prelinked", order.id(), order.rawToken());
         entityManager.clear();
 
         assertThat(countLinks()).isEqualTo(1);
+    }
+
+    @Test
+    void linkOrderRejectsWrongAccessToken() {
+        persistSubscription("https://push.example/denied");
+        OrderToken order = persistOrderWithToken();
+
+        assertThatThrownBy(() ->
+                pushNotificationService.linkOrder(
+                        "https://push.example/denied", order.id(), "wrong-token"))
+                .isInstanceOf(com.gdgoc.babi_order.order.exception.OrderNotFoundException.class);
+        assertThat(countLinks()).isZero();
     }
 
     @Test
@@ -130,6 +156,19 @@ class PushNotificationServiceLinkOrderTest {
                 throw unrelated;
             }
         }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private record OrderToken(Long id, String rawToken) {
+    }
+
+    private OrderToken persistOrderWithToken() {
+        String raw = OrderAccessTokens.generateRaw();
+        Order order = new Order(Order.UNASSIGNED_PICKUP_NUMBER);
+        order.assignAccessTokenHash(OrderAccessTokens.sha256Hex(raw));
+        entityManager.persist(order);
+        entityManager.flush();
+        commitAndRestartTransaction();
+        return new OrderToken(order.getId(), raw);
     }
 
     private PushSubscription persistSubscription(String endpoint) {

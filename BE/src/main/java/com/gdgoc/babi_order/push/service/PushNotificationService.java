@@ -1,5 +1,9 @@
 package com.gdgoc.babi_order.push.service;
 
+import com.gdgoc.babi_order.order.entity.Order;
+import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
+import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.push.config.PushProperties;
 import com.gdgoc.babi_order.push.entity.PushSubscription;
 import com.gdgoc.babi_order.push.repository.PushSubscriptionRepository;
@@ -31,6 +35,8 @@ public class PushNotificationService {
     private final PushProperties pushProperties;
     private final PushSubscriptionRepository subscriptionRepository;
     private final PlatformTransactionManager transactionManager;
+    private final OrderRepository orderRepository;
+    private final OrderAccessGuard orderAccessGuard;
 
     private PushService pushService;
     private TransactionTemplate linkOrderTransactionTemplate;
@@ -69,7 +75,11 @@ public class PushNotificationService {
         );
     }
 
-    public void linkOrder(String endpoint, Long orderId) {
+    public void linkOrder(String endpoint, Long orderId, String accessToken) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        orderAccessGuard.requireCustomerOrderAccess(order, accessToken);
+
         try {
             linkOrderTransactionTemplate.executeWithoutResult(status -> linkOrderCore(endpoint, orderId));
         } catch (DataIntegrityViolationException exception) {

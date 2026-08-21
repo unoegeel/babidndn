@@ -14,6 +14,10 @@ import type {
 } from "../../types/api";
 import type { CartItem, Order, MenuOption, GroupType } from "../../types/user";
 import { formatServerDateTimeDash } from "../../utils/serverDate";
+import {
+  orderAccessTokenHeaders,
+  saveOrderAccessToken,
+} from "../../utils/orderAccessToken";
 
 /**
  * 결제 승인 요청.
@@ -124,6 +128,9 @@ export const orderService = {
     const body: OrderCreateRequest = { items };
     rememberOrderApiBaseUrl();
     const { data, relatedRequestId } = await api.postWithMeta<OrderDetailResponse>("/api/orders", body);
+    if (data.accessToken) {
+      saveOrderAccessToken(data.id, data.accessToken);
+    }
     return { order: data, relatedRequestId };
   },
 
@@ -133,6 +140,7 @@ export const orderService = {
   async getOrder(id: string | number): Promise<OrderDetailResponse> {
     return api.get<OrderDetailResponse>(`/api/orders/${id}`, {
       baseUrl: getOrderApiBaseUrl(),
+      headers: orderAccessTokenHeaders(id),
     });
   },
 
@@ -160,6 +168,7 @@ export const orderService = {
   async abandonUnpaidOrder(id: string | number): Promise<void> {
     return api.delete<void>(`/api/orders/${id}/unpaid`, {
       baseUrl: getOrderApiBaseUrl(),
+      headers: orderAccessTokenHeaders(id),
     });
   },
 

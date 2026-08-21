@@ -1,4 +1,5 @@
 import { api } from "../../api/client";
+import { orderAccessTokenHeaders } from "../../utils/orderAccessToken";
 
 export interface PushSubscribeBody {
   endpoint: string;
@@ -19,9 +20,15 @@ export const pushService = {
   },
 
   linkOrder(endpoint: string, orderId: number | string): Promise<void> {
-    return api.post<void>("/api/push/subscriptions/link-order", {
-      endpoint,
-      orderId: Number(orderId),
-    });
+    return api.post<void>(
+      "/api/push/subscriptions/link-order",
+      {
+        endpoint,
+        orderId: Number(orderId),
+      },
+      {
+        headers: orderAccessTokenHeaders(orderId),
+      },
+    );
   },
 };

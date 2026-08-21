@@ -20,6 +20,8 @@ import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.exception.OrderApiException;
 import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
+import com.gdgoc.babi_order.order.security.OrderAccessTokens;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
@@ -63,6 +65,9 @@ class OrderServiceTest {
     @Mock
     private PushNotificationService pushNotificationService;
 
+    @Mock
+    private OrderAccessGuard orderAccessGuard;
+
     private OrderService orderService;
 
     @BeforeEach
@@ -73,7 +78,8 @@ class OrderServiceTest {
                 menuOptionRepository,
                 paymentRepository,
                 orderEventService,
-                pushNotificationService
+                pushNotificationService,
+                orderAccessGuard
         );
     }
 
@@ -104,6 +110,7 @@ class OrderServiceTest {
         assertThat(result.getPickupNumber()).isEqualTo(0);
         assertThat(result.getTotalAmount()).isEqualTo(18000);
         assertThat(result.getPaymentStatus()).isEqualTo("UNPAID");
+        assertThat(result.getAccessToken()).isNotBlank();
         assertThat(result.getItems().getFirst().getMenuName()).isEqualTo("바비 비빔밥");
         assertThat(result.getItems().getFirst().getOptions().getFirst().getAdditionalPrice())
                 .isEqualTo(1000);
@@ -292,8 +299,9 @@ class OrderServiceTest {
         given(orderRepository.findById(1L)).willReturn(Optional.of(unpaid));
         given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.empty());
 
-        orderService.abandonUnpaidOrder(1L);
+        orderService.abandonUnpaidOrder(1L, "token");
 
+        verify(orderAccessGuard).requireCustomerOrderAccess(unpaid, "token");
         verify(orderRepository).delete(unpaid);
     }
 
@@ -304,7 +312,7 @@ class OrderServiceTest {
         given(paymentRepository.findByOrder_Id(1L))
                 .willReturn(Optional.of(payment(paid, PaymentStatus.DONE)));
 
-        assertThatThrownBy(() -> orderService.abandonUnpaidOrder(1L))
+        assertThatThrownBy(() -> orderService.abandonUnpaidOrder(1L, "token"))
                 .isInstanceOf(OrderApiException.class)
                 .extracting("code")
                 .isEqualTo("ORDER_ALREADY_PAID");
@@ -314,7 +322,7 @@ class OrderServiceTest {
     void getOrderThrowsExceptionWhenOrderDoesNotExist() {
         given(orderRepository.findById(999L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> orderService.getOrder(999L))
+        assertThatThrownBy(() -> orderService.getOrder(999L, "token"))
                 .isInstanceOf(OrderNotFoundException.class);
     }
 
@@ -324,9 +332,11 @@ class OrderServiceTest {
         given(orderRepository.findById(1L)).willReturn(Optional.of(order));
         given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.empty());
 
-        OrderDetailResponse result = orderService.getOrder(1L);
+        OrderDetailResponse result = orderService.getOrder(1L, "token");
 
         assertThat(result.getPaymentStatus()).isEqualTo("UNPAID");
+        assertThat(result.getAccessToken()).isNull();
+        verify(orderAccessGuard).requireCustomerOrderAccess(order, "token");
     }
 
     @Test
@@ -336,9 +346,39 @@ class OrderServiceTest {
         given(orderRepository.findById(1L)).willReturn(Optional.of(order));
         given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.of(payment));
 
-        OrderDetailResponse result = orderService.getOrder(1L);
+        OrderDetailResponse result = orderService.getOrder(1L, "token");
 
         assertThat(result.getPaymentStatus()).isEqualTo("DONE");
+        assertThat(result.getAccessToken()).isNull();
+    }
+
+    @Test
+    void createOrderStoresHashNotRawToken() {
+        Menu menu = menu(1L, SaleStatus.AVAILABLE);
+        given(menuRepository.findById(1L)).willReturn(Optional.of(menu));
+        given(orderRepository.save(any())).willAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            ReflectionTestUtils.setField(order, "id", 1L);
+            return order;
+        });
+        OrderCreateRequest request = OrderCreateRequest.builder()
+                .items(List.of(OrderItemRequest.builder()
+                        .menuId(1L)
+                        .quantity(1)
+                        .options(List.of())
+                        .build()))
+                .build();
+
+        OrderDetailResponse result = orderService.createOrder(request);
+
+        assertThat(result.getAccessToken()).isNotBlank();
+        verify(orderRepository, org.mockito.Mockito.atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(order -> {
+            String hash = ((Order) order).getAccessTokenHash();
+            return hash != null
+                    && hash.length() == 64
+                    && !hash.equals(result.getAccessToken())
+                    && OrderAccessTokens.matches(result.getAccessToken(), hash);
+        }));
     }
 
     @Test

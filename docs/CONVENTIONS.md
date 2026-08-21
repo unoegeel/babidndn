@@ -106,6 +106,8 @@ types/        # 공유 타입
 - `pickupNumber` 발급 시점
 - SSE event
 - SavedMenu `resolveStatus()`, `X-Client-Key`
+- 고객 order-scoped API: `X-Order-Access-Token` 검증 (`OrderAccessGuard`). raw token 로그/URL 금지. `ROLE_ADMIN`만 bypass
+- `X-Client-Key`를 주문 authorization credential로 쓰지 않음
 
 ---
 

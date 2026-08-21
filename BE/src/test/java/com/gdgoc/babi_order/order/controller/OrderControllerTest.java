@@ -147,7 +147,8 @@ class OrderControllerTest {
 
     @Test
     void getOrderReturnsNotFound() throws Exception {
-        given(orderService.getOrder(999L)).willThrow(new OrderNotFoundException(999L));
+        given(orderService.getOrder(org.mockito.ArgumentMatchers.eq(999L), org.mockito.ArgumentMatchers.any()))
+                .willThrow(new OrderNotFoundException(999L));
 
         mockMvc.perform(get("/api/orders/999"))
                 .andExpect(status().isNotFound())

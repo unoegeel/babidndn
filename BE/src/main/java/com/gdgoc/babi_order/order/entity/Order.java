@@ -51,6 +51,13 @@ public class Order {
     @Column(name = "toss_order_id", length = 32, unique = true)
     private String tossOrderId;
 
+    /**
+     * 고객 주문 접근 토큰의 SHA-256 hex.
+     * raw token은 DB에 저장하지 않는다. legacy 행은 null일 수 있으며 customer 접근은 거부한다.
+     */
+    @Column(name = "access_token_hash", length = 64)
+    private String accessTokenHash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -116,6 +123,11 @@ public class Order {
             String suffix = UUID.randomUUID().toString().substring(0, 8);
             this.tossOrderId = String.format("%06d", id) + "-" + suffix;
         }
+    }
+
+    /** 주문 생성 시 access token hash를 1회 저장한다. */
+    public void assignAccessTokenHash(String accessTokenHash) {
+        this.accessTokenHash = accessTokenHash;
     }
 
     @PrePersist

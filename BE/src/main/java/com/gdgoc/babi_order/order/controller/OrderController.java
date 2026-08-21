@@ -5,6 +5,7 @@ import com.gdgoc.babi_order.order.dto.request.OrderStatusUpdateRequest;
 import com.gdgoc.babi_order.order.dto.response.OrderDetailResponse;
 import com.gdgoc.babi_order.order.dto.response.OrderSummaryResponse;
 import com.gdgoc.babi_order.order.dto.response.WaitingCountResponse;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.order.service.OrderEventService;
 import com.gdgoc.babi_order.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -36,7 +38,7 @@ public class OrderController {
     private final OrderEventService orderEventService;
 
     @PostMapping
-    @Operation(summary = "주문 생성", description = "결제 전 임시 주문을 생성합니다. 픽업번호는 결제 승인 후 발급됩니다.")
+    @Operation(summary = "주문 생성", description = "결제 전 임시 주문을 생성합니다. 픽업번호는 결제 승인 후 발급됩니다. 응답의 accessToken은 이후 고객 조회에 필요합니다.")
     public ResponseEntity<OrderDetailResponse> createOrder(
             @Valid @RequestBody OrderCreateRequest request) {
         OrderDetailResponse response = orderService.createOrder(request);
@@ -44,9 +46,11 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}/unpaid")
-    @Operation(summary = "미결제 주문 삭제", description = "결제 실패·취소 시 임시 주문을 삭제합니다.")
-    public ResponseEntity<Void> abandonUnpaidOrder(@PathVariable("id") Long id) {
-        orderService.abandonUnpaidOrder(id);
+    @Operation(summary = "미결제 주문 삭제", description = "결제 실패·취소 시 임시 주문을 삭제합니다. X-Order-Access-Token 필요.")
+    public ResponseEntity<Void> abandonUnpaidOrder(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = OrderAccessGuard.HEADER, required = false) String accessToken) {
+        orderService.abandonUnpaidOrder(id, accessToken);
         return ResponseEntity.noContent().build();
     }
 
@@ -65,11 +69,13 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "주문 상세 조회", description = "주문 상품과 옵션 스냅샷을 함께 조회합니다.")
-    public ResponseEntity<OrderDetailResponse> getOrder(@PathVariable("id") Long id) {
+    @Operation(summary = "주문 상세 조회", description = "주문 상품과 옵션 스냅샷을 함께 조회합니다. 고객은 X-Order-Access-Token 필요. ROLE_ADMIN은 예외.")
+    public ResponseEntity<OrderDetailResponse> getOrder(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = OrderAccessGuard.HEADER, required = false) String accessToken) {
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store")
-                .body(orderService.getOrder(id));
+                .body(orderService.getOrder(id, accessToken));
     }
 
     @PatchMapping("/{id}/status")

@@ -1,4 +1,4 @@
-import { adminApi, api, resolveApiBaseUrl } from "../../api/client";
+import { adminApi, resolveApiBaseUrl } from "../../api/client";
 import { getAdminToken } from "../../constants/adminAccount";
 import type {
   ApiOrderStatus,
@@ -20,10 +20,10 @@ export const adminOrderService = {
 
   /**
    * 주문 상세 조회
-   * GET /api/orders/{id} — BE 기준 공개(permitAll), 사용자·관리자 공통
+   * GET /api/orders/{id} — ROLE_ADMIN JWT로 ownership bypass
    */
   getOrder(orderId: number | string): Promise<OrderDetailResponse> {
-    return api.get<OrderDetailResponse>(`/api/orders/${orderId}`);
+    return adminApi.get<OrderDetailResponse>(`/api/orders/${orderId}`);
   },
 
   /**

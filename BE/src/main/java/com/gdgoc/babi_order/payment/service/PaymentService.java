@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.payment.service;
 
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.order.service.OrderService;
 import com.gdgoc.babi_order.payment.client.TossPaymentClient;
 import com.gdgoc.babi_order.payment.entity.Payment;
@@ -37,6 +38,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final TossPaymentClient tossPaymentClient;
     private final OrderService orderService;
+    private final OrderAccessGuard orderAccessGuard;
 
     @Transactional
     public PaymentConfirmResponse confirm(PaymentConfirmRequest request) {
@@ -191,6 +193,8 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse cancel(String paymentKey, PaymentCancelRequest request) {
+        orderAccessGuard.requireAdmin();
+
         Payment payment = paymentRepository.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> PaymentNotFoundException.byPaymentKey(paymentKey));
 
@@ -208,15 +212,17 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentResponse getByPaymentKey(String paymentKey) {
+    public PaymentResponse getByPaymentKey(String paymentKey, String accessToken) {
         Payment payment = paymentRepository.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> PaymentNotFoundException.byPaymentKey(paymentKey));
+        orderAccessGuard.requireCustomerOrderAccess(payment.getOrder(), accessToken);
         enrichMethodLabelIfMissing(payment);
         return toPaymentResponse(payment);
     }
 
     @Transactional
-    public PaymentResponse getByOrderId(Long orderId) {
+    public PaymentResponse getByOrderId(Long orderId, String accessToken) {
+        orderService.requireAccessibleOrder(orderId, accessToken);
         Payment payment = paymentRepository.findByOrder_Id(orderId)
                 .orElseThrow(() -> PaymentNotFoundException.byOrderId(orderId));
         enrichMethodLabelIfMissing(payment);

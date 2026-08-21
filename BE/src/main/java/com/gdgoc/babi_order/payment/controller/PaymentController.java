@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.payment.controller;
 
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.payment.dto.request.PaymentCancelRequest;
 import com.gdgoc.babi_order.payment.dto.request.PaymentConfirmRequest;
 import com.gdgoc.babi_order.payment.dto.request.PaymentWebhookRequest;
@@ -90,7 +91,7 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.handleFailure(code, message, orderId));
     }
 
-    @Operation(summary = "결제 취소", description = "승인된 결제를 취소합니다.")
+    @Operation(summary = "결제 취소", description = "승인된 결제를 취소합니다. ROLE_ADMIN 전용.")
     @PostMapping("/{paymentKey}/cancel")
     public ResponseEntity<PaymentResponse> cancel(
             @PathVariable("paymentKey") String paymentKey,
@@ -98,16 +99,20 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.cancel(paymentKey, request));
     }
 
-    @Operation(summary = "결제 조회 (paymentKey)", description = "토스 결제 키로 결제 내역을 조회합니다.")
+    @Operation(summary = "결제 조회 (paymentKey)", description = "토스 결제 키로 결제 내역을 조회합니다. 고객은 X-Order-Access-Token 필요.")
     @GetMapping("/{paymentKey}")
-    public ResponseEntity<PaymentResponse> getByPaymentKey(@PathVariable("paymentKey") String paymentKey) {
-        return ResponseEntity.ok(paymentService.getByPaymentKey(paymentKey));
+    public ResponseEntity<PaymentResponse> getByPaymentKey(
+            @PathVariable("paymentKey") String paymentKey,
+            @RequestHeader(value = OrderAccessGuard.HEADER, required = false) String accessToken) {
+        return ResponseEntity.ok(paymentService.getByPaymentKey(paymentKey, accessToken));
     }
 
-    @Operation(summary = "결제 조회 (orderId)", description = "주문 ID로 결제 내역을 조회합니다.")
+    @Operation(summary = "결제 조회 (orderId)", description = "주문 ID로 결제 내역을 조회합니다. 고객은 X-Order-Access-Token 필요.")
     @GetMapping("/orders/{orderId}")
-    public ResponseEntity<PaymentResponse> getByOrderId(@PathVariable("orderId") Long orderId) {
-        return ResponseEntity.ok(paymentService.getByOrderId(orderId));
+    public ResponseEntity<PaymentResponse> getByOrderId(
+            @PathVariable("orderId") Long orderId,
+            @RequestHeader(value = OrderAccessGuard.HEADER, required = false) String accessToken) {
+        return ResponseEntity.ok(paymentService.getByOrderId(orderId, accessToken));
     }
 
     @Operation(summary = "결제 상태 변경 웹훅", description = "Toss가 결제 상태 변경 시 호출합니다. payload를 그대로 신뢰하지 않고 조회 API로 재검증 후 동기화합니다.")

@@ -19,6 +19,8 @@ import com.gdgoc.babi_order.order.entity.OrderStatus;
 import com.gdgoc.babi_order.order.exception.OrderApiException;
 import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
+import com.gdgoc.babi_order.order.security.OrderAccessTokens;
 import com.gdgoc.babi_order.payment.entity.Payment;
 import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.repository.PaymentRepository;
@@ -56,6 +58,7 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final OrderEventService orderEventService;
     private final PushNotificationService pushNotificationService;
+    private final OrderAccessGuard orderAccessGuard;
 
     /**
      * 결제 전 임시 주문을 생성합니다.
@@ -64,6 +67,8 @@ public class OrderService {
     @Transactional
     public OrderDetailResponse createOrder(OrderCreateRequest request) {
         Order order = new Order(Order.UNASSIGNED_PICKUP_NUMBER);
+        String rawAccessToken = OrderAccessTokens.generateRaw();
+        order.assignAccessTokenHash(OrderAccessTokens.sha256Hex(rawAccessToken));
 
         for (OrderItemRequest itemRequest : request.getItems()) {
             order.addItem(createOrderItem(itemRequest));
@@ -72,7 +77,7 @@ public class OrderService {
         Order saved = orderRepository.save(order);
         saved.issueTossOrderId();
         saved = orderRepository.save(saved);
-        return toDetailResponse(saved, UNPAID);
+        return toDetailResponse(saved, UNPAID, rawAccessToken);
     }
 
     /**
@@ -94,9 +99,8 @@ public class OrderService {
      * 미결제 임시 주문을 삭제합니다. 결제가 이미 완료된 주문은 삭제하지 않습니다.
      */
     @Transactional
-    public void abandonUnpaidOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    public void abandonUnpaidOrder(Long orderId, String accessToken) {
+        Order order = requireAccessibleOrder(orderId, accessToken);
         boolean paid = paymentRepository.findByOrder_Id(orderId)
                 .filter(payment -> payment.getStatus() == PaymentStatus.DONE)
                 .isPresent();
@@ -153,13 +157,23 @@ public class OrderService {
         return WaitingCountResponse.builder().waitingCount(waitingCount).build();
     }
 
-    public OrderDetailResponse getOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    public OrderDetailResponse getOrder(Long orderId, String accessToken) {
+        Order order = requireAccessibleOrder(orderId, accessToken);
         PaymentStatus paymentStatus = paymentRepository.findByOrder_Id(orderId)
                 .map(Payment::getStatus)
                 .orElse(null);
         return toDetailResponse(order, toPaymentStatusName(paymentStatus));
+    }
+
+    /**
+     * 고객 ownership 검증 후 Order 엔티티를 반환한다.
+     * Payment / Push 등 다른 서비스에서 재사용한다.
+     */
+    public Order requireAccessibleOrder(Long orderId, String accessToken) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        orderAccessGuard.requireCustomerOrderAccess(order, accessToken);
+        return order;
     }
 
     @Transactional(readOnly = false)
@@ -303,6 +317,10 @@ public class OrderService {
 
     /** 결제 완료된 진행 중 주문 중, 나보다 먼저 생성된 주문 수를 계산합니다. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
+        return toDetailResponse(order, paymentStatus, null);
+    }
+
+    private OrderDetailResponse toDetailResponse(Order order, String paymentStatus, String accessToken) {
         int waitingAheadCount = 0;
         if (order.getStatus() == OrderStatus.PREPARING) {
             waitingAheadCount = (int) orderRepository.countByStatusInAndIdLessThanAndPaid(
@@ -310,7 +328,7 @@ public class OrderService {
                     order.getId(),
                     PaymentStatus.DONE);
         }
-        return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount);
+        return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount, accessToken);
     }
 
     private void publishAfterCommit(String eventName, OrderDetailResponse response) {
