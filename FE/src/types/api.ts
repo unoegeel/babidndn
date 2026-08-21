@@ -264,3 +264,29 @@ export interface SavedMenuResponse {
   status: SavedMenuStatus;
   options: SavedMenuOptionResponse[];
 }
+
+export type ReconciliationIssueType =
+  | "PAYMENT_DONE_ORDER_NOT_ACTIVATED"
+  | "ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT"
+  | "PAYMENT_AMOUNT_MISMATCH"
+  | "MULTIPLE_VALID_PAYMENTS";
+
+export type ReconciliationSeverity = "CRITICAL" | "WARNING";
+
+export interface ReconciliationIssue {
+  type: ReconciliationIssueType;
+  severity: ReconciliationSeverity;
+  orderId: number;
+  paymentId?: number | null;
+  message: string;
+  detectedAt?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PaymentReconciliationResponse {
+  generatedAt: string;
+  period: string;
+  from: string;
+  issueCount: number;
+  issues: ReconciliationIssue[];
+}

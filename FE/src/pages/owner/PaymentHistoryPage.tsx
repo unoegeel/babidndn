@@ -4,8 +4,10 @@ import AdminShell from "../../components/AdminShell";
 import { CancelPopup } from "../../components/owner/payment/CancelPopup";
 import { ExportPopup } from "../../components/owner/payment/ExportPopup";
 import { PaymentRow } from "../../components/owner/payment/PaymentRow";
+import { paymentService } from "../../services/admin/paymentService";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
+import type { PaymentReconciliationResponse, ReconciliationIssue } from "../../types/api";
 import { notifyFileDownloadStarted } from "../../utils/downloadFeedback";
 import {
   buildPaymentExportText,
@@ -17,6 +19,14 @@ import {
 import { seoulDateKey, seoulDayBoundsMs } from "../../utils/serverDate";
 
 type PeriodFilter = "all" | "today" | "last3" | "custom";
+type ReconciliationPeriod = "1d" | "7d" | "30d";
+
+const ISSUE_TYPE_LABEL: Record<ReconciliationIssue["type"], string> = {
+  PAYMENT_DONE_ORDER_NOT_ACTIVATED: "결제됨·미활성화",
+  ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT: "활성화·결제 없음",
+  PAYMENT_AMOUNT_MISMATCH: "금액 불일치",
+  MULTIPLE_VALID_PAYMENTS: "중복 DONE 결제",
+};
 
 export default function PaymentHistoryPage() {
   const navigate = useNavigate();
@@ -29,15 +39,46 @@ export default function PaymentHistoryPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
+  const [reconPeriod, setReconPeriod] = useState<ReconciliationPeriod>("7d");
+  const [recon, setRecon] = useState<PaymentReconciliationResponse | null>(null);
+  const [reconLoading, setReconLoading] = useState(true);
+  const [reconError, setReconError] = useState<string | null>(null);
+  const [reconOpen, setReconOpen] = useState(false);
 
-  const loadPayments = () => {
-    refreshPayments()
-      .catch((err) => console.error("결제 내역 조회 실패:", err))
-      .finally(() => setLoading(false));
+  const loadPayments = async () => {
+    try {
+      await refreshPayments();
+    } catch (err) {
+      console.error("결제 내역 조회 실패:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadReconciliation = async (nextPeriod: ReconciliationPeriod = reconPeriod) => {
+    setReconLoading(true);
+    setReconError(null);
+    try {
+      const data = await paymentService.getReconciliation(nextPeriod);
+      setRecon(data);
+      if (data.issueCount > 0) {
+        setReconOpen(true);
+      }
+    } catch (err) {
+      console.error("정합성 점검 실패:", err);
+      setReconError("정합성 점검을 불러오지 못했습니다.");
+      setRecon(null);
+    } finally {
+      setReconLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadPayments();
+    void (async () => {
+      await Promise.resolve();
+      await loadPayments();
+      await loadReconciliation("7d");
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -136,6 +177,95 @@ export default function PaymentHistoryPage() {
               내려받기
             </button>
           </div>
+        </div>
+
+        {/* 정합성 점검 — 탐지 전용, 자동 수정 없음 */}
+        <div
+          className={`mb-[16px] rounded-[12px] border px-[14px] py-[12px] ${
+            recon && recon.issueCount > 0
+              ? "border-red-300 bg-red-50"
+              : "border-black/20 bg-panel"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-[10px]">
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-black">
+                정합성 점검
+                {reconLoading
+                  ? " · 확인 중…"
+                  : recon
+                    ? recon.issueCount > 0
+                      ? ` · 이상 ${recon.issueCount}건`
+                      : " · 정상"
+                    : ""}
+              </p>
+              <p className="mt-[2px] text-[12px] text-black/55">
+                Order↔Payment 이상만 표시합니다. 자동 환불·상태 변경은 하지 않습니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-[8px]">
+              <select
+                value={reconPeriod}
+                onChange={(e) => {
+                  const next = e.target.value as ReconciliationPeriod;
+                  setReconPeriod(next);
+                  loadReconciliation(next);
+                }}
+                className="h-[36px] rounded-[8px] border border-black/40 bg-canvas px-[10px] text-[13px]"
+              >
+                <option value="1d">오늘</option>
+                <option value="7d">최근 7일</option>
+                <option value="30d">최근 30일</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => loadReconciliation(reconPeriod)}
+                className="h-[36px] rounded-[8px] border border-black/40 bg-canvas px-[12px] text-[13px] font-medium"
+              >
+                다시 확인
+              </button>
+              {recon && recon.issueCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReconOpen((v) => !v)}
+                  className="h-[36px] rounded-[8px] border border-red-400 bg-white px-[12px] text-[13px] font-medium text-red-700"
+                >
+                  {reconOpen ? "목록 접기" : "이상 목록"}
+                </button>
+              )}
+            </div>
+          </div>
+          {reconError && <p className="mt-[8px] text-[13px] text-red-600">{reconError}</p>}
+          {reconOpen && recon && recon.issueCount > 0 && (
+            <ul className="mt-[10px] max-h-[220px] space-y-[8px] overflow-auto">
+              {recon.issues.map((issue, idx) => (
+                <li
+                  key={`${issue.type}-${issue.orderId}-${issue.paymentId ?? "x"}-${idx}`}
+                  className="rounded-[8px] border border-red-200 bg-white px-[10px] py-[8px] text-[13px]"
+                >
+                  <div className="flex flex-wrap items-center gap-[8px]">
+                    <span
+                      className={`rounded px-[6px] py-[2px] text-[11px] font-semibold ${
+                        issue.severity === "CRITICAL"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {issue.severity}
+                    </span>
+                    <span className="font-medium text-black">
+                      {ISSUE_TYPE_LABEL[issue.type] ?? issue.type}
+                    </span>
+                    <span className="text-black/60">주문 #{issue.orderId}</span>
+                    {issue.paymentId != null && (
+                      <span className="text-black/60">결제 #{issue.paymentId}</span>
+                    )}
+                  </div>
+                  <p className="mt-[4px] text-black/75">{issue.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* 필터 */}
