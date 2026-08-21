@@ -56,6 +56,11 @@ public class Admin {
         this.role = role;
     }
 
+    /** Updates only the stored password hash. Caller must pass an already-encoded value. */
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (role == null) {
