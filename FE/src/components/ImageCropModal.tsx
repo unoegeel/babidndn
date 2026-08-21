@@ -32,15 +32,16 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
   const [busy, setBusy] = useState(false);
   const [natural, setNatural] = useState({ w: 0, h: 0 });
   const [viewportSize, setViewportSize] = useState({ w: 0, h: 0 });
+  const [resetFor, setResetFor] = useState({ imageSrc, aspect });
 
-  useEffect(() => {
+  const needsReset = resetFor.imageSrc !== imageSrc || resetFor.aspect !== aspect;
+  if (needsReset) {
+    const imageChanged = resetFor.imageSrc !== imageSrc;
+    setResetFor({ imageSrc, aspect });
     setZoom(1);
     setOffset({ x: 0, y: 0 });
-  }, [imageSrc, aspect]);
-
-  useEffect(() => {
-    setNatural({ w: 0, h: 0 });
-  }, [imageSrc]);
+    if (imageChanged) setNatural({ w: 0, h: 0 });
+  }
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -113,13 +114,12 @@ export default function ImageCropModal({ imageSrc, onCancel, onConfirm }: Props)
     };
   };
 
-  useEffect(() => {
-    setOffset((prev) => {
-      const next = clampOffset(prev.x, prev.y);
-      return next.x === prev.x && next.y === prev.y ? prev : next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, aspect, natural.w, frame.w, frame.h, displayScale]);
+  if (!needsReset) {
+    const clampedOffset = clampOffset(offset.x, offset.y);
+    if (clampedOffset.x !== offset.x || clampedOffset.y !== offset.y) {
+      setOffset(clampedOffset);
+    }
+  }
 
   const onPointerDown = (e: React.PointerEvent) => {
     // 미리보기(뷰포트) 안에서만 드래그

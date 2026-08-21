@@ -2,7 +2,6 @@
  * Workbox 생성 SW에 합쳐지는 Web Push 핸들러.
  * vite-plugin-pwa workbox.importScripts 로 로드됩니다.
  */
-/* eslint-disable no-undef */
 self.addEventListener("push", (event) => {
   let data = {
     title: "바비든든",

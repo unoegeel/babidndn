@@ -7,6 +7,7 @@ import com.gdgoc.babi_order.payment.dto.response.PaymentConfirmResponse;
 import com.gdgoc.babi_order.payment.exception.PaymentExceptionHandler;
 import com.gdgoc.babi_order.payment.exception.PaymentOrderNotFoundException;
 import com.gdgoc.babi_order.payment.service.PaymentService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,7 +24,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaymentController.class)
-@Import({SecurityConfig.class, CorsProperties.class, PaymentExceptionHandler.class, ApiExceptionHandler.class})
+@Import({
+        SecurityConfig.class,
+        CorsProperties.class,
+        PaymentExceptionHandler.class,
+        ApiExceptionHandler.class,
+        WebMvcSliceTestConfig.class
+})
 class PaymentControllerTest {
 
     @Autowired

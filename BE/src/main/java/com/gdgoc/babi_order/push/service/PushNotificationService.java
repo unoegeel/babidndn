@@ -1,5 +1,9 @@
 package com.gdgoc.babi_order.push.service;
 
+import com.gdgoc.babi_order.order.entity.Order;
+import com.gdgoc.babi_order.order.exception.OrderNotFoundException;
+import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.push.config.PushProperties;
 import com.gdgoc.babi_order.push.entity.PushSubscription;
 import com.gdgoc.babi_order.push.repository.PushSubscriptionRepository;
@@ -10,12 +14,17 @@ import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import org.apache.http.HttpResponse;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
+import java.sql.SQLException;
 import java.util.List;
 
 @Slf4j
@@ -25,11 +34,18 @@ public class PushNotificationService {
 
     private final PushProperties pushProperties;
     private final PushSubscriptionRepository subscriptionRepository;
+    private final PlatformTransactionManager transactionManager;
+    private final OrderRepository orderRepository;
+    private final OrderAccessGuard orderAccessGuard;
 
     private PushService pushService;
+    private TransactionTemplate linkOrderTransactionTemplate;
 
     @PostConstruct
     void init() {
+        linkOrderTransactionTemplate = new TransactionTemplate(transactionManager);
+        linkOrderTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
@@ -59,15 +75,37 @@ public class PushNotificationService {
         );
     }
 
-    @Transactional
-    public void linkOrder(String endpoint, Long orderId) {
+    public void linkOrder(String endpoint, Long orderId, String accessToken) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        orderAccessGuard.requireCustomerOrderAccess(order, accessToken);
+
+        try {
+            linkOrderTransactionTemplate.executeWithoutResult(status -> linkOrderCore(endpoint, orderId));
+        } catch (DataIntegrityViolationException exception) {
+            if (isDuplicatePushSubOrderLink(exception)) {
+                log.debug(
+                        "Push subscription-order link already exists (concurrent duplicate). endpoint={}, orderId={}",
+                        truncate(endpoint),
+                        orderId
+                );
+                return;
+            }
+            throw exception;
+        }
+    }
+
+    private void linkOrderCore(String endpoint, Long orderId) {
         PushSubscription subscription = subscriptionRepository.findByEndpoint(endpoint).orElse(null);
         if (subscription == null) {
             log.warn("주문 연결할 Push 구독이 없습니다. endpoint={}", truncate(endpoint));
             return;
         }
-        // 기존 주문 연결을 덮어쓰지 않고 목록에 추가
+        if (subscriptionRepository.existsOrderLink(subscription.getId(), orderId)) {
+            return;
+        }
         subscription.linkOrder(orderId);
+        subscriptionRepository.flush();
         log.debug("Push 구독에 주문 연결. orderId={}, linkedCount={}",
                 orderId, subscription.getOrderIds().size());
     }
@@ -138,5 +176,22 @@ public class PushNotificationService {
     private static String truncate(String endpoint) {
         if (endpoint == null) return "";
         return endpoint.length() <= 48 ? endpoint : endpoint.substring(0, 48) + "...";
+    }
+
+    static boolean isDuplicatePushSubOrderLink(DataIntegrityViolationException exception) {
+        Throwable root = exception.getMostSpecificCause();
+        if (!(root instanceof SQLException sqlException)) {
+            return false;
+        }
+        String message = sqlException.getMessage();
+        if (message == null || !message.toLowerCase().contains("uk_push_sub_order")) {
+            return false;
+        }
+        // MySQL duplicate entry (1062) or H2 unique constraint (23505)
+        int errorCode = sqlException.getErrorCode();
+        if (errorCode == 1062 || errorCode == 23505) {
+            return true;
+        }
+        return "23000".equals(sqlException.getSQLState());
     }
 }

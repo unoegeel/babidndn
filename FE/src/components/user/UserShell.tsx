@@ -17,6 +17,12 @@ import ReadyConfetti from "./ReadyConfetti";
 const NOTIF_PROMPT_SESSION_KEY = "babi_notif_prompt_shown";
 const DRAWER_CLOSE_MS = 240;
 
+function shouldAllowPopupAdsInitially(): boolean {
+  if (typeof window === "undefined" || !("Notification" in window)) return true;
+  if (Notification.permission !== "default") return true;
+  return sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1";
+}
+
 /** 메뉴 ↔ 장바구니 ↔ 결제 스택 깊이 (뒤로가기 슬라이드 방향용) */
 function checkoutStackDepth(pathname: string): number {
   const p = pathname.replace(/\/+$/, "") || "/";
@@ -48,7 +54,7 @@ export const UserShell: React.FC = () => {
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   const [notifPromptBusy, setNotifPromptBusy] = useState(false);
   /** 알림 권한 팝업이 끝난 뒤에만 매장 팝업 광고 표시 */
-  const [allowPopupAds, setAllowPopupAds] = useState(false);
+  const [allowPopupAds, setAllowPopupAds] = useState(shouldAllowPopupAdsInitially);
 
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -175,35 +181,18 @@ export const UserShell: React.FC = () => {
 
   // 1) 알림 권한 안내 → 2) 팝업 광고 → 3) 첫 화면
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setAllowPopupAds(true);
-      return;
-    }
-
-    if (!("Notification" in window)) {
-      setAllowPopupAds(true);
-      return;
-    }
-
-    if (Notification.permission === "granted") {
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
       void ensurePushSubscription();
-      setAllowPopupAds(true);
-      return;
     }
 
-    if (Notification.permission !== "default") {
-      setAllowPopupAds(true);
-      return;
-    }
-
-    if (sessionStorage.getItem(NOTIF_PROMPT_SESSION_KEY) === "1") {
-      setAllowPopupAds(true);
-      return;
-    }
-
+    if (allowPopupAds) return;
     const timer = window.setTimeout(() => setShowNotifPrompt(true), 400);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [allowPopupAds]);
 
   const dismissNotifPrompt = () => {
     sessionStorage.setItem(NOTIF_PROMPT_SESSION_KEY, "1");

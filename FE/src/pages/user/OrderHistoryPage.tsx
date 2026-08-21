@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
 import type { Order, OrderStatus } from "../../types/user";
@@ -51,9 +51,9 @@ function summarizeItems(order: Order): string {
 export const OrderHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { orders } = useUserData();
+  const [cutoff] = useState(() => Date.now() - SEVEN_DAYS_MS);
 
   const recentOrders = useMemo(() => {
-    const cutoff = Date.now() - SEVEN_DAYS_MS;
     return [...orders]
       .filter((o) => {
         const ms = orderCreatedMs(o.createdAt);
@@ -73,7 +73,7 @@ export const OrderHistoryPage: React.FC = () => {
         }
         return Number(b.orderId) - Number(a.orderId);
       });
-  }, [orders]);
+  }, [orders, cutoff]);
 
   const openOrder = (order: Order) => {
     if (order.status === "READY" || order.status === "COMPLETED") {

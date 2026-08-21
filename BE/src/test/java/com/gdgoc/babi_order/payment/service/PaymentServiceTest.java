@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.payment.service;
 
 import com.gdgoc.babi_order.order.entity.Order;
 import com.gdgoc.babi_order.order.repository.OrderRepository;
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.order.service.OrderService;
 import com.gdgoc.babi_order.payment.client.TossPaymentClient;
 import com.gdgoc.babi_order.payment.dto.request.PaymentCancelRequest;
@@ -51,12 +52,15 @@ class PaymentServiceTest {
     @Mock
     private OrderService orderService;
 
+    @Mock
+    private OrderAccessGuard orderAccessGuard;
+
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         paymentService = new PaymentService(
-                paymentRepository, orderRepository, tossPaymentClient, orderService);
+                paymentRepository, orderRepository, tossPaymentClient, orderService, orderAccessGuard);
     }
 
     @Test
@@ -207,6 +211,31 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> paymentService.cancel("missing", cancelRequest("사유")))
                 .isInstanceOf(PaymentNotFoundException.class);
+    }
+
+    @Test
+    void getByOrderIdRequiresAccessibleOrderThenReturnsPayment() {
+        Order order = order(1L, 18000);
+        Payment payment = payment(order, "payKey", PaymentStatus.DONE);
+        given(orderService.requireAccessibleOrder(1L, "token")).willReturn(order);
+        given(paymentRepository.findByOrder_Id(1L)).willReturn(Optional.of(payment));
+
+        PaymentResponse response = paymentService.getByOrderId(1L, "token");
+
+        assertThat(response.getPaymentKey()).isEqualTo("payKey");
+        assertThat(response.getOrderId()).isEqualTo(1L);
+    }
+
+    @Test
+    void getByPaymentKeyRequiresOrderAccess() {
+        Order order = order(1L, 18000);
+        Payment payment = payment(order, "payKey", PaymentStatus.DONE);
+        given(paymentRepository.findByPaymentKey("payKey")).willReturn(Optional.of(payment));
+
+        PaymentResponse response = paymentService.getByPaymentKey("payKey", "token");
+
+        assertThat(response.getPaymentKey()).isEqualTo("payKey");
+        verify(orderAccessGuard).requireCustomerOrderAccess(order, "token");
     }
 
     @Test

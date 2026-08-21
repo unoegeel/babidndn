@@ -6,6 +6,7 @@ import { ExportPopup } from "../../components/owner/payment/ExportPopup";
 import { PaymentRow } from "../../components/owner/payment/PaymentRow";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
+import { notifyFileDownloadStarted } from "../../utils/downloadFeedback";
 import {
   buildPaymentExportText,
   downloadPaymentExport,
@@ -74,7 +75,11 @@ export default function PaymentHistoryPage() {
     setExpandedId((prev) => (prev === payment.id ? null : payment.id));
   };
 
-  const handleExport = (startLocal: string, endLocal: string, format: PaymentExportFormat) => {
+  const handleExport = async (
+    startLocal: string,
+    endLocal: string,
+    format: PaymentExportFormat,
+  ) => {
     const range = rangeFromDateInputs(startLocal, endLocal);
     if (!range) {
       alert("내려받을 기간을 올바르게 설정해 주세요.");
@@ -100,8 +105,14 @@ export default function PaymentHistoryPage() {
 
     const content = buildPaymentExportText(rows);
     const stem = `바비오더_결제내역_${startLocal.slice(0, 10)}_${endLocal.slice(0, 10)}`;
-    downloadPaymentExport(content, format, stem);
-    setExportOpen(false);
+    try {
+      const result = await downloadPaymentExport(content, format, stem);
+      notifyFileDownloadStarted(result);
+      setExportOpen(false);
+    } catch (err) {
+      console.error("결제 내역 내려받기 실패:", err);
+      alert("결제 내역 파일 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
   };
 
   return (

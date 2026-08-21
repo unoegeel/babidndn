@@ -16,6 +16,7 @@ export default function StoreReviewsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const loadReviews = async () => {
+    await Promise.resolve();
     setLoading(true);
     setError(null);
     try {
@@ -30,7 +31,10 @@ export default function StoreReviewsPage() {
   };
 
   useEffect(() => {
-    void loadReviews();
+    void (async () => {
+      await Promise.resolve();
+      await loadReviews();
+    })();
   }, []);
 
   const handleDelete = async (id: number) => {

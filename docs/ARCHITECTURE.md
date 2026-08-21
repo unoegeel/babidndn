@@ -86,6 +86,19 @@ Android: window.Android.printKitchenTicket / printCustomerReceipt
 | `/api/admin/**` | `ROLE_ADMIN` |
 | `/api/dev/**` | `ROLE_DEVELOPER` |
 
+고객 주문 ownership은 Security matcher가 아니라 **서비스 가드**로 검증한다.
+
+| 규칙 | 내용 |
+|------|------|
+| Credential | `X-Order-Access-Token` (create 시 1회 발급, URL 금지) |
+| DB | `orders.access_token_hash` SHA-256 hex만 저장. raw 미저장 |
+| Bypass | `ROLE_ADMIN` JWT만. `ROLE_DEVELOPER` 불가 |
+| Legacy NULL hash | customer 거부 (404 `ORDER_NOT_FOUND`와 동일) |
+| 적용 API | `GET /api/orders/{id}`, `DELETE /api/orders/{id}/unpaid`, `GET /api/payments/orders/{orderId}`, `GET /api/payments/{paymentKey}`, `POST /api/push/subscriptions/link-order` |
+| 결제 취소 | `POST /api/payments/{paymentKey}/cancel` → `ROLE_ADMIN` 필수 |
+
+FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`). Admin 주문/결제조회는 `adminApi`(Bearer).
+
 ## 6. Core Domains
 
 ### Menu / Option
@@ -132,6 +145,7 @@ Checkout → POST /api/orders (UNPAID)
 |------|------|------|
 | Cart | `UserDataContext` / `useCartState` | 메모리 (결제 중 backup) |
 | Orders | `UserDataContext` | `localStorage` |
+| Order access token | `utils/orderAccessToken.ts` | `localStorage` `babi_order_access_tokens` |
 | SavedMenu clientKey | `utils/clientKey.ts` | `localStorage` |
 | Admin data | `AdminDataContext` | 서버 |
 

@@ -7,7 +7,6 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -53,6 +52,7 @@ export default function MenuManagementPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [isReorderingMenus, setIsReorderingMenus] = useState(false);
   const [orderedMenus, setOrderedMenus] = useState<Menu[]>([]);
+  const [menusForCategory, setMenusForCategory] = useState<Menu[]>([]);
   // 수정 대상 메뉴의 상세 정보 (토핑 여부 등은 목록에 없어 서버에서 조회)
   const [editing, setEditing] = useState<Menu | null>(null);
 
@@ -81,11 +81,10 @@ export default function MenuManagementPage() {
     orderedRef.current = orderedMenus;
   }, [orderedMenus]);
 
-  useEffect(() => {
-    if (isReorderingMenus) return;
-    orderedRef.current = categoryMenus;
+  if (categoryMenus !== menusForCategory && !isReorderingMenus) {
+    setMenusForCategory(categoryMenus);
     setOrderedMenus(categoryMenus);
-  }, [categoryMenus, isReorderingMenus]);
+  }
 
   // 수정 패널이 열리면 해당 메뉴 상세 조회
   useEffect(() => {
@@ -125,7 +124,7 @@ export default function MenuManagementPage() {
     setPanel({ mode: "edit", menuId });
   };
 
-  const handleDragStart = (_event: DragStartEvent) => {
+  const handleDragStart = () => {
     orderBeforeDragRef.current = orderedRef.current;
   };
 

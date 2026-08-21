@@ -49,7 +49,7 @@ export const CheckoutPage: React.FC = () => {
       setIsProcessing(true);
 
       // 1. 백엔드 실제 주문 생성 (POST /api/orders)
-      const createdOrder = await createOrder(selectedMethod);
+      const createdOrder = await createOrder();
 
       trackPaymentStart(createdOrder.id, createdOrder.totalAmount, selectedMethod);
 

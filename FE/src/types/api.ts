@@ -55,6 +55,11 @@ export interface OrderDetailResponse {
   items: OrderItemResponse[];
   /** 진행 중이며 대기번호가 더 빠른 주문 수 */
   waitingAheadCount?: number;
+  /**
+   * 고객 주문 접근 토큰. POST /api/orders 생성 응답에만 포함.
+   * GET 응답에는 오지 않음.
+   */
+  accessToken?: string;
 }
 
 export interface OrderSummaryResponse {

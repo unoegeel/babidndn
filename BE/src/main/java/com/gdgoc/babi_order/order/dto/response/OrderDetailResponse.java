@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.order.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gdgoc.babi_order.order.entity.Order;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
@@ -43,7 +44,24 @@ public class OrderDetailResponse {
     @Schema(description = "내 앞 대기 주문 수 (진행 중이며 대기번호가 더 빠른 주문)", example = "2")
     private Integer waitingAheadCount;
 
+    /**
+     * 고객 주문 접근 raw token.
+     * POST /api/orders 생성 응답에만 포함되며, 이후 GET 등에서는 null(미포함).
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Schema(description = "주문 접근 토큰 (생성 시에만 반환)", example = "dGhpcy1pcy1hLXJhdy10b2tlbg")
+    private String accessToken;
+
     public static OrderDetailResponse from(Order order, String paymentStatus, int waitingAheadCount) {
+        return from(order, paymentStatus, waitingAheadCount, null);
+    }
+
+    public static OrderDetailResponse from(
+            Order order,
+            String paymentStatus,
+            int waitingAheadCount,
+            String accessToken
+    ) {
         return OrderDetailResponse.builder()
                 .id(order.getId())
                 .tossOrderId(order.getTossOrderId())
@@ -55,6 +73,7 @@ public class OrderDetailResponse {
                 .updatedAt(order.getUpdatedAt())
                 .items(order.getItems().stream().map(OrderItemResponse::from).toList())
                 .waitingAheadCount(waitingAheadCount)
+                .accessToken(accessToken)
                 .build();
     }
 }

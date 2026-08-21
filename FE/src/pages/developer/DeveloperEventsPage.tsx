@@ -33,6 +33,7 @@ export default function DeveloperEventsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const loadList = useCallback(async (params: DeveloperEventQuery) => {
+    await Promise.resolve();
     try {
       setLoading(true);
       setError(null);
@@ -47,14 +48,18 @@ export default function DeveloperEventsPage() {
   }, []);
 
   useEffect(() => {
-    void loadList(query);
+    void (async () => {
+      await Promise.resolve();
+      await loadList(query);
+    })();
   }, [loadList, query]);
 
+  if (selectedId == null && detail !== null) {
+    setDetail(null);
+  }
+
   useEffect(() => {
-    if (selectedId == null) {
-      setDetail(null);
-      return;
-    }
+    if (selectedId == null) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -100,61 +105,80 @@ export default function DeveloperEventsPage() {
           <p className="text-sm text-gray-500">사용자가 서비스에서 수행한 주요 행동을 확인합니다.</p>
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-white/10 bg-[#171b24] p-4 md:grid-cols-[auto_auto_1fr_1fr_1fr_1fr_auto]">
-          <select
-            value={query.eventType ?? ""}
-            onChange={(e) => updateFilter({ eventType: e.target.value as ClientEventType | "" })}
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          >
-            <option value="">{DEV_LABELS.allEventTypes}</option>
-            {CLIENT_EVENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {eventTypeLabelKo(type)}
-              </option>
-            ))}
-          </select>
-          <input
-            type="datetime-local"
-            value={toDateTimeLocal(query.from)}
-            onChange={(e) => updateFilter({ from: fromDateTimeLocal(e.target.value) })}
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-            title="시작 기간"
-          />
-          <input
-            value={draftRoute}
-            onChange={(e) => setDraftRoute(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="경로"
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <input
-            value={draftAnonymousId}
-            onChange={(e) => setDraftAnonymousId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="익명 사용자"
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <input
-            value={draftSessionId}
-            onChange={(e) => setDraftSessionId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="세션"
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <input
-            value={draftRelatedRequestId}
-            onChange={(e) => setDraftRelatedRequestId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="관련 요청 ID"
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="rounded-md bg-indigo-500/20 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/30"
-          >
-            {DEV_LABELS.apply}
-          </button>
+        <div className="min-w-0 rounded-lg border border-white/10 bg-[#171b24] p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex min-w-0 w-full flex-col gap-1 sm:w-auto sm:min-w-[10rem]">
+              <span className="text-[11px] font-medium text-gray-500">{DEV_LABELS.eventType}</span>
+              <select
+                value={query.eventType ?? ""}
+                onChange={(e) => updateFilter({ eventType: e.target.value as ClientEventType | "" })}
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              >
+                <option value="">{DEV_LABELS.allEventTypes}</option>
+                {CLIENT_EVENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {eventTypeLabelKo(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 w-full flex-col gap-1 sm:w-auto">
+              <span className="text-[11px] font-medium text-gray-500">시작 기간</span>
+              <input
+                type="datetime-local"
+                value={toDateTimeLocal(query.from)}
+                onChange={(e) => updateFilter({ from: fromDateTimeLocal(e.target.value) })}
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100 sm:w-auto"
+              />
+            </label>
+            <label className="flex min-w-0 flex-1 basis-[9rem] flex-col gap-1">
+              <span className="text-[11px] font-medium text-gray-500">{DEV_LABELS.route}</span>
+              <input
+                value={draftRoute}
+                onChange={(e) => setDraftRoute(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                placeholder="경로"
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              />
+            </label>
+            <label className="flex min-w-0 flex-1 basis-[9rem] flex-col gap-1">
+              <span className="text-[11px] font-medium text-gray-500">{DEV_LABELS.anonymousId}</span>
+              <input
+                value={draftAnonymousId}
+                onChange={(e) => setDraftAnonymousId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                placeholder="익명 사용자"
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              />
+            </label>
+            <label className="flex min-w-0 flex-1 basis-[9rem] flex-col gap-1">
+              <span className="text-[11px] font-medium text-gray-500">{DEV_LABELS.sessionId}</span>
+              <input
+                value={draftSessionId}
+                onChange={(e) => setDraftSessionId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                placeholder="세션"
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              />
+            </label>
+            <label className="flex min-w-0 flex-1 basis-[9rem] flex-col gap-1">
+              <span className="text-[11px] font-medium text-gray-500">{DEV_LABELS.relatedRequestId}</span>
+              <input
+                value={draftRelatedRequestId}
+                onChange={(e) => setDraftRelatedRequestId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                placeholder="관련 요청 ID"
+                className="min-w-0 w-full rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="h-[38px] w-full shrink-0 rounded-md bg-indigo-500/20 px-4 text-sm font-medium text-indigo-200 hover:bg-indigo-500/30 sm:w-auto"
+            >
+              {DEV_LABELS.apply}
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-rose-300">{error}</p>}

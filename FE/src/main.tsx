@@ -1,13 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Navigate, RouterProvider, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import "./index.css";
 import { startAppHeightSync } from "./utils/appHeight";
 import { initFrontendErrorTracking } from "./utils/frontendError/initFrontendErrorTracking";
-import AppErrorBoundary from "./components/AppErrorBoundary";
-import { AdminDataProvider } from "./store/AdminDataContext";
-import RequireAdminAuth from "./components/RequireAdminAuth";
-import { HomeRedirect, PwaEntryTracker } from "./components/PwaEntry";
+import { HomeRedirect } from "./components/PwaEntry";
+import { AdminLayout, DeveloperLayout, RootLayout } from "./layouts/AppRouteLayouts";
 import LoginPage from "./pages/owner/LoginPage";
 import SignupPage from "./pages/owner/SignupPage";
 import OrdersDashboardPage from "./pages/owner/OrdersDashboardPage";
@@ -38,7 +36,6 @@ import MyMenuPage from "./pages/user/MyMenuPage";
 import PaymentSuccessPage from "./pages/user/PaymentSuccessPage";
 import PaymentFailPage from "./pages/user/PaymentFailPage";
 
-import RequireDeveloperAuth from "./components/RequireDeveloperAuth";
 import DeveloperOverviewPage from "./pages/developer/DeveloperOverviewPage";
 import DeveloperErrorsPage from "./pages/developer/DeveloperErrorsPage";
 import DeveloperRequestsPage from "./pages/developer/DeveloperRequestsPage";
@@ -48,38 +45,6 @@ import DeveloperAnalyticsPage from "./pages/developer/DeveloperAnalyticsPage";
 // 태블릿/모바일 브라우저 상·하단 UI를 반영한 가시 높이 동기화
 startAppHeightSync();
 initFrontendErrorTracking();
-
-/**
- * 관리자 영역 공통 레이아웃.
- * RequireAdminAuth + AdminDataProvider를 라우트 트리에서 1회만 마운트해
- * /admin/* 이동 시 Context 상태·초기 API 호출이 리셋되지 않도록 합니다.
- */
-function AdminLayout() {
-  return (
-    <RequireAdminAuth>
-      <AdminDataProvider>
-        <Outlet />
-      </AdminDataProvider>
-    </RequireAdminAuth>
-  );
-}
-
-function RootLayout() {
-  return (
-    <AppErrorBoundary>
-      <PwaEntryTracker />
-      <Outlet />
-    </AppErrorBoundary>
-  );
-}
-
-function DeveloperLayout() {
-  return (
-    <RequireDeveloperAuth>
-      <Outlet />
-    </RequireDeveloperAuth>
-  );
-}
 
 const router = createBrowserRouter([
   {

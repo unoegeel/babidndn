@@ -12,6 +12,7 @@ import com.gdgoc.babi_order.menu.exception.MenuExceptionHandler;
 import com.gdgoc.babi_order.menu.service.AdminMenuService;
 import com.gdgoc.babi_order.menu.service.MenuImageService;
 import com.gdgoc.babi_order.menu.service.MenuService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         CorsProperties.class,
         MenuExceptionHandler.class,
         ApiExceptionHandler.class,
-        AdminAuthenticationEntryPoint.class
+        AdminAuthenticationEntryPoint.class,
+        WebMvcSliceTestConfig.class
 })
 @WithMockUser(roles = "ADMIN")
 class AdminMenuControllerTest {

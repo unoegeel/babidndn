@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.push.controller;
 
+import com.gdgoc.babi_order.order.security.OrderAccessGuard;
 import com.gdgoc.babi_order.push.dto.request.PushLinkOrderRequest;
 import com.gdgoc.babi_order.push.dto.request.PushSubscribeRequest;
 import com.gdgoc.babi_order.push.dto.response.VapidPublicKeyResponse;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,9 +43,11 @@ public class PushController {
     }
 
     @PostMapping("/subscriptions/link-order")
-    @Operation(summary = "구독-주문 연결", description = "결제/주문 후 해당 주문의 준비완료 푸시를 받을 수 있도록 연결합니다.")
-    public ResponseEntity<Void> linkOrder(@Valid @RequestBody PushLinkOrderRequest request) {
-        pushNotificationService.linkOrder(request.getEndpoint(), request.getOrderId());
+    @Operation(summary = "구독-주문 연결", description = "결제/주문 후 해당 주문의 준비완료 푸시를 받을 수 있도록 연결합니다. X-Order-Access-Token 필요.")
+    public ResponseEntity<Void> linkOrder(
+            @Valid @RequestBody PushLinkOrderRequest request,
+            @RequestHeader(value = OrderAccessGuard.HEADER, required = false) String accessToken) {
+        pushNotificationService.linkOrder(request.getEndpoint(), request.getOrderId(), accessToken);
         return ResponseEntity.noContent().build();
     }
 }

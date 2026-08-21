@@ -1,21 +1,7 @@
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  // iOS/WebView: 즉시 revoke 시 다운로드가 끊길 수 있음
-  window.setTimeout(() => {
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, 1500);
-}
+import type { FileDownloadResult } from "./triggerFileDownload";
+import { triggerFileDownload } from "./triggerFileDownload";
 
 function captureScale(): number {
   return Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2);
@@ -45,11 +31,22 @@ export function buildReceiptDownloadFilename(
   return `바비든든_전자영수증_${pickup}_${when}.${ext}`;
 }
 
+async function waitForCaptureReady(): Promise<void> {
+  if (typeof document !== "undefined" && document.fonts?.ready) {
+    await document.fonts.ready;
+  }
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 /**
  * 스크롤/overflow 부모와 분리해 전체 높이로 캡처.
  * ReceiptTemplate 은 html2canvas 호환을 위해 hex/rgba 인라인 색상을 사용한다.
  */
 async function captureReceiptElement(element: HTMLElement): Promise<HTMLCanvasElement> {
+  await waitForCaptureReady();
+
   const width = Math.ceil(Math.max(element.scrollWidth, element.offsetWidth, 1));
   const height = Math.ceil(Math.max(element.scrollHeight, element.offsetHeight, 1));
 
@@ -103,7 +100,8 @@ async function captureReceiptElement(element: HTMLElement): Promise<HTMLCanvasEl
 export async function downloadReceiptPng(
   element: HTMLElement,
   meta: ReceiptDownloadMeta,
-): Promise<void> {
+): Promise<FileDownloadResult> {
+  const filename = buildReceiptDownloadFilename(meta, "png");
   let canvas: HTMLCanvasElement;
   try {
     canvas = await captureReceiptElement(element);
@@ -126,9 +124,9 @@ export async function downloadReceiptPng(
   }
 
   try {
-    triggerDownload(blob, buildReceiptDownloadFilename(meta, "png"));
+    return await triggerFileDownload(blob, filename, "image/png");
   } catch (err) {
-    console.error("Failed to download receipt (PNG triggerDownload):", err);
+    console.error("Failed to download receipt (PNG triggerFileDownload):", err);
     throw err;
   }
 }
@@ -137,7 +135,8 @@ export async function downloadReceiptPng(
 export async function downloadReceiptPdf(
   element: HTMLElement,
   meta: ReceiptDownloadMeta,
-): Promise<void> {
+): Promise<FileDownloadResult> {
+  const filename = buildReceiptDownloadFilename(meta, "pdf");
   let canvas: HTMLCanvasElement;
   try {
     canvas = await captureReceiptElement(element);
@@ -181,9 +180,9 @@ export async function downloadReceiptPdf(
       format: [pageWidth, pageHeight],
     });
 
-    const filename = buildReceiptDownloadFilename(meta, "pdf");
     pdf.addImage(imgData, "PNG", marginMm, marginMm, widthMm, heightMm);
-    pdf.save(filename);
+    const blob = pdf.output("blob");
+    return await triggerFileDownload(blob, filename, "application/pdf");
   } catch (err) {
     console.error("Failed to download receipt (jsPDF):", err);
     throw err;

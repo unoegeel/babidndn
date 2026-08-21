@@ -286,6 +286,7 @@ export default function DeveloperAnalyticsPage() {
 
   const load = useCallback(async (p: PeriodPreset, cf: string, ct: string) => {
     const range = resolveRange(p, cf, ct);
+    await Promise.resolve();
     try {
       setLoading(true);
       setError(null);
@@ -315,17 +316,22 @@ export default function DeveloperAnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    void load(preset, customFrom, customTo);
+    void (async () => {
+      await Promise.resolve();
+      await load(preset, customFrom, customTo);
+    })();
   }, [load, preset, customFrom, customTo]);
 
+  if (selectedMenuId == null && menuOptions !== null) {
+    setMenuOptions(null);
+  }
+
   useEffect(() => {
-    if (selectedMenuId == null) {
-      setMenuOptions(null);
-      return;
-    }
+    if (selectedMenuId == null) return;
     const range = resolveRange(preset, customFrom, customTo);
     let cancelled = false;
     void (async () => {
+      await Promise.resolve();
       try {
         setMenuOptionsLoading(true);
         const data = await developerAnalyticsService.menuOptions(

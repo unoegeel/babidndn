@@ -49,6 +49,7 @@ export const MyMenuPage: React.FC = () => {
   const [renameError, setRenameError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    await Promise.resolve();
     try {
       setError(null);
       const data = await savedMenuService.list();
@@ -62,7 +63,10 @@ export const MyMenuPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    void load();
+    void (async () => {
+      await Promise.resolve();
+      await load();
+    })();
   }, [load]);
 
   const withLiveMenu = async (saved: SavedMenuResponse) => {

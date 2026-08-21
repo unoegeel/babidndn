@@ -41,6 +41,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. **production SQL 미적용 Pending** |
 | 2026-08-20 | Dev Console | `client_errors` stack/component_stack → TEXT (MySQL ERROR 1118 재발 방지). **dev** `babi_order_dev`: table 생성·`/api/dev/errors`·`/overview` 200 확인 |
 | 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
 | 2026-08-20 | Menu policy | TOPPING_REMOVE canonical sync · `sync-menu-topping-remove-policies.sql` |
@@ -61,6 +62,7 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
+- **production `babi_order`:** `orders.access_token_hash` 컬럼 적용 여부 — `BE/scripts/add-order-access-token-hash.sql`. 적용 전 `precheck-order-access-token-cutover.sql`로 legacy 활성 주문 수 확인. **NULL hash 고객 조회는 거부**
 - **production `babi_order`:** `client_errors` / `backend_errors` 존재 여부 및 `stack`/`component_stack` 타입 확인 — 수정된 `create-developer-error-tables.sql` 적용 여부는 main 배포 전 별도 검증
 - `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
 - Developer Overview / menu-options KPI **운영 데이터 spot check**
@@ -71,10 +73,9 @@
 
 | 이슈 | 설명 |
 |------|------|
-| BE full test suite | `./gradlew test` 시 다수 실패 (~71, 2026-08-20) — WebMvcTest 등 `BackendErrorRecordService` mock 누락 등 **기존 테스트 infra** |
-| FE lint | `npm run lint` **53 errors** (기존, 이번 Dev Console 변경과 무관) |
+| FE lint | **0 errors** (2026-08-21). Warnings 3건 잔여(OrderStatus/PaymentFail/PaymentSuccess intentional deps) |
 | Production schema | Flyway 없음 · `ddl-auto: update` only · migration 추적/rollback 부족 |
-| Customer API ACL | 대부분 `permitAll` · `orderId` 타인 접근 가능성 **미재검증** |
+| Customer API ACL | `X-Order-Access-Token` 코드 적용됨. **production schema + legacy cutover** 운영 확인 필요. Android/브라우저 smoke 미실행 |
 | Cart | 메모리 only — 새로고침 시 유실 |
 
 ---
@@ -108,27 +109,25 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 ---
 
-## 6. Test State (2026-08-20)
+## 6. Test State (2026-08-21)
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew test --tests "com.gdgoc.babi_order.dev.*"` | PASS |
-| `cd BE && ./gradlew test` (full) | FAIL (~71) |
+| `cd BE && ./gradlew clean test` (full) | **PASS** (342 tests, 0 failed) — WebMvc slice mock + test mail host |
+| `cd FE && npm run lint` | **PASS** (0 errors, 3 warnings) |
+| `cd FE && npm test` | PASS (42 tests) |
 | `cd FE && npm run build` | PASS |
-| `cd FE && npm run lint` | FAIL (53 errors) |
-| `cd FE && npm test` | (utility tests — CI 미고정) |
 
 ---
 
 ## 7. Current Priorities
 
-1. 고객 주문 API 접근 제어 재검토  
-2. Production `babi_order` error tables schema 확인 및 수정 DDL 적용 여부  
-3. BE WebMvcTest infra 정리 (`BackendErrorRecordService` mock 일괄)  
-4. FE lint 점진적 해소  
-5. 결제·Checkout E2E  
-6. Analytics index/volume (데이터 증가 후)  
-7. 모바일 keyboard regression  
+1. production `orders.access_token_hash` SQL 적용 + legacy 활성 주문 cutover 확인
+2. 고객 주문 API 접근 제어 **운영 smoke** (create → status refresh → receipt)
+3. 결제·Checkout E2E
+4. Analytics index/volume (데이터 증가 후)
+5. 모바일 keyboard regression
+6. FE lint warning 정리(선택, PaymentSuccess deps는 승인 중복 방지와 trade-off)
 
 ---
 

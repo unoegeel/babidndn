@@ -13,6 +13,7 @@ import com.gdgoc.babi_order.sales.dto.response.YearlySalesResponse;
 import com.gdgoc.babi_order.sales.exception.SalesApiException;
 import com.gdgoc.babi_order.sales.exception.SalesExceptionHandler;
 import com.gdgoc.babi_order.sales.service.SalesService;
+import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -38,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         CorsProperties.class,
         SalesExceptionHandler.class,
         ApiExceptionHandler.class,
-        AdminAuthenticationEntryPoint.class
+        AdminAuthenticationEntryPoint.class,
+        WebMvcSliceTestConfig.class
 })
 @WithMockUser(roles = "ADMIN")
 class SalesControllerTest {
