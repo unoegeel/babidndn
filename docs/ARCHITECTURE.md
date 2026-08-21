@@ -47,7 +47,7 @@ babidndn/
 
 **Backend:** Java 21 · Spring Boot 4.1 · JPA · JWT Security · SSE · MySQL 8.4
 
-**Infrastructure:** Vercel(FE) · GitHub Actions → ECR → EC2 Docker(BE) · `ddl-auto: update` (Flyway 없음)
+**Infrastructure:** Vercel(FE) · GitHub Actions → ECR → EC2 Docker(BE) · **Flyway** (baseline v100) · Hibernate `ddl-auto: validate`
 
 ## 4. System Architecture
 
@@ -115,6 +115,10 @@ FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`)
 - `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
 - `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
 - 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
+- **정합성 점검 (Phase A, DETECT only):** `payment/reconciliation/`
+  - `GET /api/admin/payments/reconciliation?period=1d|7d|30d` (`ROLE_ADMIN`)
+  - native SQL로 이상 후보 조회 · 자동 환불/상태 변경/스케줄러 없음
+  - Admin UI: 결제 내역 화면 상단 배너
 
 ### Saved Menu
 
@@ -179,7 +183,11 @@ SavedMenu → SavedMenuOption
 Observability: client_events, client_errors, backend_errors, http_request_records
 ```
 
-Schema: Hibernate `ddl-auto: update` + `BE/scripts/*.sql` (운영 1회)
+Schema ownership:
+
+- **Flyway** — mutations under `classpath:db/migration` (baseline version **100** for existing DBs)
+- **Hibernate** — `ddl-auto: validate` (dev/prod); tests: H2 `create-drop`, Flyway off
+- **Legacy** — `BE/scripts/*.sql` historical/precheck/data maintenance only (not re-run as V1…)
 
 ## 13. Observability
 

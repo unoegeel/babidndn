@@ -41,7 +41,9 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
-| 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. **production SQL 미적용 Pending** |
+| 2026-08-21 | DB | Flyway baseline 도입 (code ready). `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만. prod 미적용 |
+| 2026-08-21 | Payment | Order↔Payment 정합성 점검 Phase A (DETECT→DISPLAY). `GET /api/admin/payments/reconciliation` · 결제내역 UI 배너. 자동 수정 없음 |
+| 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. production schema 적용 완료(v1.2.21) |
 | 2026-08-20 | Dev Console | `client_errors` stack/component_stack → TEXT (MySQL ERROR 1118 재발 방지). **dev** `babi_order_dev`: table 생성·`/api/dev/errors`·`/overview` 200 확인 |
 | 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
 | 2026-08-20 | Menu policy | TOPPING_REMOVE canonical sync · `sync-menu-topping-remove-policies.sql` |
@@ -62,8 +64,9 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-- **production `babi_order`:** `orders.access_token_hash` 컬럼 적용 여부 — `BE/scripts/add-order-access-token-hash.sql`. 적용 전 `precheck-order-access-token-cutover.sql`로 legacy 활성 주문 수 확인. **NULL hash 고객 조회는 거부**
-- **production `babi_order`:** `client_errors` / `backend_errors` 존재 여부 및 `stack`/`component_stack` 타입 확인 — 수정된 `create-developer-error-tables.sql` 적용 여부는 main 배포 전 별도 검증
+- **Flyway baseline:** code ready. **dev/prod 실 DB 적용·`flyway_schema_history` 확인 전** — `schema-drift-audit.sql`로 drift 비교 필수. prod는 이번 task에서 적용하지 않음
+- **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
+- **production `babi_order`:** observability TEXT 컬럼·`access_token_hash` 등은 운영 확인됨으로 보고됨 — drift script로 재검증 권장
 - `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
 - Developer Overview / menu-options KPI **운영 데이터 spot check**
 - iPhone keyboard **전 기종 regression**
@@ -74,8 +77,8 @@
 | 이슈 | 설명 |
 |------|------|
 | FE lint | **0 errors** (2026-08-21). Warnings 3건 잔여(OrderStatus/PaymentFail/PaymentSuccess intentional deps) |
-| Production schema | Flyway 없음 · `ddl-auto: update` only · migration 추적/rollback 부족 |
-| Customer API ACL | `X-Order-Access-Token` 코드 적용됨. **production schema + legacy cutover** 운영 확인 필요. Android/브라우저 smoke 미실행 |
+| Production schema | Flyway baseline **code ready**, 실 DB 미적용. Fresh MySQL bootstrap 미제공 |
+| Customer API ACL | `X-Order-Access-Token` 코드 적용됨. Android/브라우저 smoke 미실행 |
 | Cart | 메모리 only — 새로고침 시 유실 |
 
 ---
@@ -113,8 +116,8 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew clean test` (full) | **PASS** (342 tests, 0 failed) — WebMvc slice mock + test mail host |
-| `cd FE && npm run lint` | **PASS** (0 errors, 3 warnings) |
+| `cd BE && ./gradlew clean test` (full) | **PASS** (353 tests) — Flyway on classpath, test Flyway disabled |
+| `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
 | `cd FE && npm test` | PASS (42 tests) |
 | `cd FE && npm run build` | PASS |
 
@@ -122,12 +125,12 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 ## 7. Current Priorities
 
-1. production `orders.access_token_hash` SQL 적용 + legacy 활성 주문 cutover 확인
-2. 고객 주문 API 접근 제어 **운영 smoke** (create → status refresh → receipt)
-3. 결제·Checkout E2E
-4. Analytics index/volume (데이터 증가 후)
-5. 모바일 keyboard regression
-6. FE lint warning 정리(선택, PaymentSuccess deps는 승인 중복 방지와 trade-off)
+1. **Flyway:** `schema-drift-audit.sql`로 dev↔prod 비교 → dev baseline → validate startup → 이후 prod
+2. 고객 주문 API 접근 제어 **운영 smoke**
+3. 결제·Checkout E2E · 정합성 점검 운영 spot check
+4. Fresh MySQL bootstrap (optional follow-up)
+5. Analytics index/volume
+6. Phase B (선택): Toss remote verify · alert persistence (첫 V101 후보)
 
 ---
 

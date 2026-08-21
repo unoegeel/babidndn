@@ -113,11 +113,31 @@ types/        # 공유 타입
 
 ## 9. Database / Schema
 
-변경 체크리스트: Entity → Relation → Service → DTO → `BE/scripts/*.sql` → Test
+변경 체크리스트: Entity → Relation → Service → DTO → **Flyway migration** → Test
 
-- Production: `ddl-auto: update` — 운영 영향 별도 검토
-- Flyway/Liquibase **미사용** (현재 코드 기준)
-- Observability 테이블: `create-developer-error-tables.sql` 등 수동 SQL 보조
+### Ownership
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Flyway** | Schema mutation (`classpath:db/migration`) |
+| **Hibernate** | `ddl-auto: validate` (dev/prod) — mutation 금지 |
+| **H2 tests** | `ddl-auto: create-drop`, `spring.flyway.enabled=false` |
+
+### Flyway baseline (existing DB)
+
+- `baseline-on-migrate: true`, `baseline-version: 100`
+- Non-empty DB: 현재 schema를 baseline으로 **등록만** 한다. 과거 `BE/scripts` SQL을 재실행하지 않는다.
+- 다음 실제 schema 변경: `V101__...sql` 부터
+- **배포된 migration 수정 금지** — rollback/수정은 새 version
+- schema 변경과 data backfill은 가능한 분리
+- destructive change 전 `BE/scripts` precheck 또는 drift audit 필수
+- idempotent SQL에 의존하지 말고 Flyway history로 실행 여부 관리
+
+### Legacy scripts
+
+- `BE/scripts/*.sql` 유지 (LEGACY / DATA_MAINTENANCE / PRECHECK) — 분류는 `BE/scripts/README.md`
+- 신규 schema 변경은 **`BE/src/main/resources/db/migration`에만** 추가
+- Fresh empty MySQL full bootstrap은 후속 task (현재는 existing DB + H2 test)
 
 ---
 

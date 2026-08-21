@@ -50,7 +50,7 @@
 |------|------|
 | FE | React 19, TypeScript, Vite 8, Tailwind 4, React Router 7, Context, PWA |
 | BE | Java 21, Spring Boot 4.1, JPA, Security(JWT), SSE, Mail, S3, Web Push |
-| DB | MySQL 8.4 · Hibernate `ddl-auto: update` (Flyway/Liquibase 없음) |
+| DB | MySQL 8.4 · Flyway baseline · Hibernate `ddl-auto: validate` (test: H2 `create-drop`) |
 | 결제 | Toss Payments |
 | 배포 | FE Vercel · BE GitHub Actions → ECR → EC2 Docker |
 
@@ -149,9 +149,13 @@ cd FE && npm run build && npm run lint && npm test
 
 ## 데이터베이스
 
-- **로컬:** JPA `ddl-auto: update`  
-- **초기 seed:** `BE/scripts/initial-menu-data.sql`  
-- **운영 1회 SQL:** `BE/scripts/*.sql` (필요한 파일만 환경별 실행)
+- **Schema ownership:** Flyway (`BE/src/main/resources/db/migration`) · Hibernate는 `validate`만
+- **Existing DB:** startup 시 baseline v100 등록 (`baseline-on-migrate`). 과거 `BE/scripts` 재실행 없음
+- **다음 migration:** `V101__description.sql` 부터
+- **초기 seed / 데이터 보정:** `BE/scripts/` (역할 분류: `BE/scripts/README.md`)
+- **환경 비교:** `BE/scripts/schema-drift-audit.sql` (read-only)
+- **테스트:** H2 + `create-drop`, Flyway disabled
+- **빈 MySQL 신규 bootstrap:** 후속 task (현재는 existing DB 전제)
 
 ---
 
@@ -178,7 +182,7 @@ ECR push → EC2 SSH → `docker run`
 - QR 생성·스캔 코드 없음  
 - WebSocket 없음 (관리자 SSE 사용)  
 - Android **프린터 앱·ESC/POS** 소스 없음 (`window.Android` 브릿지만)  
-- Flyway/Liquibase 없음  
+- Fresh empty MySQL full schema bootstrap (Flyway snapshot) 미제공 — existing DB baseline만
 - PortOne 미사용  
 
 ---
