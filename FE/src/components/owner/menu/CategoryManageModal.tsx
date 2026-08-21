@@ -42,6 +42,7 @@ export function CategoryManageModal({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [orderedCategories, setOrderedCategories] = useState(categories);
+  const [categoriesProp, setCategoriesProp] = useState(categories);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const orderedRef = useRef(categories);
   const draggingIdRef = useRef<number | null>(null);
@@ -52,11 +53,10 @@ export function CategoryManageModal({
     orderedRef.current = orderedCategories;
   }, [orderedCategories]);
 
-  useEffect(() => {
-    if (draggingId !== null || busy) return;
-    orderedRef.current = categories;
+  if (categories !== categoriesProp && draggingId === null && !busy) {
+    setCategoriesProp(categories);
     setOrderedCategories(categories);
-  }, [categories, draggingId, busy]);
+  }
 
   const canDrag = editingId === null && !busy;
 

@@ -191,17 +191,22 @@ export default function SalesAnalyticsPage() {
     const requestId = ++requestIdRef.current;
     const needsRange = grain === "daily" || grain === "weekly" || grain === "hourly";
     if (needsRange && !range) {
-      setPeriodRows([]);
-      setHourlyRows([]);
-      setMenuRows([]);
-      setPeriodError("기간을 올바르게 설정해 주세요.");
-      setMenuError("기간을 올바르게 설정해 주세요.");
-      setPeriodLoading(false);
-      setMenuLoading(false);
+      void (async () => {
+        await Promise.resolve();
+        if (requestIdRef.current !== requestId) return;
+        setPeriodRows([]);
+        setHourlyRows([]);
+        setMenuRows([]);
+        setPeriodError("기간을 올바르게 설정해 주세요.");
+        setMenuError("기간을 올바르게 설정해 주세요.");
+        setPeriodLoading(false);
+        setMenuLoading(false);
+      })();
       return;
     }
 
     const loadPeriod = async () => {
+      await Promise.resolve();
       setPeriodLoading(true);
       setPeriodError(null);
       try {
@@ -268,6 +273,7 @@ export default function SalesAnalyticsPage() {
     };
 
     const loadMenu = async () => {
+      await Promise.resolve();
       if (grain === "hourly") {
         setMenuRows([]);
         setMenuLoading(false);

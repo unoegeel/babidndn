@@ -46,18 +46,20 @@ export const ReadyOrderBanner: React.FC<ReadyOrderBannerProps> = ({ readyOrders,
   }, []);
 
   const visibleOrders = readyOrders.filter((o) => !dismissed.has(o.orderId));
+  const visibleOrderIds = visibleOrders.map((o) => o.orderId).join(",");
 
   useEffect(() => {
-    if (!visible || visibleOrders.length === 0) {
-      setEntering(false);
-      return;
-    }
-    setEntering(false);
+    if (!visible || !visibleOrderIds) return;
+    let enterId: number | null = null;
     const id = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setEntering(true));
+      setEntering(false);
+      enterId = window.requestAnimationFrame(() => setEntering(true));
     });
-    return () => window.cancelAnimationFrame(id);
-  }, [visible, visibleOrders.map((o) => o.orderId).join(",")]);
+    return () => {
+      window.cancelAnimationFrame(id);
+      if (enterId !== null) window.cancelAnimationFrame(enterId);
+    };
+  }, [visible, visibleOrderIds]);
 
   if (!visible || visibleOrders.length === 0) {
     return null;

@@ -19,20 +19,19 @@ export const OrderReceiptPage: React.FC = () => {
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const [receipt, setReceipt] = useState<ReceiptViewModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(orderId));
+  const [error, setError] = useState<string | null>(
+    orderId ? null : "주문 정보를 찾을 수 없습니다.",
+  );
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
 
   useEffect(() => {
-    if (!orderId) {
-      setError("주문 정보를 찾을 수 없습니다.");
-      setLoading(false);
-      return;
-    }
+    if (!orderId) return;
 
     let cancelled = false;
 
     const load = async () => {
+      await Promise.resolve();
       setLoading(true);
       setError(null);
       try {

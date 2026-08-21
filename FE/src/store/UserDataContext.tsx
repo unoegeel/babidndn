@@ -28,7 +28,7 @@ interface UserDataContextType {
   removeFromCart: (cartItemId: string) => void;
   clearCart: () => void;
   restoreCart: (items: CartItem[]) => void;
-  createOrder: (paymentMethod?: string) => Promise<OrderDetailResponse>;
+  createOrder: () => Promise<OrderDetailResponse>;
   getOrderById: (orderId: string) => Order | null;
   saveOrderToState: (order: Order) => void;
   cartTotal: number;
@@ -97,7 +97,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [orders]);
 
-  const createOrder = async (_paymentMethod?: string): Promise<OrderDetailResponse> => {
+  const createOrder = async (): Promise<OrderDetailResponse> => {
     const { order, relatedRequestId } = await orderService.createOrderWithMeta(cart);
     trackOrderCreated(order.id, order.totalAmount, relatedRequestId);
     return order;

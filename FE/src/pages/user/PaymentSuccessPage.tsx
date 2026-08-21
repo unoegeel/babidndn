@@ -122,11 +122,15 @@ export const PaymentSuccessPage: React.FC = () => {
 
     if (pendingOrder) {
       if (pendingOrder.tossOrderId !== tossOrderId) {
-        setErrorMsg("주문 번호 정보가 일치하지 않습니다. (위변조 가능성)");
+        queueMicrotask(() =>
+          setErrorMsg("주문 번호 정보가 일치하지 않습니다. (위변조 가능성)"),
+        );
         return;
       }
       if (pendingOrder.totalAmount !== amount) {
-        setErrorMsg("결제 요청 금액과 승인 시도 금액이 일치하지 않습니다. (금액 위변조 가능성)");
+        queueMicrotask(() =>
+          setErrorMsg("결제 요청 금액과 승인 시도 금액이 일치하지 않습니다. (금액 위변조 가능성)"),
+        );
         return;
       }
     }

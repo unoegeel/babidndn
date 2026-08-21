@@ -43,12 +43,15 @@ export default function DeveloperRequestsPage() {
   useEffect(() => {
     const requestId = searchParams.get("requestId");
     if (requestId) {
-      setDraftRequestId(requestId);
-      setQuery((prev) => ({ ...prev, requestId, page: 0 }));
+      queueMicrotask(() => {
+        setDraftRequestId(requestId);
+        setQuery((prev) => ({ ...prev, requestId, page: 0 }));
+      });
     }
   }, [searchParams]);
 
   const loadList = useCallback(async (params: DeveloperRequestQuery) => {
+    await Promise.resolve();
     try {
       setLoading(true);
       setError(null);
@@ -63,14 +66,18 @@ export default function DeveloperRequestsPage() {
   }, []);
 
   useEffect(() => {
-    void loadList(query);
+    void (async () => {
+      await Promise.resolve();
+      await loadList(query);
+    })();
   }, [loadList, query]);
 
+  if (selectedId == null && detail !== null) {
+    setDetail(null);
+  }
+
   useEffect(() => {
-    if (selectedId == null) {
-      setDetail(null);
-      return;
-    }
+    if (selectedId == null) return;
     let cancelled = false;
     void (async () => {
       try {

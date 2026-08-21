@@ -56,6 +56,7 @@ export default function StoreManagementPage() {
   const [saving, setSaving] = useState(false);
 
   const loadAds = async () => {
+    await Promise.resolve();
     setLoading(true);
     setError(null);
     try {
@@ -70,7 +71,10 @@ export default function StoreManagementPage() {
   };
 
   useEffect(() => {
-    void loadAds();
+    void (async () => {
+      await Promise.resolve();
+      await loadAds();
+    })();
   }, []);
 
   const resetForm = () => {

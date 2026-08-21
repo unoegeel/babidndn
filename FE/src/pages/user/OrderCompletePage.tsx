@@ -10,7 +10,7 @@ import { trackOrderCompleted } from "../../utils/userEvent/eventHelpers";
 export const OrderCompletePage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, saveOrderToState, readyCallSignal, orders, startConfetti } =
+  const { getOrderById, saveOrderToState, readyCallSignal, startConfetti } =
     useUserData();
 
   const [order, setOrder] = useState<Order | null>(() => (orderId ? getOrderById(orderId) : null));
@@ -28,11 +28,10 @@ export const OrderCompletePage: React.FC = () => {
   }, [orderId]);
 
   // 컨텍스트 폴링으로 갱신된 주문 반영
-  useEffect(() => {
-    if (!orderId) return;
-    const latest = getOrderById(orderId);
-    if (latest) setOrder(latest);
-  }, [orderId, orders, getOrderById]);
+  const latest = orderId ? getOrderById(orderId) : null;
+  if (latest && latest !== order && latest.updatedAt !== order?.updatedAt) {
+    setOrder(latest);
+  }
 
   // 재호출 시그널 → Confetti (주문 현황/완료 화면)
   useEffect(() => {

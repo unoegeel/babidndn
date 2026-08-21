@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const COLORS = [
@@ -64,6 +64,46 @@ interface ReadyConfettiProps {
   onDone?: () => void;
 }
 
+function createPieces(): Piece[] {
+  return Array.from({ length: 48 }, (_, i) => {
+    const angleBias = (i / 47) * 2 - 1;
+    const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
+    const burstXVw = Math.max(-48, Math.min(48, spread));
+    const peak = -(80 + Math.random() * 20);
+    const launchY = peak * (0.42 + Math.random() * 0.06);
+    const launchX = burstXVw * (0.05 + Math.random() * 0.05);
+    const openX = burstXVw * (0.42 + Math.random() * 0.12);
+    const openY = peak * (0.78 + Math.random() * 0.06);
+    const swayAmp = 2.2 + Math.random() * 4.5;
+    const dir = Math.random() > 0.5 ? 1 : -1;
+    const width = 5 + Math.floor(Math.random() * 7);
+    const fall = 28 + Math.random() * 48;
+    const spin = 160 + Math.random() * 380;
+
+    return {
+      id: i,
+      fallDuration: `${5.0 + Math.random() * 2.4}s`,
+      width,
+      height: width * (0.5 + Math.random() * 0.9),
+      color: COLORS[i % COLORS.length],
+      launchX: `${launchX}vw`,
+      launchY: `${launchY}vh`,
+      openX: `${openX}vw`,
+      openY: `${openY}vh`,
+      cx: `${burstXVw}vw`,
+      sway1: `${burstXVw + dir * swayAmp}vw`,
+      sway2: `${burstXVw - dir * swayAmp * (0.55 + Math.random() * 0.45)}vw`,
+      sway3: `${burstXVw + dir * swayAmp * (0.3 + Math.random() * 0.4)}vw`,
+      cx2: `${burstXVw + (Math.random() - 0.5) * 8}vw`,
+      peakY: `${peak}vh`,
+      fallY: `${fall}vh`,
+      spinMid: `${spin * 0.35}deg`,
+      spinEnd: `${spin}deg`,
+      radius: Math.random() > 0.4 ? "1px" : "50%",
+    };
+  });
+}
+
 let lastModulePlayKey: string | null = null;
 
 /**
@@ -107,7 +147,11 @@ function readClipBounds(): ClipBounds {
 export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, onDone }) => {
   const [visible, setVisible] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
-  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [piecesForBurst, setPiecesForBurst] = useState<number | null>(null);
+  const [portalRoot] = useState<HTMLElement | null>(() =>
+    typeof document !== "undefined" ? document.body : null,
+  );
   const [clipBounds, setClipBounds] = useState<ClipBounds>(() => readClipBounds());
   const onDoneRef = useRef(onDone);
 
@@ -115,18 +159,18 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     onDoneRef.current = onDone;
   }, [onDone]);
 
-  useEffect(() => {
-    setPortalRoot(document.body);
-  }, []);
-
   const syncClipBounds = () => {
     setClipBounds(readClipBounds());
   };
 
-  useLayoutEffect(() => {
-    if (!visible) return;
-    syncClipBounds();
-  }, [visible, burstKey]);
+  if (!active && visible) {
+    setVisible(false);
+  }
+
+  if (visible && burstKey !== piecesForBurst) {
+    setPiecesForBurst(burstKey);
+    setPieces(createPieces());
+  }
 
   useEffect(() => {
     if (!visible) return;
@@ -151,75 +195,38 @@ export const ReadyConfetti: React.FC<ReadyConfettiProps> = ({ active, playKey, o
     };
   }, [visible, burstKey]);
 
-  const pieces = useMemo<Piece[]>(() => {
-    return Array.from({ length: 48 }, (_, i) => {
-      const angleBias = (i / 47) * 2 - 1;
-      const spread = (angleBias * 0.55 + (Math.random() - 0.5) * 0.9) * 92;
-      const burstXVw = Math.max(-48, Math.min(48, spread));
-      const peak = -(80 + Math.random() * 20);
-      const launchY = peak * (0.42 + Math.random() * 0.06);
-      const launchX = burstXVw * (0.05 + Math.random() * 0.05);
-      const openX = burstXVw * (0.42 + Math.random() * 0.12);
-      const openY = peak * (0.78 + Math.random() * 0.06);
-
-      const swayAmp = 2.2 + Math.random() * 4.5;
-      const dir = Math.random() > 0.5 ? 1 : -1;
-      const width = 5 + Math.floor(Math.random() * 7);
-      const fall = 28 + Math.random() * 48;
-      const spin = 160 + Math.random() * 380;
-
-      return {
-        id: i,
-        fallDuration: `${5.0 + Math.random() * 2.4}s`,
-        width,
-        height: width * (0.5 + Math.random() * 0.9),
-        color: COLORS[i % COLORS.length],
-        launchX: `${launchX}vw`,
-        launchY: `${launchY}vh`,
-        openX: `${openX}vw`,
-        openY: `${openY}vh`,
-        cx: `${burstXVw}vw`,
-        sway1: `${burstXVw + dir * swayAmp}vw`,
-        sway2: `${burstXVw - dir * swayAmp * (0.55 + Math.random() * 0.45)}vw`,
-        sway3: `${burstXVw + dir * swayAmp * (0.3 + Math.random() * 0.4)}vw`,
-        cx2: `${burstXVw + (Math.random() - 0.5) * 8}vw`,
-        peakY: `${peak}vh`,
-        fallY: `${fall}vh`,
-        spinMid: `${spin * 0.35}deg`,
-        spinEnd: `${spin}deg`,
-        radius: Math.random() > 0.4 ? "1px" : "50%",
-      };
-    });
-  }, [burstKey]);
-
   useEffect(() => {
     if (!active) {
       lastModulePlayKey = null;
-      setVisible(false);
       return;
     }
 
     const key = playKey && playKey.length > 0 ? playKey : "__active__";
     const isSamePlay = lastModulePlayKey === key;
 
-    if (!isSamePlay) {
-      lastModulePlayKey = key;
-      setBurstKey((k) => k + 1);
-    }
-
-    syncClipBounds();
-    setVisible(true);
-
-    const timer = window.setTimeout(() => {
-      setVisible(false);
-      if (lastModulePlayKey === key) {
-        lastModulePlayKey = null;
+    let cancelled = false;
+    let timer: number | null = null;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!isSamePlay) {
+        lastModulePlayKey = key;
+        setBurstKey((k) => k + 1);
       }
-      onDoneRef.current?.();
-    }, CONFETTI_TOTAL_MS);
+      syncClipBounds();
+      setVisible(true);
+      timer = window.setTimeout(() => {
+        setVisible(false);
+        if (lastModulePlayKey === key) {
+          lastModulePlayKey = null;
+        }
+        onDoneRef.current?.();
+      }, CONFETTI_TOTAL_MS);
+    })();
 
     return () => {
-      window.clearTimeout(timer);
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, [active, playKey]);
 

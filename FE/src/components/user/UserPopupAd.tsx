@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type TouchEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type TouchEvent } from "react";
 import { popupAdService, type PopupAd } from "../../services/popupAdService";
 import {
   closePopupThisSession,
@@ -28,23 +28,32 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
   const [animate, setAnimate] = useState(true);
   const [dragX, setDragX] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [wasVisible, setWasVisible] = useState(visible);
+  const onOpenChangeEvent = useEffectEvent((open: boolean) => onOpenChange?.(open));
 
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const lockAxis = useRef<"x" | "y" | null>(null);
   const jumpPending = useRef(false);
 
-  useEffect(() => {
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (!visible) {
       setAds([]);
       setTrackIndex(1);
-      onOpenChange?.(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!visible) {
+      onOpenChangeEvent(false);
       return;
     }
 
     let cancelled = false;
 
     void (async () => {
+      await Promise.resolve();
       try {
         const list = await popupAdService.getActive();
         if (cancelled) return;
@@ -58,12 +67,12 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
         setAds(showable);
         setTrackIndex(1);
         setAnimate(true);
-        onOpenChange?.(showable.length > 0);
+        onOpenChangeEvent(showable.length > 0);
       } catch (err) {
         console.error("팝업 광고 조회 실패:", err);
         if (!cancelled) {
           setAds([]);
-          onOpenChange?.(false);
+          onOpenChangeEvent(false);
         }
       }
     })();
@@ -71,7 +80,6 @@ export default function UserPopupAd({ visible, onOpenChange }: Props) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const n = ads.length;

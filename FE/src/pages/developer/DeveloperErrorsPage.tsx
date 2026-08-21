@@ -29,6 +29,7 @@ export default function DeveloperErrorsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const loadList = useCallback(async (params: DeveloperErrorQuery) => {
+    await Promise.resolve();
     try {
       setLoading(true);
       setError(null);
@@ -43,14 +44,18 @@ export default function DeveloperErrorsPage() {
   }, []);
 
   useEffect(() => {
-    void loadList(query);
+    void (async () => {
+      await Promise.resolve();
+      await loadList(query);
+    })();
   }, [loadList, query]);
 
+  if (!selectedId && detail !== null) {
+    setDetail(null);
+  }
+
   useEffect(() => {
-    if (!selectedId) {
-      setDetail(null);
-      return;
-    }
+    if (!selectedId) return;
     let cancelled = false;
     void (async () => {
       try {

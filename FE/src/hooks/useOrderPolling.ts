@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { orderService, mapOrderDetailToOrder } from "../services/user/orderService";
 import type { Order } from "../types/user";
 
@@ -25,10 +25,10 @@ export function useOrderPolling({
   onOrderUpdate,
   onError,
 }: UseOrderPollingOptions): void {
-  const onOrderUpdateRef = useRef(onOrderUpdate);
-  const onErrorRef = useRef(onError);
-  onOrderUpdateRef.current = onOrderUpdate;
-  onErrorRef.current = onError;
+  const onOrderUpdateEvent = useEffectEvent(onOrderUpdate);
+  const onErrorEvent = useEffectEvent((orderId: string, error: unknown) => {
+    onError?.(orderId, error);
+  });
 
   const orderIdsKey = orderIds.join(",");
 
@@ -48,10 +48,10 @@ export function useOrderPolling({
             if (cancelled) return;
             const order = mapOrderDetailToOrder(res);
             if (cancelled) return;
-            onOrderUpdateRef.current(order);
+            onOrderUpdateEvent(order);
           } catch (err) {
             if (cancelled) return;
-            onErrorRef.current?.(id, err);
+            onErrorEvent(id, err);
           }
         }),
       );
