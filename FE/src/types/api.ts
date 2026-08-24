@@ -273,6 +273,8 @@ export type ReconciliationIssueType =
 
 export type ReconciliationSeverity = "CRITICAL" | "WARNING";
 
+export type ReconciliationIssueStatus = "OPEN" | "RESOLVED";
+
 export interface ReconciliationIssue {
   type: ReconciliationIssueType;
   severity: ReconciliationSeverity;
@@ -289,4 +291,43 @@ export interface PaymentReconciliationResponse {
   from: string;
   issueCount: number;
   issues: ReconciliationIssue[];
+}
+
+export interface ReconciliationScanResponse {
+  scannedAt: string;
+  period: string;
+  detectedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  resolvedCount: number;
+  openCount: number;
+  createdIssueIds: number[];
+}
+
+export interface PersistedReconciliationIssue {
+  id: number;
+  logicalKey: string;
+  type: ReconciliationIssueType;
+  severity: ReconciliationSeverity;
+  status: ReconciliationIssueStatus;
+  orderId: number;
+  paymentId?: number | null;
+  message: string;
+  metadata?: Record<string, unknown>;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  resolvedAt?: string | null;
+  occurrenceCount: number;
+}
+
+export interface PaymentTossVerifyResponse {
+  paymentId: number;
+  orderId: number;
+  internalStatus: string;
+  tossStatus: string;
+  internalAmount: number;
+  tossAmount: number;
+  statusMatches: boolean;
+  amountMatches: boolean;
+  verifiedAt: string;
 }

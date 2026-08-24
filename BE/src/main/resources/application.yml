@@ -25,13 +25,12 @@ spring:
         jdbc:
           time_zone: Asia/Seoul
 
-  # Existing non-empty DBs: register current schema as baseline (no re-run of legacy SQL).
-  # First real schema change = V101__....sql under db/migration.
-  # Fresh empty MySQL bootstrap is a separate follow-up (tests use H2 create-drop).
+  # Existing non-empty DBs: baseline already applied (baseline-on-migrate=false).
+# Schema mutations: V101+ under db/migration. Tests: H2 create-drop, Flyway disabled.
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: true
+    baseline-on-migrate: false
     baseline-version: 100
     baseline-description: Existing schema baseline (Hibernate update + BE/scripts era)
 

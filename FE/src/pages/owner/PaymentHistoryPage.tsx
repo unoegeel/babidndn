@@ -7,7 +7,12 @@ import { PaymentRow } from "../../components/owner/payment/PaymentRow";
 import { paymentService } from "../../services/admin/paymentService";
 import { useAdminData } from "../../store/AdminDataContext";
 import type { Payment } from "../../types/admin";
-import type { PaymentReconciliationResponse, ReconciliationIssue } from "../../types/api";
+import type {
+  PaymentTossVerifyResponse,
+  PersistedReconciliationIssue,
+  ReconciliationIssue,
+  ReconciliationScanResponse,
+} from "../../types/api";
 import { notifyFileDownloadStarted } from "../../utils/downloadFeedback";
 import {
   buildPaymentExportText,
@@ -28,6 +33,18 @@ const ISSUE_TYPE_LABEL: Record<ReconciliationIssue["type"], string> = {
   MULTIPLE_VALID_PAYMENTS: "중복 DONE 결제",
 };
 
+function formatWon(amount: number | null | undefined) {
+  if (amount == null) return "-";
+  return `${amount.toLocaleString("ko-KR")}원`;
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("ko-KR");
+}
+
 export default function PaymentHistoryPage() {
   const navigate = useNavigate();
   const { payments, refundPayment, refreshPayments, getOrderDetail } = useAdminData();
@@ -40,10 +57,15 @@ export default function PaymentHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
   const [reconPeriod, setReconPeriod] = useState<ReconciliationPeriod>("7d");
-  const [recon, setRecon] = useState<PaymentReconciliationResponse | null>(null);
+  const [openIssues, setOpenIssues] = useState<PersistedReconciliationIssue[]>([]);
+  const [scanSummary, setScanSummary] = useState<ReconciliationScanResponse | null>(null);
   const [reconLoading, setReconLoading] = useState(true);
+  const [scanLoading, setScanLoading] = useState(false);
   const [reconError, setReconError] = useState<string | null>(null);
   const [reconOpen, setReconOpen] = useState(false);
+  const [verifyByPaymentId, setVerifyByPaymentId] = useState<
+    Record<number, PaymentTossVerifyResponse | "loading" | "error">
+  >({});
 
   const loadPayments = async () => {
     try {
@@ -55,21 +77,47 @@ export default function PaymentHistoryPage() {
     }
   };
 
-  const loadReconciliation = async (nextPeriod: ReconciliationPeriod = reconPeriod) => {
+  const loadOpenIssues = async (nextPeriod: ReconciliationPeriod = reconPeriod) => {
     setReconLoading(true);
     setReconError(null);
     try {
-      const data = await paymentService.getReconciliation(nextPeriod);
-      setRecon(data);
-      if (data.issueCount > 0) {
+      const issues = await paymentService.listReconciliationIssues("OPEN", nextPeriod);
+      setOpenIssues(issues);
+      if (issues.length > 0) {
         setReconOpen(true);
       }
     } catch (err) {
-      console.error("정합성 점검 실패:", err);
-      setReconError("정합성 점검을 불러오지 못했습니다.");
-      setRecon(null);
+      console.error("정합성 issue 조회 실패:", err);
+      setReconError("저장된 이상 건을 불러오지 못했습니다.");
+      setOpenIssues([]);
     } finally {
       setReconLoading(false);
+    }
+  };
+
+  const runScan = async () => {
+    setScanLoading(true);
+    setReconError(null);
+    try {
+      const summary = await paymentService.scanReconciliation(reconPeriod);
+      setScanSummary(summary);
+      await loadOpenIssues(reconPeriod);
+    } catch (err) {
+      console.error("정합성 스캔 실패:", err);
+      setReconError("지금 검사에 실패했습니다.");
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const verifyToss = async (paymentId: number) => {
+    setVerifyByPaymentId((prev) => ({ ...prev, [paymentId]: "loading" }));
+    try {
+      const result = await paymentService.verifyPayment(paymentId);
+      setVerifyByPaymentId((prev) => ({ ...prev, [paymentId]: result }));
+    } catch (err) {
+      console.error("Toss 재확인 실패:", err);
+      setVerifyByPaymentId((prev) => ({ ...prev, [paymentId]: "error" }));
     }
   };
 
@@ -77,7 +125,7 @@ export default function PaymentHistoryPage() {
     void (async () => {
       await Promise.resolve();
       await loadPayments();
-      await loadReconciliation("7d");
+      await loadOpenIssues("7d");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -179,12 +227,10 @@ export default function PaymentHistoryPage() {
           </div>
         </div>
 
-        {/* 정합성 점검 — 탐지 전용, 자동 수정 없음 */}
+        {/* 정합성 점검 — persisted OPEN issues + scan / Toss diagnostics */}
         <div
           className={`mb-[16px] rounded-[12px] border px-[14px] py-[12px] ${
-            recon && recon.issueCount > 0
-              ? "border-red-300 bg-red-50"
-              : "border-black/20 bg-panel"
+            openIssues.length > 0 ? "border-red-300 bg-red-50" : "border-black/20 bg-panel"
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-[10px]">
@@ -192,16 +238,18 @@ export default function PaymentHistoryPage() {
               <p className="text-[14px] font-semibold text-black">
                 정합성 점검
                 {reconLoading
-                  ? " · 확인 중…"
-                  : recon
-                    ? recon.issueCount > 0
-                      ? ` · 이상 ${recon.issueCount}건`
-                      : " · 정상"
-                    : ""}
+                  ? " · 불러오는 중…"
+                  : ` · 현재 OPEN issue ${openIssues.length}건`}
               </p>
               <p className="mt-[2px] text-[12px] text-black/55">
-                Order↔Payment 이상만 표시합니다. 자동 환불·상태 변경은 하지 않습니다.
+                저장된 incident를 표시합니다. [지금 검사]만 DB에 기록하며, 자동 환불·상태 변경은 하지 않습니다.
               </p>
+              {scanSummary && (
+                <p className="mt-[4px] text-[12px] text-black/60">
+                  최근 스캔: 탐지 {scanSummary.detectedCount} · 신규 {scanSummary.createdCount} · 재탐지{" "}
+                  {scanSummary.updatedCount} · 해결 {scanSummary.resolvedCount}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-[8px]">
               <select
@@ -209,7 +257,7 @@ export default function PaymentHistoryPage() {
                 onChange={(e) => {
                   const next = e.target.value as ReconciliationPeriod;
                   setReconPeriod(next);
-                  loadReconciliation(next);
+                  void loadOpenIssues(next);
                 }}
                 className="h-[36px] rounded-[8px] border border-black/40 bg-canvas px-[10px] text-[13px]"
               >
@@ -219,51 +267,94 @@ export default function PaymentHistoryPage() {
               </select>
               <button
                 type="button"
-                onClick={() => loadReconciliation(reconPeriod)}
-                className="h-[36px] rounded-[8px] border border-black/40 bg-canvas px-[12px] text-[13px] font-medium"
+                disabled={scanLoading}
+                onClick={() => void runScan()}
+                className="h-[36px] rounded-[8px] border border-black/40 bg-canvas px-[12px] text-[13px] font-medium disabled:opacity-50"
               >
-                다시 확인
+                {scanLoading ? "검사 중…" : "지금 검사"}
               </button>
-              {recon && recon.issueCount > 0 && (
+              {openIssues.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setReconOpen((v) => !v)}
                   className="h-[36px] rounded-[8px] border border-red-400 bg-white px-[12px] text-[13px] font-medium text-red-700"
                 >
-                  {reconOpen ? "목록 접기" : "이상 목록"}
+                  {reconOpen ? "목록 접기" : "OPEN 목록"}
                 </button>
               )}
             </div>
           </div>
           {reconError && <p className="mt-[8px] text-[13px] text-red-600">{reconError}</p>}
-          {reconOpen && recon && recon.issueCount > 0 && (
-            <ul className="mt-[10px] max-h-[220px] space-y-[8px] overflow-auto">
-              {recon.issues.map((issue, idx) => (
-                <li
-                  key={`${issue.type}-${issue.orderId}-${issue.paymentId ?? "x"}-${idx}`}
-                  className="rounded-[8px] border border-red-200 bg-white px-[10px] py-[8px] text-[13px]"
-                >
-                  <div className="flex flex-wrap items-center gap-[8px]">
-                    <span
-                      className={`rounded px-[6px] py-[2px] text-[11px] font-semibold ${
-                        issue.severity === "CRITICAL"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
-                      {issue.severity}
-                    </span>
-                    <span className="font-medium text-black">
-                      {ISSUE_TYPE_LABEL[issue.type] ?? issue.type}
-                    </span>
-                    <span className="text-black/60">주문 #{issue.orderId}</span>
+          {reconOpen && openIssues.length > 0 && (
+            <ul className="mt-[10px] max-h-[320px] space-y-[8px] overflow-auto">
+              {openIssues.map((issue) => {
+                const verifyState =
+                  issue.paymentId != null ? verifyByPaymentId[issue.paymentId] : undefined;
+                return (
+                  <li
+                    key={issue.id}
+                    className="rounded-[8px] border border-red-200 bg-white px-[10px] py-[8px] text-[13px]"
+                  >
+                    <div className="flex flex-wrap items-center gap-[8px]">
+                      <span
+                        className={`rounded px-[6px] py-[2px] text-[11px] font-semibold ${
+                          issue.severity === "CRITICAL"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {issue.severity}
+                      </span>
+                      <span className="rounded bg-black/5 px-[6px] py-[2px] text-[11px]">
+                        {issue.status}
+                      </span>
+                      <span className="font-medium text-black">
+                        {ISSUE_TYPE_LABEL[issue.type] ?? issue.type}
+                      </span>
+                      <span className="text-black/60">주문 #{issue.orderId}</span>
+                      {issue.paymentId != null && (
+                        <span className="text-black/60">결제 #{issue.paymentId}</span>
+                      )}
+                    </div>
+                    <p className="mt-[4px] text-black/75">{issue.message}</p>
+                    <p className="mt-[4px] text-[12px] text-black/50">
+                      최초 {formatDateTime(issue.firstDetectedAt)} · 최근{" "}
+                      {formatDateTime(issue.lastDetectedAt)} · 재탐지 {issue.occurrenceCount}회
+                    </p>
                     {issue.paymentId != null && (
-                      <span className="text-black/60">결제 #{issue.paymentId}</span>
+                      <div className="mt-[8px]">
+                        <button
+                          type="button"
+                          disabled={verifyState === "loading"}
+                          onClick={() => void verifyToss(issue.paymentId!)}
+                          className="h-[32px] rounded-[8px] border border-black/30 bg-canvas px-[10px] text-[12px] font-medium disabled:opacity-50"
+                        >
+                          {verifyState === "loading" ? "Toss 확인 중…" : "Toss에서 다시 확인"}
+                        </button>
+                        {verifyState === "error" && (
+                          <p className="mt-[6px] text-[12px] text-red-600">
+                            Toss 조회에 실패했습니다. (내부 결제 상태는 변경되지 않았습니다)
+                          </p>
+                        )}
+                        {verifyState && verifyState !== "loading" && verifyState !== "error" && (
+                          <div className="mt-[8px] rounded-[8px] border border-black/10 bg-panel px-[10px] py-[8px] text-[12px]">
+                            <p className="font-medium text-black">Toss 조회 결과 (진단만 · 복구/수정 아님)</p>
+                            <p className="mt-[4px] text-black/70">
+                              내부 상태 {verifyState.internalStatus} / Toss 상태 {verifyState.tossStatus} —{" "}
+                              {verifyState.statusMatches ? "상태 일치 정상" : "상태 불일치"}
+                            </p>
+                            <p className="mt-[2px] text-black/70">
+                              내부 금액 {formatWon(verifyState.internalAmount)} / Toss 금액{" "}
+                              {formatWon(verifyState.tossAmount)} —{" "}
+                              {verifyState.amountMatches ? "금액 일치 정상" : "금액 불일치"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <p className="mt-[4px] text-black/75">{issue.message}</p>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -41,8 +41,9 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
-| 2026-08-21 | DB | Flyway baseline 도입 (code ready). `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만. prod 미적용 |
-| 2026-08-21 | Payment | Order↔Payment 정합성 점검 Phase A (DETECT→DISPLAY). `GET /api/admin/payments/reconciliation` · 결제내역 UI 배너. 자동 수정 없음 |
+| 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify API · Admin UI. **V101 MySQL runtime = PENDING (dev deploy)** |
+| 2026-08-21 | DB | Flyway baseline 도입. `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만 |
+| 2026-08-21 | Payment | Order↔Payment 정합성 Phase A (DETECT→DISPLAY snapshot) |
 | 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. production schema 적용 완료(v1.2.21) |
 | 2026-08-20 | Dev Console | `client_errors` stack/component_stack → TEXT (MySQL ERROR 1118 재발 방지). **dev** `babi_order_dev`: table 생성·`/api/dev/errors`·`/overview` 200 확인 |
 | 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
@@ -64,9 +65,9 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-- **Flyway baseline:** code ready. **dev/prod 실 DB 적용·`flyway_schema_history` 확인 전** — `schema-drift-audit.sql`로 drift 비교 필수. prod는 이번 task에서 적용하지 않음
+- **Flyway V101:** code created (`payment_reconciliation_issues`). **dev/prod MySQL runtime 미검증** — deploy 후 `flyway_schema_history` + Hibernate validate 확인
 - **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
-- **production `babi_order`:** observability TEXT 컬럼·`access_token_hash` 등은 운영 확인됨으로 보고됨 — drift script로 재검증 권장
+- Slack/Discord/Email reconciliation alert (Phase B는 createdIssueIds만 준비)
 - `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
 - Developer Overview / menu-options KPI **운영 데이터 spot check**
 - iPhone keyboard **전 기종 regression**
@@ -116,7 +117,7 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew clean test` (full) | **PASS** (353 tests) — Flyway on classpath, test Flyway disabled |
+| `cd BE && ./gradlew clean test` (full) | **PASS** (375 tests) — Phase B persist/scan/verify; H2 Flyway off |
 | `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
 | `cd FE && npm test` | PASS (42 tests) |
 | `cd FE && npm run build` | PASS |
@@ -125,12 +126,12 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 ## 7. Current Priorities
 
-1. **Flyway:** `schema-drift-audit.sql`로 dev↔prod 비교 → dev baseline → validate startup → 이후 prod
+1. **dev deploy:** V101 Flyway + Hibernate validate + reconciliation scan/verify smoke
 2. 고객 주문 API 접근 제어 **운영 smoke**
-3. 결제·Checkout E2E · 정합성 점검 운영 spot check
-4. Fresh MySQL bootstrap (optional follow-up)
-5. Analytics index/volume
-6. Phase B (선택): Toss remote verify · alert persistence (첫 V101 후보)
+3. 결제·Checkout E2E · 정합성 Phase B 운영 spot check
+4. Fresh MySQL bootstrap (optional)
+5. Alert sender (Slack 등) — `createdIssueIds` / CRITICAL only
+6. Auto reconciliation **계속 금지**
 
 ---
 

@@ -16,4 +16,4 @@ Flyway 도입 이후 **신규 schema 변경**은 `BE/src/main/resources/db/migra
 
 `V{version}__{description}.sql` → `src/main/resources/db/migration/`
 
-예: `V101__create_payment_reconciliation_alerts.sql`
+예: `V101__create_payment_reconciliation_issues.sql` (Phase B — 이미 migration 디렉터리에 존재)

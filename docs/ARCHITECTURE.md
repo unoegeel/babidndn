@@ -115,10 +115,12 @@ FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`)
 - `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
 - `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
 - 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
-- **정합성 점검 (Phase A, DETECT only):** `payment/reconciliation/`
-  - `GET /api/admin/payments/reconciliation?period=1d|7d|30d` (`ROLE_ADMIN`)
-  - native SQL로 이상 후보 조회 · 자동 환불/상태 변경/스케줄러 없음
-  - Admin UI: 결제 내역 화면 상단 배너
+- **정합성 점검:** `payment/reconciliation/`
+  - Phase A snapshot: `GET /api/admin/payments/reconciliation` (persist 없음)
+  - Phase B lifecycle: `POST .../reconciliation/scan`, `GET .../issues`, `POST /api/admin/payments/{id}/verify`
+  - `logical_key` + OPEN-only `active_key` UNIQUE로 중복 OPEN 방지 · RESOLVED 후 재발은 새 row
+  - Toss verify는 GET Payment만 · Payment/Order mutation 없음
+  - Admin UI: 결제 내역 상단 OPEN issue + [지금 검사] + Toss 재확인
 
 ### Saved Menu
 
@@ -185,9 +187,10 @@ Observability: client_events, client_errors, backend_errors, http_request_record
 
 Schema ownership:
 
-- **Flyway** — mutations under `classpath:db/migration` (baseline version **100** for existing DBs)
+- **Flyway** — mutations under `classpath:db/migration` (baseline **100**, `V101__create_payment_reconciliation_issues`)
 - **Hibernate** — `ddl-auto: validate` (dev/prod); tests: H2 `create-drop`, Flyway off
 - **Legacy** — `BE/scripts/*.sql` historical/precheck/data maintenance only (not re-run as V1…)
+- **Reconciliation issues:** `payment_reconciliation_issues` — scalar `order_id`/`payment_id` (no FK; audit history must not block Order hard-delete)
 
 ## 13. Observability
 

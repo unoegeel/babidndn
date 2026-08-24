@@ -13,12 +13,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Order ↔ Payment 정합성 이상을 조회한다. 자동 수정은 하지 않는다.
+ * Order ↔ Payment 정합성 이상을 조회한다. GET 경로에서는 자동 수정·persist 하지 않는다.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,24 +32,14 @@ public class PaymentReconciliationService {
         LocalDateTime from = resolveFrom(normalized, LocalDate.now(STORE_ZONE));
         LocalDateTime now = LocalDateTime.now(STORE_ZONE);
 
-        List<ReconciliationIssueResponse> issues = new ArrayList<>();
-        for (ReconciliationIssueRow row : queryRepository.findPaymentDoneOrderNotActivated(from)) {
-            issues.add(toIssue(row));
-        }
-        for (ReconciliationIssueRow row : queryRepository.findOrderActivatedWithoutValidPayment(from)) {
-            issues.add(toIssue(row));
-        }
-        for (ReconciliationIssueRow row : queryRepository.findPaymentAmountMismatch(from)) {
-            issues.add(toIssue(row));
-        }
-        for (ReconciliationIssueRow row : queryRepository.findMultipleValidPayments(from)) {
-            issues.add(toIssue(row));
-        }
-
-        issues.sort(Comparator
-                .comparing(ReconciliationIssueResponse::getSeverity)
-                .thenComparing(ReconciliationIssueResponse::getDetectedAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())));
+        List<DetectedAnomaly> detected = detectAnomalies(from);
+        List<ReconciliationIssueResponse> issues = detected.stream()
+                .map(PaymentReconciliationService::toSnapshotIssue)
+                .sorted(Comparator
+                        .comparing(ReconciliationIssueResponse::getSeverity)
+                        .thenComparing(ReconciliationIssueResponse::getDetectedAt,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
 
         return PaymentReconciliationResponse.builder()
                 .generatedAt(now)
@@ -60,6 +48,27 @@ public class PaymentReconciliationService {
                 .issueCount(issues.size())
                 .issues(issues)
                 .build();
+    }
+
+    /**
+     * Phase A detection queries — reused by snapshot GET and persisted scan.
+     */
+    @Transactional(readOnly = true)
+    public List<DetectedAnomaly> detectAnomalies(LocalDateTime fromInclusive) {
+        List<DetectedAnomaly> detected = new ArrayList<>();
+        for (ReconciliationIssueRow row : queryRepository.findPaymentDoneOrderNotActivated(fromInclusive)) {
+            detected.add(DetectedAnomaly.from(row));
+        }
+        for (ReconciliationIssueRow row : queryRepository.findOrderActivatedWithoutValidPayment(fromInclusive)) {
+            detected.add(DetectedAnomaly.from(row));
+        }
+        for (ReconciliationIssueRow row : queryRepository.findPaymentAmountMismatch(fromInclusive)) {
+            detected.add(DetectedAnomaly.from(row));
+        }
+        for (ReconciliationIssueRow row : queryRepository.findMultipleValidPayments(fromInclusive)) {
+            detected.add(DetectedAnomaly.from(row));
+        }
+        return detected;
     }
 
     static String normalizePeriod(String period) {
@@ -87,49 +96,15 @@ public class PaymentReconciliationService {
         };
     }
 
-    private static ReconciliationIssueResponse toIssue(ReconciliationIssueRow row) {
-        ReconciliationSeverity severity = switch (row.type()) {
-            case PAYMENT_DONE_ORDER_NOT_ACTIVATED,
-                 ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT,
-                 MULTIPLE_VALID_PAYMENTS -> ReconciliationSeverity.CRITICAL;
-            case PAYMENT_AMOUNT_MISMATCH -> ReconciliationSeverity.WARNING;
-        };
-
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        if (row.orderTotalAmount() != null) {
-            metadata.put("orderTotalAmount", row.orderTotalAmount());
-        }
-        if (row.paymentAmount() != null) {
-            metadata.put("paymentAmount", row.paymentAmount());
-        }
-        if (row.pickupNumber() != null) {
-            metadata.put("pickupNumber", row.pickupNumber());
-        }
-        if (row.donePaymentCount() != null) {
-            metadata.put("donePaymentCount", row.donePaymentCount());
-        }
-
+    private static ReconciliationIssueResponse toSnapshotIssue(DetectedAnomaly anomaly) {
         return ReconciliationIssueResponse.builder()
-                .type(row.type())
-                .severity(severity)
-                .orderId(row.orderId())
-                .paymentId(row.paymentId())
-                .message(buildMessage(row))
-                .detectedAt(row.referenceAt())
-                .metadata(metadata)
+                .type(anomaly.type())
+                .severity(anomaly.severity())
+                .orderId(anomaly.orderId())
+                .paymentId(anomaly.paymentId())
+                .message(anomaly.message())
+                .detectedAt(anomaly.referenceAt())
+                .metadata(anomaly.metadata())
                 .build();
-    }
-
-    private static String buildMessage(ReconciliationIssueRow row) {
-        return switch (row.type()) {
-            case PAYMENT_DONE_ORDER_NOT_ACTIVATED ->
-                    "결제는 DONE인데 주문 픽업번호가 미발급(0)입니다. activateAfterPayment 누락 가능성이 있습니다.";
-            case ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT ->
-                    "픽업번호가 발급됐지만 DONE 결제가 없습니다.";
-            case PAYMENT_AMOUNT_MISMATCH ->
-                    "주문 금액(" + row.orderTotalAmount() + ")과 결제 금액(" + row.paymentAmount() + ")이 다릅니다.";
-            case MULTIPLE_VALID_PAYMENTS ->
-                    "동일 주문에 DONE 결제가 " + row.donePaymentCount() + "건 있습니다.";
-        };
     }
 }

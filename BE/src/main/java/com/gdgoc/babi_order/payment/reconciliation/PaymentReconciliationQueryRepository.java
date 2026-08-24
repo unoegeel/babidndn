@@ -161,6 +161,73 @@ public class PaymentReconciliationQueryRepository {
         return result;
     }
 
+    /**
+     * Current-state revalidation (no period filter). Empty id collections are skipped by callers.
+     */
+    public List<Long> findPaymentIdsStillDoneNotActivated(List<Long> paymentIds) {
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        SELECT p.id
+                        FROM payments p
+                        INNER JOIN orders o ON o.id = p.order_id
+                        WHERE p.id IN (:paymentIds)
+                          AND p.status = 'DONE'
+                          AND o.pickup_number = 0
+                        """)
+                .setParameter("paymentIds", paymentIds)
+                .getResultList();
+        return rows.stream().map(Number::longValue).toList();
+    }
+
+    public List<Long> findOrderIdsStillActivatedWithoutValidPayment(List<Long> orderIds) {
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        SELECT o.id
+                        FROM orders o
+                        WHERE o.id IN (:orderIds)
+                          AND o.pickup_number > 0
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM payments p
+                              WHERE p.order_id = o.id
+                                AND p.status = 'DONE'
+                          )
+                        """)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+        return rows.stream().map(Number::longValue).toList();
+    }
+
+    public List<Long> findPaymentIdsStillAmountMismatch(List<Long> paymentIds) {
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        SELECT p.id
+                        FROM payments p
+                        INNER JOIN orders o ON o.id = p.order_id
+                        WHERE p.id IN (:paymentIds)
+                          AND p.status = 'DONE'
+                          AND p.amount <> o.total_amount
+                        """)
+                .setParameter("paymentIds", paymentIds)
+                .getResultList();
+        return rows.stream().map(Number::longValue).toList();
+    }
+
+    public List<Long> findOrderIdsStillMultipleValidPayments(List<Long> orderIds) {
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        SELECT p.order_id
+                        FROM payments p
+                        WHERE p.order_id IN (:orderIds)
+                          AND p.status = 'DONE'
+                        GROUP BY p.order_id
+                        HAVING COUNT(p.id) > 1
+                        """)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+        return rows.stream().map(Number::longValue).toList();
+    }
+
     private static Long toLong(Object value) {
         if (value == null) {
             return null;

@@ -11,11 +11,15 @@ import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
+import com.gdgoc.babi_order.payment.reconciliation.PaymentReconciliationScanService;
 import com.gdgoc.babi_order.payment.reconciliation.PaymentReconciliationService;
+import com.gdgoc.babi_order.payment.reconciliation.PaymentTossVerifyService;
 import com.gdgoc.babi_order.payment.reconciliation.ReconciliationIssueType;
 import com.gdgoc.babi_order.payment.reconciliation.ReconciliationSeverity;
 import com.gdgoc.babi_order.payment.reconciliation.dto.PaymentReconciliationResponse;
+import com.gdgoc.babi_order.payment.reconciliation.dto.PaymentTossVerifyResponse;
 import com.gdgoc.babi_order.payment.reconciliation.dto.ReconciliationIssueResponse;
+import com.gdgoc.babi_order.payment.reconciliation.dto.ReconciliationScanResponse;
 import com.gdgoc.babi_order.testsupport.WebMvcSliceTestConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +42,9 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +70,12 @@ class AdminPaymentControllerTest {
 
     @MockitoBean
     private PaymentReconciliationService paymentReconciliationService;
+
+    @MockitoBean
+    private PaymentReconciliationScanService paymentReconciliationScanService;
+
+    @MockitoBean
+    private PaymentTossVerifyService paymentTossVerifyService;
 
     @MockitoBean
     private AdminRepository adminRepository;
@@ -114,6 +126,67 @@ class AdminPaymentControllerTest {
         String token = jwtTokenProvider.createToken("developer", AdminRole.DEVELOPER);
         mockMvc.perform(get("/api/admin/payments/reconciliation")
                         .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanScan() throws Exception {
+        given(paymentReconciliationScanService.scan(eq("7d")))
+                .willReturn(ReconciliationScanResponse.builder()
+                        .scannedAt(LocalDateTime.of(2026, 8, 24, 12, 0))
+                        .period("7d")
+                        .detectedCount(1)
+                        .createdCount(1)
+                        .updatedCount(0)
+                        .resolvedCount(0)
+                        .openCount(1)
+                        .createdIssueIds(List.of(42L))
+                        .build());
+
+        mockMvc.perform(post("/api/admin/payments/reconciliation/scan")
+                        .param("period", "7d")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.createdCount").value(1))
+                .andExpect(jsonPath("$.createdIssueIds[0]").value(42));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanVerifyPayment() throws Exception {
+        given(paymentTossVerifyService.verify(eq(9L)))
+                .willReturn(PaymentTossVerifyResponse.builder()
+                        .paymentId(9L)
+                        .orderId(1L)
+                        .internalStatus("DONE")
+                        .tossStatus("DONE")
+                        .internalAmount(7500)
+                        .tossAmount(7500)
+                        .statusMatches(true)
+                        .amountMatches(true)
+                        .verifiedAt(LocalDateTime.of(2026, 8, 24, 12, 0))
+                        .build());
+
+        mockMvc.perform(post("/api/admin/payments/9/verify").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusMatches").value(true))
+                .andExpect(jsonPath("$.amountMatches").value(true));
+    }
+
+    @Test
+    @WithAnonymousUser
+    void anonymousCannotScan() throws Exception {
+        mockMvc.perform(post("/api/admin/payments/reconciliation/scan").with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void developerCannotVerify() throws Exception {
+        String token = jwtTokenProvider.createToken("developer", AdminRole.DEVELOPER);
+        mockMvc.perform(post("/api/admin/payments/9/verify")
+                        .header("Authorization", "Bearer " + token)
+                        .with(csrf()))
                 .andExpect(status().isForbidden());
     }
 
