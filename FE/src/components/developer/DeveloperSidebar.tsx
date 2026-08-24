@@ -22,6 +22,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: "/dev/errors", label: DEV_LABELS.errors },
       { to: "/dev/requests", label: DEV_LABELS.requests },
+      { to: "/dev/reconciliation", label: DEV_LABELS.reconciliation },
     ],
   },
   {

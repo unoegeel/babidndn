@@ -2,7 +2,7 @@
 
 export const DEV_LABELS = {
   consoleTitle: "개발자 콘솔",
-  consoleSubtitle: "오류 · 요청 · 이벤트 · 분석",
+  consoleSubtitle: "오류 · 요청 · 이벤트 · 정합성 · 분석",
   observability: "운영 관측",
 
   overview: "개요",
@@ -10,6 +10,7 @@ export const DEV_LABELS = {
   analytics: "분석",
   errors: "오류",
   requests: "요청",
+  reconciliation: "결제 정합성",
   events: "사용자 이벤트",
   funnelAnalytics: "주문 퍼널 / 분석",
 

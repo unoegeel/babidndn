@@ -39,6 +39,7 @@ import PaymentFailPage from "./pages/user/PaymentFailPage";
 import DeveloperOverviewPage from "./pages/developer/DeveloperOverviewPage";
 import DeveloperErrorsPage from "./pages/developer/DeveloperErrorsPage";
 import DeveloperRequestsPage from "./pages/developer/DeveloperRequestsPage";
+import DeveloperReconciliationPage from "./pages/developer/DeveloperReconciliationPage";
 import DeveloperEventsPage from "./pages/developer/DeveloperEventsPage";
 import DeveloperAnalyticsPage from "./pages/developer/DeveloperAnalyticsPage";
 
@@ -74,6 +75,7 @@ const router = createBrowserRouter([
           { index: true, element: <DeveloperOverviewPage /> },
           { path: "errors", element: <DeveloperErrorsPage /> },
           { path: "requests", element: <DeveloperRequestsPage /> },
+          { path: "reconciliation", element: <DeveloperReconciliationPage /> },
           { path: "events", element: <DeveloperEventsPage /> },
           { path: "analytics", element: <DeveloperAnalyticsPage /> },
         ],
