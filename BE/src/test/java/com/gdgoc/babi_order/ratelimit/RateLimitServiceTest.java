@@ -32,7 +32,7 @@ class RateLimitServiceTest {
         Map<String, RateLimitProperties.PolicyLimits> policies = new LinkedHashMap<>();
         policies.put("order-create", limits(2, 60, 2, 60));
         policies.put("client-events", limits(5, 60, 100, 60));
-        policies.put("auth-login", limits(0, 0, 2, 600));
+        policies.put("auth-login", limits(0, 0, 2, 300));
         properties.setPolicies(policies);
 
         ClientIpResolver ipResolver = new ClientIpResolver(properties);
@@ -126,13 +126,19 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void authLoginIsIpOnly() {
-        MockHttpServletRequest request = baseRequest("203.0.113.8", UUID.randomUUID().toString());
+    void authLoginWindowUsesConfiguredDurationThenAllowsAgain() {
+        MockHttpServletRequest request = baseRequest("203.0.113.20", null);
         service.check(RateLimitPolicy.AUTH_LOGIN, request);
         service.check(RateLimitPolicy.AUTH_LOGIN, request);
         assertThatThrownBy(() -> service.check(RateLimitPolicy.AUTH_LOGIN, request))
-                .isInstanceOf(RateLimitExceededException.class);
+                .isInstanceOf(RateLimitExceededException.class)
+                .satisfies(ex -> assertThat(((RateLimitExceededException) ex).getRetryAfterSeconds())
+                        .isLessThanOrEqualTo(300L));
+
+        clock.advanceSeconds(301);
+        service.check(RateLimitPolicy.AUTH_LOGIN, request);
     }
+
 
     @Test
     void disabledSkipsLimiting() {

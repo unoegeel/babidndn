@@ -45,6 +45,7 @@
 - Excluded: order GET polling · SSE · Toss webhook · `/api/dev/reconciliation/**`
 - Identity: client(hash)+IP layered (public) · login IP-only · trusted-proxy IP resolve
 - 429 + `Retry-After` · not written to `backend_errors`
+- Login UX: `Retry-After` countdown on LoginPage (sessionStorage `babi_order_login_rate_limit_until`) · CORS exposes `Retry-After`
 - FE: LoginPage 429 message · telemetry fetch already ignores failures (no loop)
 - Tests: suite **enabled=false** by default · dedicated rate-limit tests enable locally
 - **NO SCHEMA CHANGE / NO V102**

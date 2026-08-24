@@ -79,7 +79,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.rate-limit.policies.client-events.ip-limit=1200",
         "app.rate-limit.policies.client-events.ip-window-seconds=60",
         "app.rate-limit.policies.auth-login.ip-limit=10",
-        "app.rate-limit.policies.auth-login.ip-window-seconds=600"
+        "app.rate-limit.policies.auth-login.ip-window-seconds=300"
 })
 class RateLimitMvcIntegrationTest {
 

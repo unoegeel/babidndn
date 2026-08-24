@@ -1,39 +1,86 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandLogo from "../../components/BrandLogo";
 import { signInAdmin } from "../../constants/adminAccount";
 import { authService } from "../../services/admin/authService";
 import { ApiError } from "../../api/client";
+import {
+  LOGIN_RATE_LIMIT_GENERIC_MESSAGE,
+  clearLoginBlockedUntil,
+  formatLoginRetryMessage,
+  readLoginBlockedUntil,
+  remainingSecondsUntil,
+  writeLoginBlockedUntil,
+} from "../../utils/loginRateLimit";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [blockedUntil, setBlockedUntil] = useState<number | null>(() => readLoginBlockedUntil());
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const remainingSeconds =
+    blockedUntil != null ? remainingSecondsUntil(blockedUntil, nowMs) : 0;
+  const isRateLimited = remainingSeconds > 0;
+  const rateLimitMessage = isRateLimited ? formatLoginRetryMessage(remainingSeconds) : null;
+  const error = rateLimitMessage ?? formError;
+
+  useEffect(() => {
+    if (blockedUntil == null) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      const current = Date.now();
+      setNowMs(current);
+      if (remainingSecondsUntil(blockedUntil, current) <= 0) {
+        clearLoginBlockedUntil();
+        setBlockedUntil(null);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [blockedUntil]);
+
+  const applyBlockedUntil = (untilMs: number) => {
+    writeLoginBlockedUntil(untilMs);
+    setFormError(null);
+    setBlockedUntil(untilMs);
+    setNowMs(Date.now());
+  };
 
   // 서버 관리자 계정으로 로그인 — POST /api/admin/auth/login
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || isRateLimited) return;
 
     try {
       setSubmitting(true);
-      setError(null);
+      setFormError(null);
       const { accessToken, role } = await authService.login({
         loginId: id.trim(),
         password: pw,
       });
+      clearLoginBlockedUntil();
+      setBlockedUntil(null);
       signInAdmin(accessToken);
       navigate(role === "DEVELOPER" ? "/dev" : "/admin/orders", { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
-        setError(err.message || "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+        const retryAfter = err.retryAfterSeconds;
+        if (retryAfter != null) {
+          applyBlockedUntil(Date.now() + retryAfter * 1000);
+        } else {
+          setFormError(err.message || LOGIN_RATE_LIMIT_GENERIC_MESSAGE);
+        }
       } else if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
-        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+        setFormError("아이디 또는 비밀번호가 올바르지 않습니다.");
       } else {
         console.error("로그인 실패:", err);
-        setError("로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        setFormError("로그인 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       }
     } finally {
       setSubmitting(false);
@@ -60,7 +107,8 @@ export default function LoginPage() {
           spellCheck={false}
           value={id}
           onChange={(e) => setId(e.target.value)}
-          className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
+          disabled={isRateLimited}
+          className="mb-[24px] h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black disabled:opacity-60"
         />
 
         <label className="mb-[6px] block text-[16px] font-medium text-black" htmlFor="admin-login-password">
@@ -73,11 +121,12 @@ export default function LoginPage() {
           autoComplete="current-password"
           value={pw}
           onChange={(e) => setPw(e.target.value)}
-          className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black"
+          disabled={isRateLimited}
+          className="h-[48px] w-full rounded-[10px] border border-black/50 bg-canvas px-[16px] text-[16px] outline-none focus:border-black disabled:opacity-60"
         />
 
         {error ? (
-          <p className="mt-[10px] mb-[18px] text-[14px] font-medium tracking-[0.5px] text-danger">
+          <p className="mt-[10px] mb-[18px] whitespace-pre-line text-[14px] font-medium tracking-[0.5px] text-danger">
             {error}
           </p>
         ) : (
@@ -86,11 +135,11 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || isRateLimited}
           className="h-[48px] w-full rounded-[10px] text-[16px] font-medium text-canvas disabled:opacity-60"
           style={{ backgroundColor: "rgba(189,146,59,0.75)" }}
         >
-          {submitting ? "로그인 중..." : "로그인"}
+          {submitting ? "로그인 중..." : isRateLimited ? "잠시 후 다시 시도" : "로그인"}
         </button>
 
         <p className="mt-[36px] text-center text-[16px] font-medium">

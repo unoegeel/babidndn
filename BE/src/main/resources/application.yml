@@ -112,7 +112,7 @@ app:
       # Admin + Developer share POST /api/admin/auth/login — single IP bucket.
       auth-login:
         ip-limit: 10
-        ip-window-seconds: 600
+        ip-window-seconds: 300
 
 server:
   port: ${SERVER_PORT:8080}
