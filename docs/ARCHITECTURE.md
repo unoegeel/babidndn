@@ -233,7 +233,9 @@ RequestIdFilter → MDC → access log → http_request_records
 
 ```text
 POST /api/client-errors → client_errors (+ structured log)
-Uncaught BE exception → backend_errors (+ ApiExceptionHandler)
+Expected client outcomes (ApiException 4xx, RATE_LIMIT_EXCEEDED, NoResourceFoundException 404)
+  → ErrorResponse only · backend_errors 미기록
+Uncaught unexpected BE exception → 500 + backend_errors (+ ApiExceptionHandler)
 ```
 
 ### User events

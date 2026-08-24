@@ -15,6 +15,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * ApiException → ErrorResponse(status/code/message/timestamp).
@@ -23,6 +24,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Order(Ordered.LOWEST_PRECEDENCE)
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    public static final String RESOURCE_NOT_FOUND_CODE = "RESOURCE_NOT_FOUND";
+    public static final String RESOURCE_NOT_FOUND_MESSAGE = "요청한 리소스를 찾을 수 없습니다.";
 
     private final BackendErrorRecordService backendErrorRecordService;
 
@@ -48,6 +52,23 @@ public class ApiExceptionHandler {
     ) {
         HttpErrorLogger.logClientError(request, exception.getStatus(), exception);
         return ResponseEntity.status(exception.getStatus()).body(ErrorResponse.from(exception));
+    }
+
+    /**
+     * Unmapped/static resource paths — client 404, not a server fault.
+     * Must not fall through to {@link #handleUnexpectedException} (500 + backend_errors).
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(
+            NoResourceFoundException exception,
+            HttpServletRequest request
+    ) {
+        HttpErrorLogger.logClientError(request, HttpStatus.NOT_FOUND, exception);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(
+                HttpStatus.NOT_FOUND,
+                RESOURCE_NOT_FOUND_CODE,
+                RESOURCE_NOT_FOUND_MESSAGE
+        ));
     }
 
     @ExceptionHandler(Exception.class)

@@ -68,6 +68,7 @@
 | 일자 | 영역 | 내용 |
 |------|------|------|
 | 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |
+| 2026-08-24 | Observability | `NoResourceFoundException` → HTTP 404 `RESOURCE_NOT_FOUND` · backend_errors 미기록 (was 500 noise). **CODE READY** |
 | 2026-08-24 | Security | Application rate limiting (CODE READY): targeted POSTs · client+IP / login IP · 429 RATE_LIMIT_EXCEEDED · Caffeine in-memory · **no V102** · **dev runtime smoke Pending** |
 | 2026-08-24 | Dev Console | Reconciliation Admin→Developer 책임 이전: `/dev/reconciliation` · `/api/dev/reconciliation/**` · Admin UI/API 제거 (compat adapter 없음) |
 | 2026-08-24 | Payment | Reconciliation rule refine: cancel 정상상태 false-positive 제거. `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT`. V101 schema 변경 없음 |
@@ -96,6 +97,7 @@
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
 - **Rate limit:** code ready — **dev deploy smoke** (order/login/telemetry 429 · polling 미영향 · `/dev/errors`에 RATE_LIMIT 미적재)
+- **HTTP 404 classification:** code ready — **dev smoke** (`GET /definitely-not-existing-resource` → 404 · `/dev/errors`에 미적재 · `/dev/requests` status 404)
 - **Reconciliation Dev exposure:** code in repo — **dev deploy smoke** 미실행 (`/dev/reconciliation` · DEVELOPER API · Admin payments에 recon 네트워크 없음)
 - **Flyway V101:** **dev MySQL verified** · prod 적용 여부는 배포 상태 확인
 - **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
@@ -149,7 +151,7 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew clean test` | **PASS** (400 tests) — rate-limit suite 포함 |
+| `cd BE && ./gradlew clean test` | **PASS** (405 tests) — NoResourceFound → 404 + rate-limit suite |
 | `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
 | `cd FE && npm test` | **PASS** (42 tests) |
 | `cd FE && npm run build` | **PASS** |
