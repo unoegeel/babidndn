@@ -21,9 +21,22 @@
 - Request ID · `http_request_records`
 - `client_errors` · `backend_errors` · `client_events`
   - `client_errors.stack` / `component_stack` = MySQL `TEXT` (VARCHAR(8000)은 utf8mb4 row-size ERROR 1118)
-- `/dev` Overview Dashboard · `/dev/errors|requests|events|analytics`
+- `/dev` Overview · `/dev/errors|requests|reconciliation|events|analytics`
 - `GET /api/dev/overview` · `GET /api/dev/analytics/menu-options`
 - Menu×Option 선택률 (분모 `MENU_OPTION_OPEN`, 분자 `OPTION_SELECTED` + `menuId`)
+
+### Payment Reconciliation (code verified 2026-08-24)
+
+- Phase B core: persist OPEN/RESOLVED · scan · Toss read-only verify · V101 **dev MySQL verified**
+- Rules: `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT` (deprecated without-valid 신규 탐지 안 함)
+- **Exposure (Admin→Dev migration implemented in repo):**
+  - UI: `/dev/reconciliation` (`DeveloperReconciliationPage`) · sidebar「결제 정합성」
+  - API: `/api/dev/reconciliation/**` (`DeveloperReconciliationController`) · `ROLE_DEVELOPER`
+  - Core: `payment/reconciliation/*` (unchanged)
+  - Admin `/admin/payments`: 결제 내역·취소·매출 분석만 — reconciliation UI/state/API 호출 없음
+  - Legacy `/api/admin/payments/reconciliation*` · `AdminPaymentController` **제거** (compat adapter 없음)
+- Boundary 원칙: [ARCHITECTURE.md](ARCHITECTURE.md) §5 · 설계 절차: [CONVENTIONS.md](CONVENTIONS.md) §2
+- **dev deploy smoke of new Dev exposure: Pending** (아래 Status Matrix)
 
 ### Menu / UX (2026-08)
 
@@ -41,8 +54,10 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |
+| 2026-08-24 | Dev Console | Reconciliation Admin→Developer 책임 이전: `/dev/reconciliation` · `/api/dev/reconciliation/**` · Admin UI/API 제거 (compat adapter 없음) |
 | 2026-08-24 | Payment | Reconciliation rule refine: cancel 정상상태 false-positive 제거. `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT`. V101 schema 변경 없음 |
-| 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify API · Admin UI. **V101 MySQL runtime = PENDING (dev deploy)** |
+| 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify. **dev MySQL V101 runtime verified** |
 | 2026-08-21 | DB | Flyway baseline 도입. `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만 |
 | 2026-08-21 | Payment | Order↔Payment 정합성 Phase A (DETECT→DISPLAY snapshot) |
 | 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. production schema 적용 완료(v1.2.21) |
@@ -66,7 +81,8 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-- **Flyway V101:** code created (`payment_reconciliation_issues`). **dev/prod MySQL runtime 미검증** — deploy 후 `flyway_schema_history` + Hibernate validate 확인
+- **Reconciliation Dev exposure:** code in repo — **dev deploy smoke** 미실행 (`/dev/reconciliation` · DEVELOPER API · Admin payments에 recon 네트워크 없음)
+- **Flyway V101:** **dev MySQL verified** · prod 적용 여부는 배포 상태 확인
 - **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
 - Slack/Discord/Email reconciliation alert (Phase B는 createdIssueIds만 준비)
 - `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
@@ -114,22 +130,24 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 ---
 
-## 6. Test State (2026-08-21)
+## 6. Test State (2026-08-24)
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew clean test` (full) | **PASS** (375 tests) — Phase B persist/scan/verify; H2 Flyway off |
+| `cd BE && ./gradlew test` (full) | **PASS** (381 tests) — Dev recon security 7건 · Admin recon controller/tests 제거 |
 | `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
-| `cd FE && npm test` | PASS (42 tests) |
-| `cd FE && npm run build` | PASS |
+| `cd FE && npm test` | **PASS** (42 tests) |
+| `cd FE && npm run build` | **PASS** |
+
+Prior Phase B refine baseline on same day: BE 381 PASS · V101 dev MySQL verified. Migration adds Dev controller security tests (Admin controller tests removed).
 
 ---
 
 ## 7. Current Priorities
 
-1. **dev deploy:** V101 Flyway + Hibernate validate + reconciliation scan/verify smoke
+1. **dev deploy smoke:** `/dev/reconciliation` + `/api/dev/reconciliation/**` (ROLE_DEVELOPER) · Admin payments recon 제거 확인
 2. 고객 주문 API 접근 제어 **운영 smoke**
-3. 결제·Checkout E2E · 정합성 Phase B 운영 spot check
+3. 결제·Checkout E2E
 4. Fresh MySQL bootstrap (optional)
 5. Alert sender (Slack 등) — `createdIssueIds` / CRITICAL only
 6. Auto reconciliation **계속 금지**

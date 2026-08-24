@@ -33,7 +33,7 @@ babidndn/
 ├── BE/src/main/java/com/gdgoc/babi_order/
 │   ├── admin/ menu/ order/ payment/ savedmenu/ sales/ store/ push/ contact/
 │   ├── clientevent/ clienterror/ backenderror/ httprequest/
-│   ├── dev/                  # overview, error, request, event, analytics
+│   ├── dev/                  # overview, error, request, event, analytics, reconciliation (exposure)
 │   └── config/
 ├── BE/scripts/
 ├── BE/compose.yml
@@ -99,6 +99,24 @@ Android: window.Android.printKitchenTicket / printCustomerReceipt
 
 FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`). Admin 주문/결제조회는 `adminApi`(Bearer).
 
+### Admin / Developer Responsibility Boundary
+
+역할은 **관련 데이터 domain 이름**이 아니라 **누가 확인하고·판단하고·조치하는가**로 나눈다. 구현 절차는 [CONVENTIONS.md](CONVENTIONS.md)의 Feature Responsibility 절을 따른다.
+
+| Actor | 책임 | 대표 영역 |
+|-------|------|-----------|
+| **Admin** | 매장 운영자가 이해하고 business action을 수행하는 운영 기능 | 메뉴 · 주문 상태 · 결제 내역 · 정상 취소/환불 · 매출 · 매장 설정 |
+| **Developer** | 시스템 내부 상태 진단 · technical cause 분석 · observability | errors · requests · events · diagnostics analytics · Order/Payment/Toss consistency · incident severity/occurrence |
+
+Admin UI에 technical consistency·장애 진단 정보를, “Payment/Order와 같은 domain”이라는 이유만으로 올리지 않는다. Developer Console에 일상 매장 운영 workflow를 올리지 않는다.
+
+**Domain ownership ≠ Exposure ownership**
+
+- Core domain logic(service/repository/model)은 해당 비즈니스 package에 둘 수 있다 (예: reconciliation core → `payment/reconciliation/`).
+- UI route · navigation · API namespace · authorization은 actor responsibility에 맞춘다 (예: 동일 기능 exposure → `/dev/**`, `/api/dev/**`, `ROLE_DEVELOPER`).
+- Actor가 정해지면 FE(route/nav/page/state/API client) · BE(controller/API/auth) · Core를 **함께** 검토한다. Core가 공용 domain이면 불필요하게 `dev/` package로 옮기지 않는다.
+- 역할이 겹치되 필요한 정보·조치가 다르면 동일 technical UI를 공유하지 말고 exposure를 분리한다.
+
 ## 6. Core Domains
 
 ### Menu / Option
@@ -115,12 +133,7 @@ FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`)
 - `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
 - `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
 - 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
-- **정합성 점검:** `payment/reconciliation/`
-  - Phase A snapshot: `GET /api/admin/payments/reconciliation` (persist 없음)
-  - Phase B lifecycle: `POST .../reconciliation/scan`, `GET .../issues`, `POST /api/admin/payments/{id}/verify`
-  - `logical_key` + OPEN-only `active_key` UNIQUE로 중복 OPEN 방지 · RESOLVED 후 재발은 새 row
-  - Toss verify는 GET Payment만 · Payment/Order mutation 없음
-  - Admin UI: 결제 내역 상단 OPEN issue + [지금 검사] + Toss 재확인
+- **Order↔Payment reconciliation:** core `payment/reconciliation/` (detect · OPEN/RESOLVED · `logical_key`/`active_key` · Toss read-only verify). Exposure는 Developer (§5 Responsibility Boundary) — `/dev/reconciliation`, `/api/dev/reconciliation/**`, `ROLE_DEVELOPER`. Admin `/admin/payments`는 결제 운영만.
 
 ### Saved Menu
 
@@ -222,6 +235,7 @@ FE: `utils/userEvent/trackEvent.ts`, `eventHelpers.ts` · BE allow-list: `Client
 | `/dev` | `GET /api/dev/overview` | Dashboard KPI (오류 24h, 요청·이벤트 오늘, funnel 위임) |
 | `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 오류 merge 목록·상세 |
 | `/dev/requests` | `GET /api/dev/requests`, `/{id}` | HTTP 요청 기록 |
+| `/dev/reconciliation` | `/api/dev/reconciliation/**` | Order/Payment/Toss 정합성 진단 (core: `payment/reconciliation/`) |
 | `/dev/events` | `GET /api/dev/events`, `/{id}` | Client events |
 | `/dev/analytics` | `/api/dev/analytics/*` | KPI, funnel, menus, options, **menu-options** |
 
@@ -289,5 +303,6 @@ selectionRate = selectedUsers / engagedUsers × 100  (분모 0 → 0%)
 
 - Order/Payment/SavedMenu snapshot·상태 전이 규칙을 임의 변경하지 않는다.
 - 메뉴/옵션 business rule은 Backend `AdminMenuService` 우선.
+- Admin vs Developer exposure는 §5 Responsibility Boundary를 따른다 (domain 이름 ≠ UI/API 위치).
 - Developer Analytics는 MySQL native SQL·JSON metadata에 의존 — DB vendor 변경 시 영향 큼.
 - 프린터·Android 앱은 FE bridge와 별도 lifecycle.
