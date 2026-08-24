@@ -92,9 +92,14 @@ class NoResourceFoundExceptionHandlingTest {
 
     @Test
     @WithAnonymousUser
-    void mappedOkStillWorks() throws Exception {
-        mockMvc.perform(get("/api/test/probe/ok"))
-                .andExpect(status().isOk());
+    void wrongHttpMethodReturns405WithoutBackendError() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/test/probe/ok"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.status").value(405))
+                .andExpect(jsonPath("$.code").value(ApiExceptionHandler.METHOD_NOT_ALLOWED_CODE))
+                .andExpect(jsonPath("$.message").value(ApiExceptionHandler.METHOD_NOT_ALLOWED_MESSAGE));
+
         verify(backendErrorRecordService, never()).recordServerError(any(), any(), any());
     }
 

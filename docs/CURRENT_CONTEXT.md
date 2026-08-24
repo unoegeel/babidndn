@@ -67,6 +67,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-24 | Order API | `PUT /api/orders/{id}/status` canonical — duplicate `@PatchMapping` 제거 (FE `adminOrderService` PUT 계약 유지). **CODE READY** |
 | 2026-08-24 | Security | Exclude `UserDetailsServiceAutoConfiguration` — Spring default generated password warning 제거 (Admin/JWT auth 유지). **CODE READY** |
 | 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |
 | 2026-08-24 | Observability | `NoResourceFoundException` → HTTP 404 `RESOURCE_NOT_FOUND` · backend_errors 미기록 (was 500 noise). **CODE READY** |

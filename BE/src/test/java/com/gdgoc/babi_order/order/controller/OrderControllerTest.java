@@ -29,6 +29,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -173,7 +174,7 @@ class OrderControllerTest {
                 .items(List.of())
                 .build());
 
-        mockMvc.perform(patch("/api/orders/1/status")
+        mockMvc.perform(put("/api/orders/1/status")
                         .contentType("application/json")
                         .content("{\"status\":\"READY\"}"))
                 .andExpect(status().isOk())
@@ -183,11 +184,20 @@ class OrderControllerTest {
 
     @Test
     void updateOrderStatusReturnsBadRequestWhenStatusIsMissing() throws Exception {
-        mockMvc.perform(patch("/api/orders/1/status")
+        mockMvc.perform(put("/api/orders/1/status")
                         .contentType("application/json")
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void updateOrderStatusRejectsLegacyPatchMethod() throws Exception {
+        mockMvc.perform(patch("/api/orders/1/status")
+                        .contentType("application/json")
+                        .content("{\"status\":\"READY\"}"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
     }
 
     @Test
