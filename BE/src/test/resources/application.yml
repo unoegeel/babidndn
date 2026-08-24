@@ -28,3 +28,8 @@ aws:
   s3:
     region: ap-northeast-2
     bucket: babi-order-images
+
+# Shared test suite must not hit rate-limit buckets across tests.
+app:
+  rate-limit:
+    enabled: false

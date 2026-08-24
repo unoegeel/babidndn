@@ -32,6 +32,7 @@ babidndn/
 │   └── types/
 ├── BE/src/main/java/com/gdgoc/babi_order/
 │   ├── admin/ menu/ order/ payment/ savedmenu/ sales/ store/ push/ contact/
+│   ├── ratelimit/            # application-level API rate limiting
 │   ├── clientevent/ clienterror/ backenderror/ httprequest/
 │   ├── dev/                  # overview, error, request, event, analytics, reconciliation (exposure)
 │   └── config/
@@ -116,6 +117,21 @@ Admin UI에 technical consistency·장애 진단 정보를, “Payment/Order와 
 - UI route · navigation · API namespace · authorization은 actor responsibility에 맞춘다 (예: 동일 기능 exposure → `/dev/**`, `/api/dev/**`, `ROLE_DEVELOPER`).
 - Actor가 정해지면 FE(route/nav/page/state/API client) · BE(controller/API/auth) · Core를 **함께** 검토한다. Core가 공용 domain이면 불필요하게 `dev/` package로 옮기지 않는다.
 - 역할이 겹치되 필요한 정보·조치가 다르면 동일 technical UI를 공유하지 말고 exposure를 분리한다.
+
+### Application Rate Limiting
+
+Actor = **SYSTEM** · Feature type = infrastructure/security. Enforcement는 Backend만 (`ratelimit/` · `HandlerInterceptor`).
+
+- Targeted POST만: order create · payment confirm · contact · client-errors · client-events · auth login
+- Public mutation: valid `X-Client-Key`(UUID) + IP layered buckets · key 없/비정상 → IP only · raw key 로그/응답 금지(SHA-256 identity)
+- Login (`POST /api/admin/auth/login`, Admin+Developer 공유): **IP only** (`AUTH_LOGIN`)
+- 제외: order GET polling · Admin SSE · Toss webhook · `/api/dev/reconciliation/**` · broad `/api/**`
+- Client IP: `server.forward-headers-strategy=none` + `ClientIpResolver` — trusted proxy일 때만 XFF/X-Real-IP (기본: loopback only · RFC1918 전체 trust 금지 · VPC/proxy CIDR은 환경별 명시)
+- Storage: Caffeine in-memory (bounded) · **per-instance** — horizontal scale 시 distributed limiter 재검토
+- 429 `RATE_LIMIT_EXCEEDED` + `Retry-After` · `ApiException` 경로 → **backend_errors 미기록**
+- WAF/CDN/DDoS 대체 아님
+
+정책 숫자는 `app.rate-limit` (`application.yml`) — ARCHITECTURE에 복사하지 않음.
 
 ## 6. Core Domains
 

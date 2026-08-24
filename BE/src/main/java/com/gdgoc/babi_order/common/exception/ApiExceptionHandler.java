@@ -2,9 +2,11 @@ package com.gdgoc.babi_order.common.exception;
 
 import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
+import com.gdgoc.babi_order.ratelimit.RateLimitExceededException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -26,6 +28,17 @@ public class ApiExceptionHandler {
 
     public ApiExceptionHandler(BackendErrorRecordService backendErrorRecordService) {
         this.backendErrorRecordService = backendErrorRecordService;
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitExceeded(
+            RateLimitExceededException exception,
+            HttpServletRequest request
+    ) {
+        HttpErrorLogger.logClientError(request, exception.getStatus(), exception);
+        return ResponseEntity.status(exception.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
+                .body(ErrorResponse.from(exception));
     }
 
     @ExceptionHandler(ApiException.class)

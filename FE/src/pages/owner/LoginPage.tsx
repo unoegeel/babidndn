@@ -27,7 +27,9 @@ export default function LoginPage() {
       signInAdmin(accessToken);
       navigate(role === "DEVELOPER" ? "/dev" : "/admin/orders", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError(err.message || "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+      } else if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
         setError("아이디 또는 비밀번호가 올바르지 않습니다.");
       } else {
         console.error("로그인 실패:", err);

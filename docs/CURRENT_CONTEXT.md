@@ -38,6 +38,18 @@
 - Boundary 원칙: [ARCHITECTURE.md](ARCHITECTURE.md) §5 · 설계 절차: [CONVENTIONS.md](CONVENTIONS.md) §2
 - **dev deploy smoke of new Dev exposure: Pending** (아래 Status Matrix)
 
+### API Rate Limiting (CODE READY — 2026-08-24)
+
+- Package: `BE/.../ratelimit/` · `app.rate-limit.*` · dependency: Caffeine
+- Targets: `POST /api/orders`, `/api/payments/confirm`, `/api/inquiries`, `/api/client-errors`, `/api/client-events`, `/api/admin/auth/login`
+- Excluded: order GET polling · SSE · Toss webhook · `/api/dev/reconciliation/**`
+- Identity: client(hash)+IP layered (public) · login IP-only · trusted-proxy IP resolve
+- 429 + `Retry-After` · not written to `backend_errors`
+- FE: LoginPage 429 message · telemetry fetch already ignores failures (no loop)
+- Tests: suite **enabled=false** by default · dedicated rate-limit tests enable locally
+- **NO SCHEMA CHANGE / NO V102**
+- **DEV RUNTIME VERIFIED: no** (deploy smoke Pending)
+
 ### Menu / UX (2026-08)
 
 - `AdminMenuService` TOPPING_REMOVE 메뉴명 정책 (부분 일치)
@@ -55,6 +67,7 @@
 | 일자 | 영역 | 내용 |
 |------|------|------|
 | 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |
+| 2026-08-24 | Security | Application rate limiting (CODE READY): targeted POSTs · client+IP / login IP · 429 RATE_LIMIT_EXCEEDED · Caffeine in-memory · **no V102** · **dev runtime smoke Pending** |
 | 2026-08-24 | Dev Console | Reconciliation Admin→Developer 책임 이전: `/dev/reconciliation` · `/api/dev/reconciliation/**` · Admin UI/API 제거 (compat adapter 없음) |
 | 2026-08-24 | Payment | Reconciliation rule refine: cancel 정상상태 false-positive 제거. `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT`. V101 schema 변경 없음 |
 | 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify. **dev MySQL V101 runtime verified** |
@@ -81,6 +94,7 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
+- **Rate limit:** code ready — **dev deploy smoke** (order/login/telemetry 429 · polling 미영향 · `/dev/errors`에 RATE_LIMIT 미적재)
 - **Reconciliation Dev exposure:** code in repo — **dev deploy smoke** 미실행 (`/dev/reconciliation` · DEVELOPER API · Admin payments에 recon 네트워크 없음)
 - **Flyway V101:** **dev MySQL verified** · prod 적용 여부는 배포 상태 확인
 - **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
@@ -134,23 +148,22 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew test` (full) | **PASS** (381 tests) — Dev recon security 7건 · Admin recon controller/tests 제거 |
+| `cd BE && ./gradlew clean test` | **PASS** (400 tests) — rate-limit suite 포함 |
 | `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
 | `cd FE && npm test` | **PASS** (42 tests) |
 | `cd FE && npm run build` | **PASS** |
-
-Prior Phase B refine baseline on same day: BE 381 PASS · V101 dev MySQL verified. Migration adds Dev controller security tests (Admin controller tests removed).
 
 ---
 
 ## 7. Current Priorities
 
-1. **dev deploy smoke:** `/dev/reconciliation` + `/api/dev/reconciliation/**` (ROLE_DEVELOPER) · Admin payments recon 제거 확인
+1. **Rate limit / Reconciliation:** dev deploy smoke
 2. 고객 주문 API 접근 제어 **운영 smoke**
 3. 결제·Checkout E2E
 4. Fresh MySQL bootstrap (optional)
 5. Alert sender (Slack 등) — `createdIssueIds` / CRITICAL only
 6. Auto reconciliation **계속 금지**
+7. Horizontal scale 시 distributed rate limiter 재검토
 
 ---
 
