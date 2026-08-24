@@ -12,6 +12,11 @@ import java.util.List;
 /**
  * Order ↔ Payment 이상 후보를 native SQL로 집계한다.
  * 기간 필터는 결제 이슈는 payments.approved_at, 주문 이슈는 orders.updated_at 기준.
+ * <p>
+ * Cancellation semantics (PaymentService.cancel → cancelOrderDueToPaymentCancel):
+ * PREPARING/READY → Order CANCELED; COMPLETED stays COMPLETED after refund.
+ * Therefore CANCELED+CANCELED and COMPLETED+CANCELED are not anomalies.
+ * PARTIAL_CANCELED is Toss partial refund (webhook) — not treated as full-cancel anomaly.
  */
 @Repository
 @RequiredArgsConstructor
@@ -40,7 +45,7 @@ public class PaymentReconciliationQueryRepository {
 
         List<ReconciliationIssueRow> result = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            result.add(new ReconciliationIssueRow(
+            result.add(ReconciliationIssueRow.of(
                     ReconciliationIssueType.PAYMENT_DONE_ORDER_NOT_ACTIVATED,
                     toLong(row[1]),
                     toLong(row[0]),
@@ -54,13 +59,17 @@ public class PaymentReconciliationQueryRepository {
         return result;
     }
 
-    public List<ReconciliationIssueRow> findOrderActivatedWithoutValidPayment(LocalDateTime fromInclusive) {
+    /**
+     * pickup &gt; 0 and no Payment row at all.
+     */
+    public List<ReconciliationIssueRow> findOrderActivatedWithoutPayment(LocalDateTime fromInclusive) {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery("""
                         SELECT o.id,
                                o.total_amount,
                                o.pickup_number,
-                               o.updated_at
+                               o.updated_at,
+                               o.status
                         FROM orders o
                         WHERE o.pickup_number > 0
                           AND o.updated_at >= :fromInclusive
@@ -68,7 +77,6 @@ public class PaymentReconciliationQueryRepository {
                               SELECT 1
                               FROM payments p
                               WHERE p.order_id = o.id
-                                AND p.status = 'DONE'
                           )
                         ORDER BY o.updated_at DESC, o.id DESC
                         """)
@@ -78,14 +86,65 @@ public class PaymentReconciliationQueryRepository {
         List<ReconciliationIssueRow> result = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
             result.add(new ReconciliationIssueRow(
-                    ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT,
+                    ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_PAYMENT,
                     toLong(row[0]),
                     null,
                     toInteger(row[1]),
                     null,
                     toInteger(row[2]),
                     0L,
-                    toLocalDateTime(row[3])
+                    toLocalDateTime(row[3]),
+                    toString(row[4]),
+                    null
+            ));
+        }
+        return result;
+    }
+
+    /**
+     * Active kitchen order (PREPARING/READY) with CANCELED payment and no DONE payment.
+     * Excludes consistent CANCELED+CANCELED and post-complete refund (COMPLETED+CANCELED).
+     */
+    public List<ReconciliationIssueRow> findOrderActiveWithCanceledPayment(LocalDateTime fromInclusive) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("""
+                        SELECT o.id,
+                               o.total_amount,
+                               o.pickup_number,
+                               o.updated_at,
+                               o.status,
+                               MAX(p.id) AS payment_id,
+                               MAX(p.amount) AS payment_amount
+                        FROM orders o
+                        INNER JOIN payments p ON p.order_id = o.id AND p.status = 'CANCELED'
+                        WHERE o.pickup_number > 0
+                          AND o.status IN ('PREPARING', 'READY')
+                          AND o.updated_at >= :fromInclusive
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM payments d
+                              WHERE d.order_id = o.id
+                                AND d.status = 'DONE'
+                          )
+                        GROUP BY o.id, o.total_amount, o.pickup_number, o.updated_at, o.status
+                        ORDER BY o.updated_at DESC, o.id DESC
+                        """)
+                .setParameter("fromInclusive", fromInclusive)
+                .getResultList();
+
+        List<ReconciliationIssueRow> result = new ArrayList<>(rows.size());
+        for (Object[] row : rows) {
+            result.add(new ReconciliationIssueRow(
+                    ReconciliationIssueType.ORDER_ACTIVE_WITH_CANCELED_PAYMENT,
+                    toLong(row[0]),
+                    toLong(row[5]),
+                    toInteger(row[1]),
+                    toInteger(row[6]),
+                    toInteger(row[2]),
+                    null,
+                    toLocalDateTime(row[3]),
+                    toString(row[4]),
+                    "CANCELED"
             ));
         }
         return result;
@@ -112,7 +171,7 @@ public class PaymentReconciliationQueryRepository {
 
         List<ReconciliationIssueRow> result = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            result.add(new ReconciliationIssueRow(
+            result.add(ReconciliationIssueRow.of(
                     ReconciliationIssueType.PAYMENT_AMOUNT_MISMATCH,
                     toLong(row[1]),
                     toLong(row[0]),
@@ -147,7 +206,7 @@ public class PaymentReconciliationQueryRepository {
 
         List<ReconciliationIssueRow> result = new ArrayList<>(rows.size());
         for (Object[] row : rows) {
-            result.add(new ReconciliationIssueRow(
+            result.add(ReconciliationIssueRow.of(
                     ReconciliationIssueType.MULTIPLE_VALID_PAYMENTS,
                     toLong(row[0]),
                     null,
@@ -161,9 +220,6 @@ public class PaymentReconciliationQueryRepository {
         return result;
     }
 
-    /**
-     * Current-state revalidation (no period filter). Empty id collections are skipped by callers.
-     */
     public List<Long> findPaymentIdsStillDoneNotActivated(List<Long> paymentIds) {
         @SuppressWarnings("unchecked")
         List<Number> rows = entityManager.createNativeQuery("""
@@ -179,7 +235,15 @@ public class PaymentReconciliationQueryRepository {
         return rows.stream().map(Number::longValue).toList();
     }
 
+    /**
+     * Deprecated type: never "still anomalous" so false-positive OPEN rows resolve,
+     * while the same scan recreates refined issue types when needed.
+     */
     public List<Long> findOrderIdsStillActivatedWithoutValidPayment(List<Long> orderIds) {
+        return List.of();
+    }
+
+    public List<Long> findOrderIdsStillActivatedWithoutPayment(List<Long> orderIds) {
         @SuppressWarnings("unchecked")
         List<Number> rows = entityManager.createNativeQuery("""
                         SELECT o.id
@@ -190,7 +254,32 @@ public class PaymentReconciliationQueryRepository {
                               SELECT 1
                               FROM payments p
                               WHERE p.order_id = o.id
-                                AND p.status = 'DONE'
+                          )
+                        """)
+                .setParameter("orderIds", orderIds)
+                .getResultList();
+        return rows.stream().map(Number::longValue).toList();
+    }
+
+    public List<Long> findOrderIdsStillActiveWithCanceledPayment(List<Long> orderIds) {
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        SELECT o.id
+                        FROM orders o
+                        WHERE o.id IN (:orderIds)
+                          AND o.pickup_number > 0
+                          AND o.status IN ('PREPARING', 'READY')
+                          AND EXISTS (
+                              SELECT 1
+                              FROM payments p
+                              WHERE p.order_id = o.id
+                                AND p.status = 'CANCELED'
+                          )
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM payments d
+                              WHERE d.order_id = o.id
+                                AND d.status = 'DONE'
                           )
                         """)
                 .setParameter("orderIds", orderIds)
@@ -246,6 +335,10 @@ public class PaymentReconciliationQueryRepository {
             return number.intValue();
         }
         return Integer.valueOf(value.toString());
+    }
+
+    private static String toString(Object value) {
+        return value == null ? null : value.toString();
     }
 
     private static LocalDateTime toLocalDateTime(Object value) {

@@ -29,13 +29,14 @@ class PaymentReconciliationServiceTest {
     @Test
     void aggregatesAllIssueTypesAndDefaultsPeriodTo7d() {
         given(queryRepository.findPaymentDoneOrderNotActivated(any())).willReturn(List.of(
-                new ReconciliationIssueRow(
+                ReconciliationIssueRow.of(
                         ReconciliationIssueType.PAYMENT_DONE_ORDER_NOT_ACTIVATED,
                         1L, 10L, 3500, 3500, 0, null,
                         LocalDateTime.of(2026, 8, 10, 12, 0)
                 )
         ));
-        given(queryRepository.findOrderActivatedWithoutValidPayment(any())).willReturn(List.of());
+        given(queryRepository.findOrderActivatedWithoutPayment(any())).willReturn(List.of());
+        given(queryRepository.findOrderActiveWithCanceledPayment(any())).willReturn(List.of());
         given(queryRepository.findPaymentAmountMismatch(any())).willReturn(List.of());
         given(queryRepository.findMultipleValidPayments(any())).willReturn(List.of());
 

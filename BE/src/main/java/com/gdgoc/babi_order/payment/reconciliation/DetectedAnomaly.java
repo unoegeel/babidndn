@@ -21,6 +21,8 @@ public record DetectedAnomaly(
         ReconciliationSeverity severity = switch (row.type()) {
             case PAYMENT_DONE_ORDER_NOT_ACTIVATED,
                  ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT,
+                 ORDER_ACTIVATED_WITHOUT_PAYMENT,
+                 ORDER_ACTIVE_WITH_CANCELED_PAYMENT,
                  MULTIPLE_VALID_PAYMENTS -> ReconciliationSeverity.CRITICAL;
             case PAYMENT_AMOUNT_MISMATCH -> ReconciliationSeverity.WARNING;
         };
@@ -37,6 +39,12 @@ public record DetectedAnomaly(
         }
         if (row.donePaymentCount() != null) {
             metadata.put("donePaymentCount", row.donePaymentCount());
+        }
+        if (row.orderStatus() != null) {
+            metadata.put("orderStatus", row.orderStatus());
+        }
+        if (row.paymentStatus() != null) {
+            metadata.put("paymentStatus", row.paymentStatus());
         }
 
         return new DetectedAnomaly(
@@ -57,6 +65,10 @@ public record DetectedAnomaly(
                     "결제는 DONE인데 주문 픽업번호가 미발급(0)입니다. activateAfterPayment 누락 가능성이 있습니다.";
             case ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT ->
                     "픽업번호가 발급됐지만 DONE 결제가 없습니다.";
+            case ORDER_ACTIVATED_WITHOUT_PAYMENT ->
+                    "픽업번호가 발급됐지만 Payment row가 없습니다.";
+            case ORDER_ACTIVE_WITH_CANCELED_PAYMENT ->
+                    "주문이 " + row.orderStatus() + "인데 Payment가 CANCELED입니다. 결제 취소 시 주문 취소 누락 가능성이 있습니다.";
             case PAYMENT_AMOUNT_MISMATCH ->
                     "주문 금액(" + row.orderTotalAmount() + ")과 결제 금액(" + row.paymentAmount() + ")이 다릅니다.";
             case MULTIPLE_VALID_PAYMENTS ->

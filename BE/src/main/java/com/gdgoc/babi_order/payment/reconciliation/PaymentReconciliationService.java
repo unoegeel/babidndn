@@ -59,7 +59,10 @@ public class PaymentReconciliationService {
         for (ReconciliationIssueRow row : queryRepository.findPaymentDoneOrderNotActivated(fromInclusive)) {
             detected.add(DetectedAnomaly.from(row));
         }
-        for (ReconciliationIssueRow row : queryRepository.findOrderActivatedWithoutValidPayment(fromInclusive)) {
+        for (ReconciliationIssueRow row : queryRepository.findOrderActivatedWithoutPayment(fromInclusive)) {
+            detected.add(DetectedAnomaly.from(row));
+        }
+        for (ReconciliationIssueRow row : queryRepository.findOrderActiveWithCanceledPayment(fromInclusive)) {
             detected.add(DetectedAnomaly.from(row));
         }
         for (ReconciliationIssueRow row : queryRepository.findPaymentAmountMismatch(fromInclusive)) {

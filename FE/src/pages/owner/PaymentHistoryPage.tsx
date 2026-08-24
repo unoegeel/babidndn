@@ -28,7 +28,9 @@ type ReconciliationPeriod = "1d" | "7d" | "30d";
 
 const ISSUE_TYPE_LABEL: Record<ReconciliationIssue["type"], string> = {
   PAYMENT_DONE_ORDER_NOT_ACTIVATED: "결제됨·미활성화",
-  ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT: "활성화·결제 없음",
+  ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT: "활성화·유효결제 없음(구)",
+  ORDER_ACTIVATED_WITHOUT_PAYMENT: "활성화·결제 row 없음",
+  ORDER_ACTIVE_WITH_CANCELED_PAYMENT: "조리중·결제 취소",
   PAYMENT_AMOUNT_MISMATCH: "금액 불일치",
   MULTIPLE_VALID_PAYMENTS: "중복 DONE 결제",
 };

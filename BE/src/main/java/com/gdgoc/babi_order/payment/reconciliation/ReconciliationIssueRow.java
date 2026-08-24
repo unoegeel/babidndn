@@ -13,6 +13,23 @@ public record ReconciliationIssueRow(
         Integer paymentAmount,
         Integer pickupNumber,
         Long donePaymentCount,
-        LocalDateTime referenceAt
+        LocalDateTime referenceAt,
+        String orderStatus,
+        String paymentStatus
 ) {
+    public static ReconciliationIssueRow of(
+            ReconciliationIssueType type,
+            Long orderId,
+            Long paymentId,
+            Integer orderTotalAmount,
+            Integer paymentAmount,
+            Integer pickupNumber,
+            Long donePaymentCount,
+            LocalDateTime referenceAt
+    ) {
+        return new ReconciliationIssueRow(
+                type, orderId, paymentId, orderTotalAmount, paymentAmount,
+                pickupNumber, donePaymentCount, referenceAt, null, null
+        );
+    }
 }

@@ -217,12 +217,32 @@ public class PaymentReconciliationScanService {
             }
         }
 
-        List<PaymentReconciliationIssue> withoutPayment =
+        List<PaymentReconciliationIssue> withoutValidDeprecated =
                 byType.getOrDefault(ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT, List.of());
+        // Deprecated rule: never keep OPEN; refined types are created in the same scan when needed.
+        if (!withoutValidDeprecated.isEmpty()) {
+            queryRepository.findOrderIdsStillActivatedWithoutValidPayment(
+                    withoutValidDeprecated.stream().map(PaymentReconciliationIssue::getOrderId).toList());
+        }
+
+        List<PaymentReconciliationIssue> withoutPayment =
+                byType.getOrDefault(ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_PAYMENT, List.of());
         if (!withoutPayment.isEmpty()) {
             List<Long> orderIds = withoutPayment.stream().map(PaymentReconciliationIssue::getOrderId).toList();
-            Set<Long> stillIds = new HashSet<>(queryRepository.findOrderIdsStillActivatedWithoutValidPayment(orderIds));
+            Set<Long> stillIds = new HashSet<>(queryRepository.findOrderIdsStillActivatedWithoutPayment(orderIds));
             for (PaymentReconciliationIssue issue : withoutPayment) {
+                if (stillIds.contains(issue.getOrderId())) {
+                    still.add(issue.getLogicalKey());
+                }
+            }
+        }
+
+        List<PaymentReconciliationIssue> activeCanceled =
+                byType.getOrDefault(ReconciliationIssueType.ORDER_ACTIVE_WITH_CANCELED_PAYMENT, List.of());
+        if (!activeCanceled.isEmpty()) {
+            List<Long> orderIds = activeCanceled.stream().map(PaymentReconciliationIssue::getOrderId).toList();
+            Set<Long> stillIds = new HashSet<>(queryRepository.findOrderIdsStillActiveWithCanceledPayment(orderIds));
+            for (PaymentReconciliationIssue issue : activeCanceled) {
                 if (stillIds.contains(issue.getOrderId())) {
                     still.add(issue.getLogicalKey());
                 }

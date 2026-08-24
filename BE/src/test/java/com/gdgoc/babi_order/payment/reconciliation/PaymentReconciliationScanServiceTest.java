@@ -250,6 +250,46 @@ class PaymentReconciliationScanServiceTest {
     }
 
     @Test
+    void deprecatedWithoutValidPaymentOpenIssueResolvesOnNextScan() {
+        Long orderId = tx.execute(status -> {
+            Menu menu = menu("삼겹소금", 3500);
+            Order order = persistOrder(menu, 4, 3500);
+            order.changeStatus(com.gdgoc.babi_order.order.entity.OrderStatus.CANCELED);
+            persistPayment(order, PaymentStatus.CANCELED, RECENT, 3500, "fp-1");
+            entityManager.flush();
+            String logicalKey = ReconciliationLogicalKeys.of(
+                    ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT,
+                    order.getId(),
+                    null);
+            issueRepository.saveAndFlush(PaymentReconciliationIssue.open(
+                    logicalKey,
+                    ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT,
+                    ReconciliationSeverity.CRITICAL,
+                    order.getId(),
+                    null,
+                    "legacy false positive",
+                    null,
+                    LocalDateTime.now().minusDays(1)
+            ));
+            return order.getId();
+        });
+
+        ReconciliationScanResponse response = scanService.scan("30d");
+
+        assertThat(response.getResolvedCount()).isEqualTo(1);
+        assertThat(issueRepository.findByStatus(ReconciliationIssueStatus.OPEN))
+                .noneMatch(i -> i.getIssueType() == ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT);
+        PaymentReconciliationIssue resolved = issueRepository.findAll().stream()
+                .filter(i -> i.getIssueType() == ReconciliationIssueType.ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT)
+                .findFirst()
+                .orElseThrow();
+        assertThat(resolved.getStatus()).isEqualTo(ReconciliationIssueStatus.RESOLVED);
+        assertThat(resolved.getActiveKey()).isNull();
+        assertThat(resolved.getResolvedAt()).isNotNull();
+        assertThat(resolved.getOrderId()).isEqualTo(orderId);
+    }
+
+    @Test
     void uniqueActiveKeyRejectsDuplicateOpenRow() {
         String logicalKey = "PAYMENT_DONE_ORDER_NOT_ACTIVATED:1:2";
         tx.executeWithoutResult(status -> {

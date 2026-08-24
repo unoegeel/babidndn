@@ -41,6 +41,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-24 | Payment | Reconciliation rule refine: cancel 정상상태 false-positive 제거. `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT`. V101 schema 변경 없음 |
 | 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify API · Admin UI. **V101 MySQL runtime = PENDING (dev deploy)** |
 | 2026-08-21 | DB | Flyway baseline 도입. `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만 |
 | 2026-08-21 | Payment | Order↔Payment 정합성 Phase A (DETECT→DISPLAY snapshot) |
