@@ -30,14 +30,21 @@ export default function PaymentHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const loadPayments = () => {
-    refreshPayments()
-      .catch((err) => console.error("결제 내역 조회 실패:", err))
-      .finally(() => setLoading(false));
+  const loadPayments = async () => {
+    try {
+      await refreshPayments();
+    } catch (err) {
+      console.error("결제 내역 조회 실패:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadPayments();
+    void (async () => {
+      await Promise.resolve();
+      await loadPayments();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

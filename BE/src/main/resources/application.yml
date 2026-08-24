@@ -16,13 +16,23 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # Schema mutation is Flyway-owned. Hibernate only validates against the live DB.
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
         jdbc:
           time_zone: Asia/Seoul
+
+  # Existing non-empty DBs: baseline already applied (baseline-on-migrate=false).
+# Schema mutations: V101+ under db/migration. Tests: H2 create-drop, Flyway disabled.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    baseline-version: 100
+    baseline-description: Existing schema baseline (Hibernate update + BE/scripts era)
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -64,10 +74,51 @@ app:
   mail:
     from: ${MAIL_FROM:babidndn.hufs@gmail.com}
     to: ${MAIL_TO:leegeonu02@gmail.com}
+  # Application-level rate limiting (in-memory, per-instance). See ARCHITECTURE.
+  rate-limit:
+    enabled: true
+    cache-maximum-size: 100000
+    # Only these connection remotes may supply X-Forwarded-For / X-Real-IP (ClientIpResolver).
+    # Do NOT trust all RFC1918 by default — add VPC/proxy CIDRs explicitly per environment.
+    # Only these connection remotes may supply X-Forwarded-For / X-Real-IP.
+    # Do NOT trust all RFC1918. Configure actual proxy addresses per environment.
+    trusted-proxies: "${APP_RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128}"
+    policies:
+      order-create:
+        client-limit: 6
+        client-window-seconds: 60
+        ip-limit: 30
+        ip-window-seconds: 60
+      payment-confirm:
+        client-limit: 10
+        client-window-seconds: 60
+        ip-limit: 60
+        ip-window-seconds: 60
+      contact:
+        client-limit: 3
+        client-window-seconds: 600
+        ip-limit: 15
+        ip-window-seconds: 600
+      client-errors:
+        client-limit: 30
+        client-window-seconds: 60
+        ip-limit: 300
+        ip-window-seconds: 60
+      client-events:
+        client-limit: 120
+        client-window-seconds: 60
+        ip-limit: 1200
+        ip-window-seconds: 60
+      # Admin + Developer share POST /api/admin/auth/login — single IP bucket.
+      auth-login:
+        ip-limit: 10
+        ip-window-seconds: 300
 
 server:
   port: ${SERVER_PORT:8080}
-  forward-headers-strategy: framework
+  # Client IP for rate-limit is resolved by ClientIpResolver (trusted proxies only).
+  # Do not use framework ForwardedHeaderFilter (would trust any X-Forwarded-For).
+  forward-headers-strategy: none
 
 logging:
   pattern:

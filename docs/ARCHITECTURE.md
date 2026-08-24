@@ -32,8 +32,9 @@ babidndn/
 │   └── types/
 ├── BE/src/main/java/com/gdgoc/babi_order/
 │   ├── admin/ menu/ order/ payment/ savedmenu/ sales/ store/ push/ contact/
+│   ├── ratelimit/            # application-level API rate limiting
 │   ├── clientevent/ clienterror/ backenderror/ httprequest/
-│   ├── dev/                  # overview, error, request, event, analytics
+│   ├── dev/                  # overview, error, request, event, analytics, reconciliation (exposure)
 │   └── config/
 ├── BE/scripts/
 ├── BE/compose.yml
@@ -47,7 +48,7 @@ babidndn/
 
 **Backend:** Java 21 · Spring Boot 4.1 · JPA · JWT Security · SSE · MySQL 8.4
 
-**Infrastructure:** Vercel(FE) · GitHub Actions → ECR → EC2 Docker(BE) · `ddl-auto: update` (Flyway 없음)
+**Infrastructure:** Vercel(FE) · GitHub Actions → ECR → EC2 Docker(BE) · **Flyway** (baseline v100) · Hibernate `ddl-auto: validate`
 
 ## 4. System Architecture
 
@@ -99,6 +100,39 @@ Android: window.Android.printKitchenTicket / printCustomerReceipt
 
 FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`). Admin 주문/결제조회는 `adminApi`(Bearer).
 
+### Admin / Developer Responsibility Boundary
+
+역할은 **관련 데이터 domain 이름**이 아니라 **누가 확인하고·판단하고·조치하는가**로 나눈다. 구현 절차는 [CONVENTIONS.md](CONVENTIONS.md)의 Feature Responsibility 절을 따른다.
+
+| Actor | 책임 | 대표 영역 |
+|-------|------|-----------|
+| **Admin** | 매장 운영자가 이해하고 business action을 수행하는 운영 기능 | 메뉴 · 주문 상태 · 결제 내역 · 정상 취소/환불 · 매출 · 매장 설정 |
+| **Developer** | 시스템 내부 상태 진단 · technical cause 분석 · observability | errors · requests · events · diagnostics analytics · Order/Payment/Toss consistency · incident severity/occurrence |
+
+Admin UI에 technical consistency·장애 진단 정보를, “Payment/Order와 같은 domain”이라는 이유만으로 올리지 않는다. Developer Console에 일상 매장 운영 workflow를 올리지 않는다.
+
+**Domain ownership ≠ Exposure ownership**
+
+- Core domain logic(service/repository/model)은 해당 비즈니스 package에 둘 수 있다 (예: reconciliation core → `payment/reconciliation/`).
+- UI route · navigation · API namespace · authorization은 actor responsibility에 맞춘다 (예: 동일 기능 exposure → `/dev/**`, `/api/dev/**`, `ROLE_DEVELOPER`).
+- Actor가 정해지면 FE(route/nav/page/state/API client) · BE(controller/API/auth) · Core를 **함께** 검토한다. Core가 공용 domain이면 불필요하게 `dev/` package로 옮기지 않는다.
+- 역할이 겹치되 필요한 정보·조치가 다르면 동일 technical UI를 공유하지 말고 exposure를 분리한다.
+
+### Application Rate Limiting
+
+Actor = **SYSTEM** · Feature type = infrastructure/security. Enforcement는 Backend만 (`ratelimit/` · `HandlerInterceptor`).
+
+- Targeted POST만: order create · payment confirm · contact · client-errors · client-events · auth login
+- Public mutation: valid `X-Client-Key`(UUID) + IP layered buckets · key 없/비정상 → IP only · raw key 로그/응답 금지(SHA-256 identity)
+- Login (`POST /api/admin/auth/login`, Admin+Developer 공유): **IP only** (`AUTH_LOGIN`)
+- 제외: order GET polling · Admin SSE · Toss webhook · `/api/dev/reconciliation/**` · broad `/api/**`
+- Client IP: `server.forward-headers-strategy=none` + `ClientIpResolver` — trusted proxy일 때만 XFF/X-Real-IP (기본: loopback only · RFC1918 전체 trust 금지 · VPC/proxy CIDR은 환경별 명시)
+- Storage: Caffeine in-memory (bounded) · **per-instance** — horizontal scale 시 distributed limiter 재검토
+- 429 `RATE_LIMIT_EXCEEDED` + `Retry-After` · `ApiException` 경로 → **backend_errors 미기록**
+- WAF/CDN/DDoS 대체 아님
+
+정책 숫자는 `app.rate-limit` (`application.yml`) — ARCHITECTURE에 복사하지 않음.
+
 ## 6. Core Domains
 
 ### Menu / Option
@@ -115,6 +149,7 @@ FE: raw token은 `localStorage` `babi_order_access_tokens` (`orderId → token`)
 - `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
 - `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
 - 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
+- **Order↔Payment reconciliation:** core `payment/reconciliation/` (detect · OPEN/RESOLVED · `logical_key`/`active_key` · Toss read-only verify). Exposure는 Developer (§5 Responsibility Boundary) — `/dev/reconciliation`, `/api/dev/reconciliation/**`, `ROLE_DEVELOPER`. Admin `/admin/payments`는 결제 운영만.
 
 ### Saved Menu
 
@@ -179,7 +214,12 @@ SavedMenu → SavedMenuOption
 Observability: client_events, client_errors, backend_errors, http_request_records
 ```
 
-Schema: Hibernate `ddl-auto: update` + `BE/scripts/*.sql` (운영 1회)
+Schema ownership:
+
+- **Flyway** — mutations under `classpath:db/migration` (baseline **100**, `V101__create_payment_reconciliation_issues`)
+- **Hibernate** — `ddl-auto: validate` (dev/prod); tests: H2 `create-drop`, Flyway off
+- **Legacy** — `BE/scripts/*.sql` historical/precheck/data maintenance only (not re-run as V1…)
+- **Reconciliation issues:** `payment_reconciliation_issues` — scalar `order_id`/`payment_id` (no FK; audit history must not block Order hard-delete)
 
 ## 13. Observability
 
@@ -193,7 +233,9 @@ RequestIdFilter → MDC → access log → http_request_records
 
 ```text
 POST /api/client-errors → client_errors (+ structured log)
-Uncaught BE exception → backend_errors (+ ApiExceptionHandler)
+Expected client outcomes (ApiException 4xx, RATE_LIMIT_EXCEEDED, NoResourceFoundException 404)
+  → ErrorResponse only · backend_errors 미기록
+Uncaught unexpected BE exception → 500 + backend_errors (+ ApiExceptionHandler)
 ```
 
 ### User events
@@ -211,6 +253,7 @@ FE: `utils/userEvent/trackEvent.ts`, `eventHelpers.ts` · BE allow-list: `Client
 | `/dev` | `GET /api/dev/overview` | Dashboard KPI (오류 24h, 요청·이벤트 오늘, funnel 위임) |
 | `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 오류 merge 목록·상세 |
 | `/dev/requests` | `GET /api/dev/requests`, `/{id}` | HTTP 요청 기록 |
+| `/dev/reconciliation` | `/api/dev/reconciliation/**` | Order/Payment/Toss 정합성 진단 (core: `payment/reconciliation/`) |
 | `/dev/events` | `GET /api/dev/events`, `/{id}` | Client events |
 | `/dev/analytics` | `/api/dev/analytics/*` | KPI, funnel, menus, options, **menu-options** |
 
@@ -278,5 +321,6 @@ selectionRate = selectedUsers / engagedUsers × 100  (분모 0 → 0%)
 
 - Order/Payment/SavedMenu snapshot·상태 전이 규칙을 임의 변경하지 않는다.
 - 메뉴/옵션 business rule은 Backend `AdminMenuService` 우선.
+- Admin vs Developer exposure는 §5 Responsibility Boundary를 따른다 (domain 이름 ≠ UI/API 위치).
 - Developer Analytics는 MySQL native SQL·JSON metadata에 의존 — DB vendor 변경 시 영향 큼.
 - 프린터·Android 앱은 FE bridge와 별도 lifecycle.

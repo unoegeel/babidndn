@@ -21,9 +21,35 @@
 - Request ID · `http_request_records`
 - `client_errors` · `backend_errors` · `client_events`
   - `client_errors.stack` / `component_stack` = MySQL `TEXT` (VARCHAR(8000)은 utf8mb4 row-size ERROR 1118)
-- `/dev` Overview Dashboard · `/dev/errors|requests|events|analytics`
+- `/dev` Overview · `/dev/errors|requests|reconciliation|events|analytics`
 - `GET /api/dev/overview` · `GET /api/dev/analytics/menu-options`
 - Menu×Option 선택률 (분모 `MENU_OPTION_OPEN`, 분자 `OPTION_SELECTED` + `menuId`)
+
+### Payment Reconciliation (code verified 2026-08-24)
+
+- Phase B core: persist OPEN/RESOLVED · scan · Toss read-only verify · V101 **dev MySQL verified**
+- Rules: `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT` (deprecated without-valid 신규 탐지 안 함)
+- **Exposure (Admin→Dev migration implemented in repo):**
+  - UI: `/dev/reconciliation` (`DeveloperReconciliationPage`) · sidebar「결제 정합성」
+  - API: `/api/dev/reconciliation/**` (`DeveloperReconciliationController`) · `ROLE_DEVELOPER`
+  - Core: `payment/reconciliation/*` (unchanged)
+  - Admin `/admin/payments`: 결제 내역·취소·매출 분석만 — reconciliation UI/state/API 호출 없음
+  - Legacy `/api/admin/payments/reconciliation*` · `AdminPaymentController` **제거** (compat adapter 없음)
+- Boundary 원칙: [ARCHITECTURE.md](ARCHITECTURE.md) §5 · 설계 절차: [CONVENTIONS.md](CONVENTIONS.md) §2
+- **dev deploy smoke of new Dev exposure: Pending** (아래 Status Matrix)
+
+### API Rate Limiting (CODE READY — 2026-08-24)
+
+- Package: `BE/.../ratelimit/` · `app.rate-limit.*` · dependency: Caffeine
+- Targets: `POST /api/orders`, `/api/payments/confirm`, `/api/inquiries`, `/api/client-errors`, `/api/client-events`, `/api/admin/auth/login`
+- Excluded: order GET polling · SSE · Toss webhook · `/api/dev/reconciliation/**`
+- Identity: client(hash)+IP layered (public) · login IP-only · trusted-proxy IP resolve
+- 429 + `Retry-After` · not written to `backend_errors`
+- Login UX: `Retry-After` countdown on LoginPage (sessionStorage `babi_order_login_rate_limit_until`) · CORS exposes `Retry-After`
+- FE: LoginPage 429 message · telemetry fetch already ignores failures (no loop)
+- Tests: suite **enabled=false** by default · dedicated rate-limit tests enable locally
+- **NO SCHEMA CHANGE / NO V102**
+- **DEV RUNTIME VERIFIED: no** (deploy smoke Pending)
 
 ### Menu / UX (2026-08)
 
@@ -41,7 +67,17 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
-| 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. **production SQL 미적용 Pending** |
+| 2026-08-24 | Order API | `PUT /api/orders/{id}/status` canonical — duplicate `@PatchMapping` 제거 (FE `adminOrderService` PUT 계약 유지). **CODE READY** |
+| 2026-08-24 | Security | Exclude `UserDetailsServiceAutoConfiguration` — Spring default generated password warning 제거 (Admin/JWT auth 유지). **CODE READY** |
+| 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |
+| 2026-08-24 | Observability | `NoResourceFoundException` → HTTP 404 `RESOURCE_NOT_FOUND` · backend_errors 미기록 (was 500 noise). **CODE READY** |
+| 2026-08-24 | Security | Application rate limiting (CODE READY): targeted POSTs · client+IP / login IP · 429 RATE_LIMIT_EXCEEDED · Caffeine in-memory · **no V102** · **dev runtime smoke Pending** |
+| 2026-08-24 | Dev Console | Reconciliation Admin→Developer 책임 이전: `/dev/reconciliation` · `/api/dev/reconciliation/**` · Admin UI/API 제거 (compat adapter 없음) |
+| 2026-08-24 | Payment | Reconciliation rule refine: cancel 정상상태 false-positive 제거. `ORDER_ACTIVATED_WITHOUT_PAYMENT` / `ORDER_ACTIVE_WITH_CANCELED_PAYMENT`. V101 schema 변경 없음 |
+| 2026-08-24 | Payment | Reconciliation Phase B: persisted OPEN/RESOLVED lifecycle · `V101` · scan/issues/Toss verify. **dev MySQL V101 runtime verified** |
+| 2026-08-21 | DB | Flyway baseline 도입. `ddl-auto: validate`. baseline v100. 신규 schema는 `db/migration`만 |
+| 2026-08-21 | Payment | Order↔Payment 정합성 Phase A (DETECT→DISPLAY snapshot) |
+| 2026-08-20 | Security | 고객 주문 ACL: `X-Order-Access-Token` + `orders.access_token_hash`(SHA-256). Admin JWT bypass. production schema 적용 완료(v1.2.21) |
 | 2026-08-20 | Dev Console | `client_errors` stack/component_stack → TEXT (MySQL ERROR 1118 재발 방지). **dev** `babi_order_dev`: table 생성·`/api/dev/errors`·`/overview` 200 확인 |
 | 2026-08-20 | Dev Console | Overview API/Dashboard · menu-options analytics · errors sort null-safe · `create-developer-error-tables.sql` |
 | 2026-08-20 | Menu policy | TOPPING_REMOVE canonical sync · `sync-menu-topping-remove-policies.sql` |
@@ -62,8 +98,12 @@
 
 ### Pending (구현됐으나 운영·실데이터 검증 남음)
 
-- **production `babi_order`:** `orders.access_token_hash` 컬럼 적용 여부 — `BE/scripts/add-order-access-token-hash.sql`. 적용 전 `precheck-order-access-token-cutover.sql`로 legacy 활성 주문 수 확인. **NULL hash 고객 조회는 거부**
-- **production `babi_order`:** `client_errors` / `backend_errors` 존재 여부 및 `stack`/`component_stack` 타입 확인 — 수정된 `create-developer-error-tables.sql` 적용 여부는 main 배포 전 별도 검증
+- **Rate limit:** code ready — **dev deploy smoke** (order/login/telemetry 429 · polling 미영향 · `/dev/errors`에 RATE_LIMIT 미적재)
+- **HTTP 404 classification:** code ready — **dev smoke** (`GET /definitely-not-existing-resource` → 404 · `/dev/errors`에 미적재 · `/dev/requests` status 404)
+- **Reconciliation Dev exposure:** code in repo — **dev deploy smoke** 미실행 (`/dev/reconciliation` · DEVELOPER API · Admin payments에 recon 네트워크 없음)
+- **Flyway V101:** **dev MySQL verified** · prod 적용 여부는 배포 상태 확인
+- **Fresh empty MySQL bootstrap** (full CREATE snapshot) 후속
+- Slack/Discord/Email reconciliation alert (Phase B는 createdIssueIds만 준비)
 - `BE/scripts/sync-menu-topping-remove-policies.sql` **운영 DB 미적용 가능**
 - Developer Overview / menu-options KPI **운영 데이터 spot check**
 - iPhone keyboard **전 기종 regression**
@@ -74,8 +114,8 @@
 | 이슈 | 설명 |
 |------|------|
 | FE lint | **0 errors** (2026-08-21). Warnings 3건 잔여(OrderStatus/PaymentFail/PaymentSuccess intentional deps) |
-| Production schema | Flyway 없음 · `ddl-auto: update` only · migration 추적/rollback 부족 |
-| Customer API ACL | `X-Order-Access-Token` 코드 적용됨. **production schema + legacy cutover** 운영 확인 필요. Android/브라우저 smoke 미실행 |
+| Production schema | Flyway baseline **code ready**, 실 DB 미적용. Fresh MySQL bootstrap 미제공 |
+| Customer API ACL | `X-Order-Access-Token` 코드 적용됨. Android/브라우저 smoke 미실행 |
 | Cart | 메모리 only — 새로고침 시 유실 |
 
 ---
@@ -109,25 +149,26 @@ Backend `AdminMenuService` only — FE `MenuOptionModal`은 API 그대로 표시
 
 ---
 
-## 6. Test State (2026-08-21)
+## 6. Test State (2026-08-24)
 
 | Command | Result |
 |---------|--------|
-| `cd BE && ./gradlew clean test` (full) | **PASS** (342 tests, 0 failed) — WebMvc slice mock + test mail host |
-| `cd FE && npm run lint` | **PASS** (0 errors, 3 warnings) |
-| `cd FE && npm test` | PASS (42 tests) |
-| `cd FE && npm run build` | PASS |
+| `cd BE && ./gradlew clean test` | **PASS** (405 tests) — NoResourceFound → 404 + rate-limit suite |
+| `cd FE && npm run lint` | **PASS** (0 errors, 3 intentional warnings) |
+| `cd FE && npm test` | **PASS** (42 tests) |
+| `cd FE && npm run build` | **PASS** |
 
 ---
 
 ## 7. Current Priorities
 
-1. production `orders.access_token_hash` SQL 적용 + legacy 활성 주문 cutover 확인
-2. 고객 주문 API 접근 제어 **운영 smoke** (create → status refresh → receipt)
+1. **Rate limit / Reconciliation:** dev deploy smoke
+2. 고객 주문 API 접근 제어 **운영 smoke**
 3. 결제·Checkout E2E
-4. Analytics index/volume (데이터 증가 후)
-5. 모바일 keyboard regression
-6. FE lint warning 정리(선택, PaymentSuccess deps는 승인 중복 방지와 trade-off)
+4. Fresh MySQL bootstrap (optional)
+5. Alert sender (Slack 등) — `createdIssueIds` / CRITICAL only
+6. Auto reconciliation **계속 금지**
+7. Horizontal scale 시 distributed rate limiter 재검토
 
 ---
 

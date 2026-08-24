@@ -264,3 +264,72 @@ export interface SavedMenuResponse {
   status: SavedMenuStatus;
   options: SavedMenuOptionResponse[];
 }
+
+export type ReconciliationIssueType =
+  | "PAYMENT_DONE_ORDER_NOT_ACTIVATED"
+  | "ORDER_ACTIVATED_WITHOUT_VALID_PAYMENT"
+  | "ORDER_ACTIVATED_WITHOUT_PAYMENT"
+  | "ORDER_ACTIVE_WITH_CANCELED_PAYMENT"
+  | "PAYMENT_AMOUNT_MISMATCH"
+  | "MULTIPLE_VALID_PAYMENTS";
+
+export type ReconciliationSeverity = "CRITICAL" | "WARNING";
+
+export type ReconciliationIssueStatus = "OPEN" | "RESOLVED";
+
+export interface ReconciliationIssue {
+  type: ReconciliationIssueType;
+  severity: ReconciliationSeverity;
+  orderId: number;
+  paymentId?: number | null;
+  message: string;
+  detectedAt?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PaymentReconciliationResponse {
+  generatedAt: string;
+  period: string;
+  from: string;
+  issueCount: number;
+  issues: ReconciliationIssue[];
+}
+
+export interface ReconciliationScanResponse {
+  scannedAt: string;
+  period: string;
+  detectedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  resolvedCount: number;
+  openCount: number;
+  createdIssueIds: number[];
+}
+
+export interface PersistedReconciliationIssue {
+  id: number;
+  logicalKey: string;
+  type: ReconciliationIssueType;
+  severity: ReconciliationSeverity;
+  status: ReconciliationIssueStatus;
+  orderId: number;
+  paymentId?: number | null;
+  message: string;
+  metadata?: Record<string, unknown>;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  resolvedAt?: string | null;
+  occurrenceCount: number;
+}
+
+export interface PaymentTossVerifyResponse {
+  paymentId: number;
+  orderId: number;
+  internalStatus: string;
+  tossStatus: string;
+  internalAmount: number;
+  tossAmount: number;
+  statusMatches: boolean;
+  amountMatches: boolean;
+  verifiedAt: string;
+}

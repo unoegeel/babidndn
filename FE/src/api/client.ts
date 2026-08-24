@@ -1,6 +1,7 @@
 import type { RelatedRequestIdCarrier } from "../types/clientError";
 import { REQUEST_ID_HEADER } from "../types/clientError";
 import { reportApiProcessingError } from "../utils/frontendError/reportFrontendError";
+import { parseRetryAfterSeconds } from "../utils/loginRateLimit";
 // 웹·API 도메인이 분리되어 있으므로 호스트명으로 API 서버를 고릅니다.
 // 공개 요청(api)과 관리자 인증 요청(adminApi)을 분리해
 // 일반 API가 관리자 Bearer·세션에 종속되지 않도록 합니다.
@@ -100,13 +101,22 @@ export class ApiError extends Error implements RelatedRequestIdCarrier {
   readonly status: number;
   readonly code?: string;
   readonly relatedRequestId?: string;
+  /** Parsed Retry-After seconds when present (e.g. 429). */
+  readonly retryAfterSeconds?: number;
 
-  constructor(status: number, code?: string, message?: string, relatedRequestId?: string) {
+  constructor(
+    status: number,
+    code?: string,
+    message?: string,
+    relatedRequestId?: string,
+    retryAfterSeconds?: number,
+  ) {
     super(message && message.trim() ? message : `API 요청 실패: ${status}`);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.relatedRequestId = relatedRequestId;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -136,6 +146,12 @@ function attachRelatedRequestId(error: unknown, relatedRequestId?: string): neve
     (error as Error & RelatedRequestIdCarrier).relatedRequestId = relatedRequestId;
   }
   throw error;
+}
+
+function readRetryAfterSeconds(response: Response): number | undefined {
+  return parseRetryAfterSeconds(
+    response.headers.get("Retry-After") ?? response.headers.get("retry-after"),
+  );
 }
 
 async function requestInternal<T>(
@@ -171,7 +187,15 @@ async function requestInternal<T>(
     if (response.status === 401 && authMode === "admin" && token) {
       signOutAdmin();
     }
-    throw new ApiError(response.status, parsed?.code, parsed?.message, relatedRequestId);
+    const retryAfterSeconds =
+      response.status === 429 ? readRetryAfterSeconds(response) : undefined;
+    throw new ApiError(
+      response.status,
+      parsed?.code,
+      parsed?.message,
+      relatedRequestId,
+      retryAfterSeconds,
+    );
   }
 
   if (!text) {

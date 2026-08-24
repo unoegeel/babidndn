@@ -7,8 +7,12 @@ spring:
 
   jpa:
     hibernate:
+      # Unit/integration tests own schema via H2; do not use Flyway or validate against MySQL.
       ddl-auto: create-drop
     open-in-view: false
+
+  flyway:
+    enabled: false
 
   # contextLoads / @SpringBootTest에서 JavaMailSender 자동구성용 (실발송 없음)
   mail:
@@ -24,3 +28,8 @@ aws:
   s3:
     region: ap-northeast-2
     bucket: babi-order-images
+
+# Shared test suite must not hit rate-limit buckets across tests.
+app:
+  rate-limit:
+    enabled: false

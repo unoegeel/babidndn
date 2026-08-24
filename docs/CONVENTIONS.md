@@ -14,10 +14,48 @@
 3. unrelated refactor 금지 — 목적에 맞는 최소 diff.
 4. **Business rule은 Backend source of truth** — FE는 API 결과를 표시·입력 검증만.
 5. 변경 후 관련 테스트·영향 범위 확인.
+6. **기능 위치는 데이터 domain이 아니라 actor responsibility로 정한다** — §2.
 
 ---
 
-## 2. Backend Layering
+## 2. Feature Responsibility Before Implementation
+
+새 기능의 파일·route·controller를 정하기 **전에** 아래 순서로 판단한다. 경계의 *why*는 [ARCHITECTURE.md](ARCHITECTURE.md) §5 Responsibility Boundary.
+
+### Decision order
+
+1. **Actor** — 주 사용/최종 조치 주체: `CUSTOMER` | `ADMIN` | `DEVELOPER` | `SYSTEM` (복수 관련 가능, 최종 판단·조치 actor는 하나로 명확히)
+2. **Responsibility** — 누가 확인하는가 / 누가 의미를 판단하는가 / 누가 조치하는가
+3. **Feature type** — `customer experience` | `business operation` | `observability / diagnostics` | `system automation`
+4. **Exposure** — FE route · navigation · API namespace · authorization role
+5. **Core ownership** — service / repository / domain package (공용 domain이면 actor package로 억지 이동 금지)
+
+### Mandatory
+
+다루는 데이터 domain만 보고 UI/API 책임을 정하지 않는다.
+
+| 예 | Actor |
+|----|-------|
+| Payment History / 정상 결제 취소 | ADMIN |
+| Order Management (매장 운영) | ADMIN |
+| Customer Order Tracking | CUSTOMER |
+| Payment Reconciliation / Toss↔internal consistency | DEVELOPER |
+| Backend/Frontend error diagnostics | DEVELOPER |
+
+### AI / planning
+
+구현 prompt·계획에서도 파일 경로를 먼저 쓰지 말고  
+`Actor → Responsibility → Feature Type → Exposure → Core` 를 먼저 적는다.  
+Admin/Developer 판단 시 *"What data?"* 보다 *"Who understands this result and who can act on it?"* 를 우선한다.
+
+### Responsibility change
+
+runtime·실제 사용 흐름에서 초기 actor 판단이 틀렸으면 억지로 유지하지 않는다.  
+`Actor → Responsibility → Exposure` 를 재평가하고 presentation/API를 옮기되, 이미 검증된 core domain logic은 불필요하게 재작성하지 않는다.
+
+---
+
+## 3. Backend Layering
 
 ```text
 Controller  → HTTP contract, validation trigger
@@ -28,12 +66,12 @@ DTO         → API request/response
 ```
 
 - Domain package별 분리: `menu/`, `order/`, `dev/`, `clientevent/` 등
-- Developer Console: `dev/overview`, `dev/error`, `dev/request`, `dev/event`, `dev/analytics`
+- Developer Console: `dev/overview`, `dev/error`, `dev/request`, `dev/event`, `dev/analytics`, `dev/reconciliation` (exposure only — core는 해당 domain)
 - Analytics 집계: `AnalyticsQueryRepository` — native SQL, Java 전체 로드 금지 (기존 패턴 유지)
 
 ---
 
-## 3. Frontend Layout
+## 4. Frontend Layout
 
 ```text
 pages/        # route-level (user / owner / developer)
@@ -46,11 +84,11 @@ types/        # 공유 타입
 ```
 
 - Developer Console: `pages/developer/`, `components/developer/`, `services/developer/`
-- 유사 기능은 기존 파일 위치를 따른다.
+- 유사 기능은 기존 파일 위치를 따른다. Exposure actor는 §2를 따른다.
 
 ---
 
-## 4. Naming
+## 5. Naming
 
 | 대상 | 규칙 |
 |------|------|
@@ -63,7 +101,7 @@ types/        # 공유 타입
 
 ---
 
-## 5. API Conventions
+## 6. API Conventions
 
 - 기존 endpoint path 유지 (`/api/admin/*`, `/api/dev/*`, …)
 - breaking DTO change 금지 — 확장은 optional field 또는 **새 endpoint** (예: `/menu-options` vs `/options`)
@@ -72,7 +110,7 @@ types/        # 공유 타입
 
 ---
 
-## 6. State Management
+## 7. State Management
 
 - 전역: **React Context** (`UserDataContext`, `AdminDataContext`) — Zustand/Redux 도입 전 기존 Context로 해결
 - `localStorage` / `sessionStorage` key는 기존 naming (`babi_user_orders`, `gdgoc-admin-token`, …)
@@ -80,7 +118,7 @@ types/        # 공유 타입
 
 ---
 
-## 7. Observability (확인된 패턴)
+## 8. Observability (확인된 패턴)
 
 새 핵심 사용자 flow 추가 시 연결 검토:
 
@@ -96,7 +134,7 @@ types/        # 공유 타입
 
 ---
 
-## 8. Order / Payment / SavedMenu
+## 9. Order / Payment / SavedMenu
 
 변경 시 반드시 검토:
 
@@ -111,17 +149,37 @@ types/        # 공유 타입
 
 ---
 
-## 9. Database / Schema
+## 10. Database / Schema
 
-변경 체크리스트: Entity → Relation → Service → DTO → `BE/scripts/*.sql` → Test
+변경 체크리스트: Entity → Relation → Service → DTO → **Flyway migration** → Test
 
-- Production: `ddl-auto: update` — 운영 영향 별도 검토
-- Flyway/Liquibase **미사용** (현재 코드 기준)
-- Observability 테이블: `create-developer-error-tables.sql` 등 수동 SQL 보조
+### Ownership
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Flyway** | Schema mutation (`classpath:db/migration`) |
+| **Hibernate** | `ddl-auto: validate` (dev/prod) — mutation 금지 |
+| **H2 tests** | `ddl-auto: create-drop`, `spring.flyway.enabled=false` |
+
+### Flyway baseline (existing DB)
+
+- `baseline-on-migrate: true`, `baseline-version: 100`
+- Non-empty DB: 현재 schema를 baseline으로 **등록만** 한다. 과거 `BE/scripts` SQL을 재실행하지 않는다.
+- 다음 실제 schema 변경: `V101__...sql` 부터
+- **배포된 migration 수정 금지** — rollback/수정은 새 version
+- schema 변경과 data backfill은 가능한 분리
+- destructive change 전 `BE/scripts` precheck 또는 drift audit 필수
+- idempotent SQL에 의존하지 말고 Flyway history로 실행 여부 관리
+
+### Legacy scripts
+
+- `BE/scripts/*.sql` 유지 (LEGACY / DATA_MAINTENANCE / PRECHECK) — 분류는 `BE/scripts/README.md`
+- 신규 schema 변경은 **`BE/src/main/resources/db/migration`에만** 추가
+- Fresh empty MySQL full bootstrap은 후속 task (현재는 existing DB + H2 test)
 
 ---
 
-## 10. Mobile UI
+## 11. Mobile UI
 
 iOS keyboard 관련 변경 시 확인:
 
@@ -133,7 +191,7 @@ iOS keyboard 관련 변경 시 확인:
 
 ---
 
-## 11. Testing
+## 12. Testing
 
 ### Backend
 
@@ -152,7 +210,7 @@ iOS keyboard 관련 변경 시 확인:
 
 ---
 
-## 12. Git / Change Scope
+## 13. Git / Change Scope
 
 - 한 commit/PR = 하나의 명확한 목적 (권장)
 - migration/seed/script 변경은 deploy 영향 명시
@@ -160,23 +218,24 @@ iOS keyboard 관련 변경 시 확인:
 
 ---
 
-## 13. Definition of Done
+## 14. Definition of Done
 
-1. 기존 구조·naming 일치  
-2. Business rule 미파괴  
-3. FE/BE 호출부 반영  
-4. 관련 test/build 가능  
-5. 필요 시 ARCHITECTURE / CURRENT_CONTEXT 갱신  
+1. §2 Feature Responsibility 판단 완료 (Actor / Exposure / Core)
+2. 기존 구조·naming 일치  
+3. Business rule 미파괴  
+4. FE/BE 호출부 반영  
+5. 관련 test/build 가능  
+6. 필요 시 ARCHITECTURE / CURRENT_CONTEXT 갱신  
 
 ---
 
-## 14. Documentation Maintenance
+## 15. Documentation Maintenance
 
 | 변경 유형 | 갱신 문서 |
 |-----------|-----------|
 | 실행·배포·env | README |
-| 구조·domain·API | ARCHITECTURE |
-| 코딩 규칙 | CONVENTIONS |
+| 구조·domain·API · responsibility boundary | ARCHITECTURE |
+| 코딩 규칙 · feature responsibility decision process | CONVENTIONS |
 | 최근 작업·리스크·Pending | CURRENT_CONTEXT |
 
 CONVENTIONS 자체가 바뀔 때만 CONVENTIONS 수정.

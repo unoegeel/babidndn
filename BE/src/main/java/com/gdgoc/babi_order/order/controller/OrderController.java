@@ -16,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -78,7 +77,6 @@ public class OrderController {
                 .body(orderService.getOrder(id, accessToken));
     }
 
-    @PatchMapping("/{id}/status")
     @PutMapping("/{id}/status")
     @Operation(summary = "주문 상태 변경", description = "관리자 조작으로 주문 상태를 변경하고 DB에 반영합니다.")
     public ResponseEntity<OrderDetailResponse> updateOrderStatus(
