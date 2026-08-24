@@ -80,9 +80,9 @@ app:
     cache-maximum-size: 100000
     # Only these connection remotes may supply X-Forwarded-For / X-Real-IP (ClientIpResolver).
     # Do NOT trust all RFC1918 by default — add VPC/proxy CIDRs explicitly per environment.
-    trusted-proxies:
-      - 127.0.0.1/32
-      - "::1/128"
+    # Only these connection remotes may supply X-Forwarded-For / X-Real-IP.
+    # Do NOT trust all RFC1918. Configure actual proxy addresses per environment.
+    trusted-proxies: "${APP_RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1/32,::1/128}"
     policies:
       order-create:
         client-limit: 6
