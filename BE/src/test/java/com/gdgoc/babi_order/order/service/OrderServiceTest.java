@@ -80,6 +80,8 @@ class OrderServiceTest {
             java.util.function.Supplier<?> supplier = invocation.getArgument(0);
             return supplier.get();
         });
+        lenient().when(orderRepository.countActiveAheadInQueue(any(), any(), any()))
+                .thenReturn(0L);
         orderService = new OrderService(
                 orderRepository,
                 menuRepository,
@@ -395,7 +397,7 @@ class OrderServiceTest {
         Order paidOrder = order(1L, 1);
         Order unpaidOrder = order(2L, 0);
         Payment payment = payment(paidOrder, PaymentStatus.DONE);
-        given(orderRepository.findAllByOrderByCreatedAtDescIdDesc())
+        given(orderRepository.findAllForAdminQueue())
                 .willReturn(List.of(paidOrder, unpaidOrder));
         given(paymentRepository.findByOrder_IdIn(List.of(1L, 2L))).willReturn(List.of(payment));
 

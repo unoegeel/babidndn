@@ -30,6 +30,9 @@ public class OrderSummaryResponse {
     @Schema(description = "주문 생성 시각")
     private LocalDateTime createdAt;
 
+    @Schema(description = "대기열 진입 시각 (픽업번호 최초 할당 시점)")
+    private LocalDateTime pickupAssignedAt;
+
     public static OrderSummaryResponse from(Order order, String paymentStatus) {
         return OrderSummaryResponse.builder()
                 .id(order.getId())
@@ -38,6 +41,7 @@ public class OrderSummaryResponse {
                 .totalAmount(order.getTotalAmount())
                 .paymentStatus(paymentStatus)
                 .createdAt(order.getCreatedAt())
+                .pickupAssignedAt(order.getPickupAssignedAt())
                 .build();
     }
 }

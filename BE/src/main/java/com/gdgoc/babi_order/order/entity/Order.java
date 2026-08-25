@@ -58,6 +58,14 @@ public class Order {
     @Column(name = "access_token_hash", length = 64)
     private String accessTokenHash;
 
+    /**
+     * 대기열 진입 시각 — pickup 번호가 처음 할당된 시점({@code activateAfterPayment}).
+     * createdAt/updatedAt/pickup_number와 무관한 canonical queue chronology.
+     * READY/call/complete 등 상태 변경으로는 갱신하지 않는다.
+     */
+    @Column(name = "pickup_assigned_at")
+    private LocalDateTime pickupAssignedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -102,6 +110,9 @@ public class Order {
 
     public void assignPickupNumber(int pickupNumber) {
         this.pickupNumber = pickupNumber;
+        if (this.pickupAssignedAt == null) {
+            this.pickupAssignedAt = LocalDateTime.now();
+        }
     }
 
     // Toss 샌드박스는 orderId 유일성을 전체 테스트 계정 간에 공유하므로,

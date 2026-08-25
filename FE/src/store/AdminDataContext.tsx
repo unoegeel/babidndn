@@ -471,7 +471,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         return {
           id: orderId,
           number: summary.pickupNumber,
-          time: formatTime(summary.createdAt),
+          time: formatTime(summary.pickupAssignedAt ?? summary.createdAt),
           items,
           status,
           called: uiState.called || serverReady,
@@ -481,8 +481,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
   const refreshOrders = useCallback(async () => {
     const summaries = await adminOrderService.getOrders();
-    // 서버는 최근 생성 순 → 보드는 접수 순(오래된 주문부터)으로 표시
-    const active = summaries.filter(isActiveOrder).reverse();
+    // BE returns FIFO queue order (pickupAssignedAt asc) — do not re-sort by createdAt
+    const active = summaries.filter(isActiveOrder);
 
     // 아직 상세를 받아오지 않은 주문만 조회 (메뉴 구성은 바뀌지 않으므로 캐시 재사용)
     const missing = active.filter((s) => !orderDetailCacheRef.current.has(s.id));

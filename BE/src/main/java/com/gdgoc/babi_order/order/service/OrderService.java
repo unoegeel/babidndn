@@ -137,9 +137,9 @@ public class OrderService {
         return response;
     }
 
-    /** 결제 내역이 있는 주문만 반환합니다. (미결제 임시 주문 제외) */
+    /** 결제 내역이 있는 주문만 반환합니다. (미결제 임시 주문 제외) — 대기열 진입 순(FIFO). */
     public List<OrderSummaryResponse> getOrders() {
-        List<Order> orders = orderRepository.findAllByOrderByCreatedAtDescIdDesc();
+        List<Order> orders = orderRepository.findAllForAdminQueue();
         Map<Long, PaymentStatus> paymentStatusByOrderId = paymentStatusByOrderId(
                 orders.stream().map(Order::getId).toList());
 
@@ -333,18 +333,18 @@ public class OrderService {
         );
     }
 
-    /** 결제 완료된 진행 중 주문 중, 나보다 먼저 생성된 주문 수를 계산합니다. */
+    /** 결제 완료된 진행 중 주문 중, 나보다 먼저 대기열에 진입한 주문 수를 계산합니다. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
         return toDetailResponse(order, paymentStatus, null);
     }
 
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus, String accessToken) {
         int waitingAheadCount = 0;
-        if (order.getStatus() == OrderStatus.PREPARING) {
-            waitingAheadCount = (int) orderRepository.countByStatusInAndIdLessThanAndPaid(
+        if (order.getStatus() == OrderStatus.PREPARING && order.getPickupAssignedAt() != null) {
+            waitingAheadCount = (int) orderRepository.countActiveAheadInQueue(
                     List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                    order.getId(),
-                    PaymentStatus.DONE);
+                    order.getPickupAssignedAt(),
+                    order.getId());
         }
         return OrderDetailResponse.from(order, paymentStatus, waitingAheadCount, accessToken);
     }
