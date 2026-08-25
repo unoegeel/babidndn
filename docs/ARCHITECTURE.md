@@ -152,7 +152,15 @@ Actor = **SYSTEM** · Feature type = infrastructure/security. Enforcement는 Bac
   - **Primary fix:** 당일 `max(pickup_number)` 기준 다음 번호 (createdAt 최신 주문 번호 사용 금지 — 결제 순서가 생성 순서와 어긋나면 활성 번호 재할당되던 사고)
   - **Secondary:** `PickupNumberLock`(JVM + MySQL `GET_LOCK` on TX-bound JDBC connection)로 할당 직렬화 · 활성(PREPARING/READY) 번호 skip
   - **Queue chronology:** `orders.pickup_assigned_at` (V102) — Admin 목록·고객 waitingAhead의 canonical 대기열 시각. createdAt/updatedAt/pickup_number 숫자 정렬 사용 금지.
+  - **First call:** `orders.called_at` (V104) — **`POST /api/orders/{id}/call` 성공 시만** 1회 설정. generic `PUT …/status` → READY·재호출·complete/cancel로는 변경하지 않음. 처리시간 = `calledAt − pickupAssignedAt` (둘 다 non-null만). `updated_at`은 lifecycle metric 금지.
 - **Order↔Payment reconciliation:** core `payment/reconciliation/` (detect · OPEN/RESOLVED · `logical_key`/`active_key` · Toss read-only verify). Exposure는 Developer (§5 Responsibility Boundary) — `/dev/reconciliation`, `/api/dev/reconciliation/**`, `ROLE_DEVELOPER`. Admin `/admin/payments`는 결제 운영만.
+
+### Developer Analytics Control Center
+
+- Exposure: `/dev/analytics` · `/api/dev/analytics/**` · `ROLE_DEVELOPER` · **read-only**
+- Domain ownership ≠ exposure: Sales SQL은 `sales/` 재사용, Order/Payment 정본은 각 domain. Developer는 observe/analyze만.
+- Source-of-truth: behavior→`client_events` · revenue→`payments`/`order_items` · queue→`pickup_assigned_at`/`called_at` · HTTP→`http_request_records` · FE/BE errors→error tables · consistency→reconciliation
+- Insights: rule-based only (no LLM). QR analytics deferred.
 
 ### Saved Menu
 

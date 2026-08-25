@@ -67,6 +67,14 @@ public class Order {
     @Column(name = "pickup_assigned_at")
     private LocalDateTime pickupAssignedAt;
 
+    /**
+     * 최초 고객 호출 시각. {@code POST /api/orders/{id}/call} 성공 시에만 1회 설정.
+     * generic READY 상태 전환·재호출·complete/cancel로는 갱신하지 않는다.
+     * 처리시간 = calledAt - pickupAssignedAt (둘 다 non-null인 샘플만).
+     */
+    @Column(name = "called_at")
+    private LocalDateTime calledAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -113,6 +121,13 @@ public class Order {
         this.pickupNumber = pickupNumber;
         if (this.pickupAssignedAt == null) {
             this.pickupAssignedAt = StoreTime.now();
+        }
+    }
+
+    /** 고객 호출(call) 성공 시 최초 1회만 기록. 재호출·generic status 변경 시 변경하지 않는다. */
+    public void markCalledAtIfAbsent() {
+        if (this.calledAt == null) {
+            this.calledAt = StoreTime.now();
         }
     }
 
