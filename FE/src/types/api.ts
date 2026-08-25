@@ -53,7 +53,7 @@ export interface OrderDetailResponse {
   createdAt: string;
   updatedAt: string;
   items: OrderItemResponse[];
-  /** 진행 중이며 대기번호가 더 빠른 주문 수 */
+  /** 진행 중이며 대기열에 더 먼저 진입한 주문 수 */
   waitingAheadCount?: number;
   /**
    * 고객 주문 접근 토큰. POST /api/orders 생성 응답에만 포함.
@@ -69,6 +69,8 @@ export interface OrderSummaryResponse {
   totalAmount: number;
   paymentStatus: string;
   createdAt: string;
+  /** 대기열 진입 시각 (픽업번호 최초 할당). 없으면 createdAt 표시용 fallback */
+  pickupAssignedAt?: string | null;
 }
 
 export interface OrderStatusUpdateRequest {
@@ -177,6 +179,20 @@ export interface PaymentResponse {
   approvedAt?: string | null;
   createdAt: string;
   /** 네이버페이, 카드(현대) 등 표시용 */
+  methodLabel?: string | null;
+}
+
+/** GET /api/admin/payments — Admin 결제 내역 (approvedAt DESC) */
+export interface AdminPaymentHistoryItem {
+  id: number;
+  paymentKey: string;
+  orderId: number;
+  pickupNumber: number;
+  amount: number;
+  status: string;
+  cancelReason?: string | null;
+  approvedAt: string;
+  createdAt: string;
   methodLabel?: string | null;
 }
 

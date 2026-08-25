@@ -101,7 +101,7 @@ public class PushNotificationService {
             log.warn("주문 연결할 Push 구독이 없습니다. endpoint={}", truncate(endpoint));
             return;
         }
-        if (subscriptionRepository.existsOrderLink(subscription.getId(), orderId)) {
+        if (subscriptionRepository.existsByIdAndOrderIdsContains(subscription.getId(), orderId)) {
             return;
         }
         subscription.linkOrder(orderId);

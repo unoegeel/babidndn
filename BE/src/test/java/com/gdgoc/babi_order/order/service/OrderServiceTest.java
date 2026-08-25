@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,10 +69,19 @@ class OrderServiceTest {
     @Mock
     private OrderAccessGuard orderAccessGuard;
 
+    @Mock
+    private PickupNumberLock pickupNumberLock;
+
     private OrderService orderService;
 
     @BeforeEach
     void setUp() {
+        lenient().when(pickupNumberLock.executeExclusive(any())).thenAnswer(invocation -> {
+            java.util.function.Supplier<?> supplier = invocation.getArgument(0);
+            return supplier.get();
+        });
+        lenient().when(orderRepository.countActiveAheadInQueue(any(), any(), any(), any(), any()))
+                .thenReturn(0L);
         orderService = new OrderService(
                 orderRepository,
                 menuRepository,
@@ -79,7 +89,8 @@ class OrderServiceTest {
                 paymentRepository,
                 orderEventService,
                 pushNotificationService,
-                orderAccessGuard
+                orderAccessGuard,
+                pickupNumberLock
         );
     }
 
@@ -386,7 +397,7 @@ class OrderServiceTest {
         Order paidOrder = order(1L, 1);
         Order unpaidOrder = order(2L, 0);
         Payment payment = payment(paidOrder, PaymentStatus.DONE);
-        given(orderRepository.findAllByOrderByCreatedAtDescIdDesc())
+        given(orderRepository.findAllForAdminQueueOnDay(any(LocalDateTime.class), any(LocalDateTime.class)))
                 .willReturn(List.of(paidOrder, unpaidOrder));
         given(paymentRepository.findByOrder_IdIn(List.of(1L, 2L))).willReturn(List.of(payment));
 
@@ -398,10 +409,11 @@ class OrderServiceTest {
     }
 
     @Test
-    void getWaitingCountCountsPaidPreparingAndReadyOrders() {
-        given(orderRepository.countByStatusInAndPaid(
-                List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                PaymentStatus.DONE)).willReturn(2L);
+    void getWaitingCountCountsTodayPreparingAndReadyOrders() {
+        given(orderRepository.countActiveInQueueOnDay(
+                eq(List.of(OrderStatus.PREPARING, OrderStatus.READY)),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class))).willReturn(2L);
 
         WaitingCountResponse result = orderService.getWaitingCount();
 
@@ -490,26 +502,41 @@ class OrderServiceTest {
                 .isEqualTo("INVALID_ORDER_STATUS_TRANSITION");
     }
 
+    @Test
+    void activateAfterPaymentSkipsPickupNumbersStillActive() {
+        Order unpaid = order(12L, Order.UNASSIGNED_PICKUP_NUMBER);
+        given(orderRepository.findById(12L)).willReturn(Optional.of(unpaid));
+        given(orderRepository.findMaxAssignedPickupNumber(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(3);
+        given(orderRepository.findActivePickupNumbers(any(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(List.of(4));
+
+        OrderDetailResponse result = orderService.activateAfterPayment(12L);
+
+        assertThat(result.getPickupNumber()).isEqualTo(5);
+    }
+
     private void givenNoPaidOrdersToday() {
-        given(orderRepository
-                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
-                        any(LocalDateTime.class), any(LocalDateTime.class), any(Integer.class)))
-                .willReturn(Optional.empty());
+        given(orderRepository.findMaxAssignedPickupNumber(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(0);
+        given(orderRepository.findActivePickupNumbers(any(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(List.of());
     }
 
     private void givenLatestPickupNumber(int pickupNumber) {
-        Order latest = order(10L, pickupNumber);
-        ReflectionTestUtils.setField(latest, "createdAt", LocalDateTime.now());
-        given(orderRepository
-                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
-                        any(LocalDateTime.class), any(LocalDateTime.class), any(Integer.class)))
-                .willReturn(Optional.of(latest));
+        given(orderRepository.findMaxAssignedPickupNumber(any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(pickupNumber);
+        given(orderRepository.findActivePickupNumbers(any(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .willReturn(List.of());
     }
 
     private Order order(Long id, Integer pickupNumber) {
         Order order = new Order(pickupNumber);
         ReflectionTestUtils.setField(order, "id", id);
         ReflectionTestUtils.setField(order, "totalAmount", 8000);
+        if (pickupNumber != null && pickupNumber > 0) {
+            ReflectionTestUtils.setField(order, "pickupAssignedAt", java.time.LocalDateTime.now());
+        }
         return order;
     }
 

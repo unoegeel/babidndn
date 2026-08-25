@@ -148,7 +148,10 @@ Actor = **SYSTEM** · Feature type = infrastructure/security. Enforcement는 Bac
 
 - `Order` → `OrderItem` → `OrderItemOption` (생성 시 snapshot)
 - `Payment` · Toss confirm/webhook · 금액 3중 검증 · webhook은 Toss 재조회
-- 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일)
+- 결제 전 `pickupNumber=0` · 결제 후 `activateAfterPayment()`로 픽업번호(1–99, Asia/Seoul 당일).
+  - **Primary fix:** 당일 `max(pickup_number)` 기준 다음 번호 (createdAt 최신 주문 번호 사용 금지 — 결제 순서가 생성 순서와 어긋나면 활성 번호 재할당되던 사고)
+  - **Secondary:** `PickupNumberLock`(JVM + MySQL `GET_LOCK` on TX-bound JDBC connection)로 할당 직렬화 · 활성(PREPARING/READY) 번호 skip
+  - **Queue chronology:** `orders.pickup_assigned_at` (V102) — Admin 목록·고객 waitingAhead의 canonical 대기열 시각. createdAt/updatedAt/pickup_number 숫자 정렬 사용 금지.
 - **Order↔Payment reconciliation:** core `payment/reconciliation/` (detect · OPEN/RESOLVED · `logical_key`/`active_key` · Toss read-only verify). Exposure는 Developer (§5 Responsibility Boundary) — `/dev/reconciliation`, `/api/dev/reconciliation/**`, `ROLE_DEVELOPER`. Admin `/admin/payments`는 결제 운영만.
 
 ### Saved Menu

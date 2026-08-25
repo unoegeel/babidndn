@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ApiError } from "../../api/client";
 import { useUserData } from "../../store/UserDataContext";
+import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
@@ -10,9 +12,12 @@ import { trackOrderStatusView } from "../../utils/userEvent/eventHelpers";
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, readyCallSignal, startConfetti } = useUserData();
+  const { getOrderById, readyCallSignal, startConfetti, saveOrderToState } = useUserData();
 
   const order = orderId ? getOrderById(orderId) : null;
+  /** 로드 실패는 orderId와 함께 기록 — orderId 변경 시 자동으로 해제 */
+  const [failedOrderId, setFailedOrderId] = useState<string | null>(null);
+  const loadFailed = Boolean(orderId) && failedOrderId === orderId;
 
   const navigateRef = useRef(navigate);
   const startConfettiRef = useRef(startConfetti);
@@ -55,6 +60,38 @@ export const OrderStatusPage: React.FC = () => {
     void linkPushSubscriptionToOrder(orderId);
   }, [orderId]);
 
+  // Context에 주문이 없으면 로드/재시도 — 일시 404에 치명 UI latch 금지
+  useEffect(() => {
+    if (!orderId || order) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          const detail = await orderService.getOrder(orderId);
+          if (cancelled) return;
+          saveOrderToState(mapOrderDetailToOrder(detail));
+          return;
+        } catch (err) {
+          if (cancelled) return;
+          const retryable =
+            err instanceof ApiError && (err.status === 404 || err.status >= 500);
+          if (!retryable || attempt === 3) {
+            setFailedOrderId(orderId);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, order, saveOrderToState]);
+
   const noteReadyTransition = useCallback((nextStatus: OrderStatus): boolean => {
     const prev = prevStatusRef.current;
     const isReadyLike = nextStatus === "READY" || nextStatus === "COMPLETED";
@@ -77,7 +114,7 @@ export const OrderStatusPage: React.FC = () => {
     if (orderId && order) {
       trackOrderStatusView(orderId, order.status);
     }
-  }, [orderId, order?.status]);
+  }, [orderId, order]);
 
   // Context 주문 갱신 → READY UX (알림은 Context polling이 담당)
   useEffect(() => {
@@ -109,7 +146,7 @@ export const OrderStatusPage: React.FC = () => {
     return null;
   }
 
-  if (!order) {
+  if (!order && loadFailed) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white text-center">
         <p className="text-gray-800 font-bold text-xs mb-4">주문 정보를 찾을 수 없습니다.</p>
@@ -119,6 +156,15 @@ export const OrderStatusPage: React.FC = () => {
         >
           메뉴판으로 돌아가기
         </button>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-white text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mb-3"></div>
+        <p className="text-xs font-bold text-gray-700">주문 정보를 불러오는 중...</p>
       </div>
     );
   }

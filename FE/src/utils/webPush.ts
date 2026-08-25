@@ -2,6 +2,9 @@ import { pushService } from "../services/user/pushService";
 
 const ENDPOINT_KEY = "babi_push_endpoint";
 
+/** 동일 orderId에 대한 동시 link-order 호출 합치기 (PaymentSuccess + Strict Mode 등) */
+const inFlightLinkByOrderId = new Map<string, Promise<void>>();
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -111,17 +114,30 @@ export async function linkPushSubscriptionToOrder(orderId: string | number): Pro
     return;
   }
 
-  try {
-    let endpoint = localStorage.getItem(ENDPOINT_KEY);
-    if (!endpoint) {
-      const ok = await ensurePushSubscription();
-      if (!ok) return;
-      endpoint = localStorage.getItem(ENDPOINT_KEY);
-    }
-    if (!endpoint) return;
-
-    await pushService.linkOrder(endpoint, orderId);
-  } catch (err) {
-    console.error("Push 구독-주문 연결 실패:", err);
+  const key = String(orderId);
+  const existing = inFlightLinkByOrderId.get(key);
+  if (existing) {
+    return existing;
   }
+
+  const task = (async () => {
+    try {
+      let endpoint = localStorage.getItem(ENDPOINT_KEY);
+      if (!endpoint) {
+        const ok = await ensurePushSubscription();
+        if (!ok) return;
+        endpoint = localStorage.getItem(ENDPOINT_KEY);
+      }
+      if (!endpoint) return;
+
+      await pushService.linkOrder(endpoint, orderId);
+    } catch (err) {
+      console.error("Push 구독-주문 연결 실패:", err);
+    } finally {
+      inFlightLinkByOrderId.delete(key);
+    }
+  })();
+
+  inFlightLinkByOrderId.set(key, task);
+  return task;
 }

@@ -35,13 +35,16 @@ public class OrderDetailResponse {
     @Schema(description = "주문 생성 시각")
     private LocalDateTime createdAt;
 
+    @Schema(description = "대기열 진입 시각 (픽업번호 최초 할당 시점)")
+    private LocalDateTime pickupAssignedAt;
+
     @Schema(description = "주문 수정 시각")
     private LocalDateTime updatedAt;
 
     @Schema(description = "주문 상품 목록")
     private List<OrderItemResponse> items;
 
-    @Schema(description = "내 앞 대기 주문 수 (진행 중이며 대기번호가 더 빠른 주문)", example = "2")
+    @Schema(description = "내 앞 대기 주문 수 (진행 중이며 대기열에 더 먼저 진입한 주문)", example = "2")
     private Integer waitingAheadCount;
 
     /**
@@ -70,6 +73,7 @@ public class OrderDetailResponse {
                 .totalAmount(order.getTotalAmount())
                 .paymentStatus(paymentStatus)
                 .createdAt(order.getCreatedAt())
+                .pickupAssignedAt(order.getPickupAssignedAt())
                 .updatedAt(order.getUpdatedAt())
                 .items(order.getItems().stream().map(OrderItemResponse::from).toList())
                 .waitingAheadCount(waitingAheadCount)

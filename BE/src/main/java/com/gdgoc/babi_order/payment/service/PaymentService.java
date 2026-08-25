@@ -10,6 +10,7 @@ import com.gdgoc.babi_order.payment.entity.PaymentStatus;
 import com.gdgoc.babi_order.payment.dto.request.PaymentCancelRequest;
 import com.gdgoc.babi_order.payment.dto.request.PaymentConfirmRequest;
 import com.gdgoc.babi_order.payment.dto.request.PaymentWebhookRequest;
+import com.gdgoc.babi_order.payment.dto.response.AdminPaymentHistoryItemResponse;
 import com.gdgoc.babi_order.payment.dto.response.PaymentConfirmResponse;
 import com.gdgoc.babi_order.payment.dto.response.PaymentFailResponse;
 import com.gdgoc.babi_order.payment.dto.response.PaymentResponse;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -257,6 +259,31 @@ public class PaymentService {
         } catch (Exception e) {
             log.warn("결제 수단 라벨 보강 실패 paymentKey={}: {}", payment.getPaymentKey(), e.getMessage());
         }
+    }
+
+    /**
+     * Admin 결제 내역 — 전체 기간, approvedAt DESC.
+     * 주문 대기열(business-day / pickupAssignedAt FIFO)과 완전히 독립.
+     */
+    public List<AdminPaymentHistoryItemResponse> listAdminHistory() {
+        return paymentRepository.findAllForAdminHistory().stream()
+                .map(this::toAdminHistoryItem)
+                .toList();
+    }
+
+    private AdminPaymentHistoryItemResponse toAdminHistoryItem(Payment payment) {
+        return AdminPaymentHistoryItemResponse.builder()
+                .id(payment.getId())
+                .paymentKey(payment.getPaymentKey())
+                .orderId(payment.getOrder().getId())
+                .pickupNumber(payment.getOrder().getPickupNumber())
+                .amount(payment.getAmount())
+                .status(payment.getStatus().name())
+                .cancelReason(payment.getCancelReason())
+                .approvedAt(payment.getApprovedAt())
+                .createdAt(payment.getCreatedAt())
+                .methodLabel(payment.getMethodLabel())
+                .build();
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
