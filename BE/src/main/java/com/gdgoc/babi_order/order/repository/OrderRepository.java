@@ -19,13 +19,34 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByOrderByCreatedAtDescIdDesc();
 
     /**
-     * 당일(구간) 픽업번호가 발급된 가장 최근 주문 — 픽업번호 순환(1~99) 발급용.
-     * 미결제(픽업번호 0) 주문은 제외합니다.
+     * 당일 발급된 픽업번호의 최댓값 — 순환(1~99) 시퀀스 기준.
+     * createdAt 최신 주문의 번호가 아니라 max(pickup_number)를 쓴다
+     * (늦게 결제된 선생성 주문이 더 큰 번호를 가진 뒤, 신주문 할당이 되돌아가는 사고 방지).
      */
-    Optional<Order> findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
-            LocalDateTime startInclusive,
-            LocalDateTime endExclusive,
-            Integer pickupNumberExclusive);
+    @Query("""
+            select coalesce(max(o.pickupNumber), 0) from Order o
+            where o.createdAt >= :startInclusive
+              and o.createdAt < :endExclusive
+              and o.pickupNumber > 0
+            """)
+    int findMaxAssignedPickupNumber(
+            @Param("startInclusive") LocalDateTime startInclusive,
+            @Param("endExclusive") LocalDateTime endExclusive);
+
+    /**
+     * 당일 활성(PREPARING/READY) 주문이 사용 중인 픽업번호 — 동시 활성 중복 방지용.
+     */
+    @Query("""
+            select distinct o.pickupNumber from Order o
+            where o.status in :statuses
+              and o.createdAt >= :startInclusive
+              and o.createdAt < :endExclusive
+              and o.pickupNumber > 0
+            """)
+    List<Integer> findActivePickupNumbers(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("startInclusive") LocalDateTime startInclusive,
+            @Param("endExclusive") LocalDateTime endExclusive);
 
     @Query("""
             select count(o) from Order o
