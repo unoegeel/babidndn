@@ -597,86 +597,60 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   /* ── 결제 내역 ── */
 
   const refreshPayments = useCallback(async () => {
-    const summaries = await adminOrderService.getOrdersForPaymentHistory();
+    // Payment history source of truth: /api/admin/payments (approvedAt DESC).
+    // Never reuse GET /api/orders?view=queue — that is business-day FIFO only.
+    const history = await paymentService.listHistory();
 
-    // 요약 문구("삼겹소금 외 1개")를 만들기 위해 주문 상세도 확보
+    const orderIds = [...new Set(history.map((p) => p.orderId))];
     await Promise.all(
-      summaries
-        .filter((s) => !orderDetailCacheRef.current.has(s.id))
-        .map(async (s) => {
+      orderIds
+        .filter((id) => !orderDetailCacheRef.current.has(id))
+        .map(async (id) => {
           try {
-            const detail = await adminOrderService.getOrder(s.id);
-            orderDetailCacheRef.current.set(s.id, detail);
+            const detail = await adminOrderService.getOrder(id);
+            orderDetailCacheRef.current.set(id, detail);
           } catch (err) {
-            console.error(`주문 상세 조회 실패 (id=${s.id}):`, err);
+            console.error(`주문 상세 조회 실패 (id=${id}):`, err);
           }
         }),
     );
 
-    // methodLabel 없는 캐시·구형 카드사 표기 캐시는 재조회
-    for (const [orderId, cached] of [...paymentCacheRef.current.entries()]) {
-      const label = cached?.methodLabel?.trim() ?? "";
-      if (cached && (!label || label === "카드" || label.startsWith("카드("))) {
-        paymentCacheRef.current.delete(orderId);
-      }
+    // Sync payment cache for refund path (getPaymentByOrderId)
+    for (const item of history) {
+      paymentCacheRef.current.set(item.orderId, {
+        id: item.id,
+        paymentKey: item.paymentKey,
+        orderId: item.orderId,
+        tossOrderId: "",
+        amount: item.amount,
+        status: item.status,
+        cancelReason: item.cancelReason ?? null,
+        approvedAt: item.approvedAt,
+        createdAt: item.createdAt,
+        methodLabel: item.methodLabel ?? null,
+      });
     }
 
-    // 결제 정보 조회 (결제 전 주문은 404 → null 캐시)
-    await Promise.all(
-      summaries
-        .filter((s) => !paymentCacheRef.current.has(s.id))
-        .map(async (s) => {
-          try {
-            const payment = await paymentService.getByOrderId(s.id);
-            paymentCacheRef.current.set(s.id, payment);
-          } catch (err) {
-            if (err instanceof ApiError && err.status === 404) {
-              paymentCacheRef.current.set(s.id, null);
-            } else {
-              console.error(`결제 조회 실패 (orderId=${s.id}):`, err);
-            }
-          }
-        }),
-    );
-
-    const rows = summaries.map((summary) => {
-      const payment = paymentCacheRef.current.get(summary.id) ?? null;
-      const detail = orderDetailCacheRef.current.get(summary.id);
-
-      if (!payment) {
-        const createdMs = serverInstantMs(summary.createdAt);
-        return {
-          id: `order-${summary.id}`,
-          paidAt: formatDateTime(summary.createdAt),
-          paidAtMs: Number.isFinite(createdMs) ? createdMs : 0,
-          orderNumber: summary.pickupNumber,
-          method: "-",
-          amount: summary.totalAmount,
-          status: "미결제" as const,
-          summary: summarize(detail),
-          orderId: summary.id,
-        };
-      }
-
-      const approvedRaw = payment.approvedAt ?? payment.createdAt;
+    const rows = history.map((item) => {
+      const detail = orderDetailCacheRef.current.get(item.orderId);
+      const approvedRaw = item.approvedAt ?? item.createdAt;
       const approvedMs = serverInstantMs(approvedRaw);
       return {
-        id: String(payment.id),
+        id: String(item.id),
         paidAt: formatDateTime(approvedRaw),
         paidAtMs: Number.isFinite(approvedMs) ? approvedMs : 0,
-        orderNumber: summary.pickupNumber,
-        method: payment.methodLabel?.trim() || "토스페이먼츠",
-        amount: payment.amount,
-        status: toAdminPaymentStatus(payment.status),
+        orderNumber: item.pickupNumber,
+        method: item.methodLabel?.trim() || "토스페이먼츠",
+        amount: item.amount,
+        status: toAdminPaymentStatus(item.status),
         summary: summarize(detail),
-        orderId: summary.id,
-        paymentKey: payment.paymentKey,
+        orderId: item.orderId,
+        paymentKey: item.paymentKey,
       };
     });
 
-    // Queue FIFO(ASC)와 분리: 결제 내역은 항상 최신 결제 순(DESC)
-    rows.sort((a, b) => b.paidAtMs - a.paidAtMs);
-    setPayments(rows);
+    // Immutable copy — never mutate shared queue/order arrays
+    setPayments([...rows].sort((a, b) => b.paidAtMs - a.paidAtMs));
   }, []);
 
   const refundPayment = useCallback(

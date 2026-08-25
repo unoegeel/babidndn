@@ -191,7 +191,7 @@ class QueueBusinessDayRegressionTest {
                 .toList();
 
         assertThat(queueIds).containsExactly(older.getId(), newer.getId());
-        assertThat(historyIds.getFirst()).isEqualTo(newer.getId());
+        // history follows payment approvedAt DESC (newer paid later → first), not queue FIFO
         assertThat(historyIds).containsExactly(newer.getId(), older.getId());
     }
 

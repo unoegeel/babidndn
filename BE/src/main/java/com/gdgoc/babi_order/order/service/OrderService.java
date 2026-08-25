@@ -155,17 +155,15 @@ public class OrderService {
     }
 
     /**
-     * 결제 내역용: 결제 row가 있는 주문 전체 (id desc). 정렬 계약은 FE에서 approvedAt DESC.
+     * 결제 내역용(레거시 view=history): 결제 approvedAt DESC 순 주문 요약.
+     * Admin UI는 {@code GET /api/admin/payments}를 사용한다.
      */
     public List<OrderSummaryResponse> getPaidOrdersForHistory() {
-        List<Order> orders = orderRepository.findAllByOrderByIdDesc();
-        Map<Long, PaymentStatus> paymentStatusByOrderId = paymentStatusByOrderId(
-                orders.stream().map(Order::getId).toList());
-
-        return orders.stream()
-                .filter(order -> paymentStatusByOrderId.containsKey(order.getId()))
-                .map(order -> OrderSummaryResponse.from(order, toPaymentStatusName(
-                        paymentStatusByOrderId.get(order.getId()))))
+        List<Payment> payments = paymentRepository.findAllForAdminHistory();
+        return payments.stream()
+                .map(payment -> OrderSummaryResponse.from(
+                        payment.getOrder(),
+                        toPaymentStatusName(payment.getStatus())))
                 .toList();
     }
 
