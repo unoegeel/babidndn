@@ -132,6 +132,20 @@ class OrderControllerTest {
     }
 
     @Test
+    void getOrdersHistoryViewReturnsPaymentHistoryList() throws Exception {
+        given(orderService.getPaidOrdersForHistory()).willReturn(List.of(OrderSummaryResponse.builder()
+                .id(9L)
+                .pickupNumber(9)
+                .status("COMPLETED")
+                .totalAmount(1000)
+                .build()));
+
+        mockMvc.perform(get("/api/orders").param("view", "history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(9));
+    }
+
+    @Test
     void getWaitingCountReturnsCount() throws Exception {
         given(orderService.getWaitingCount())
                 .willReturn(WaitingCountResponse.builder().waitingCount(2L).build());

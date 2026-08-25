@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.order.entity;
 
+import com.gdgoc.babi_order.common.time.StoreTime;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -101,7 +102,7 @@ public class Order {
      * 고객 FE 폴링이 재호출을 구분하려면 타임스탬프를 명시적으로 올려야 합니다.
      */
     public void touchUpdatedAt() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = StoreTime.now();
     }
 
     public boolean hasPickupNumber() {
@@ -111,7 +112,7 @@ public class Order {
     public void assignPickupNumber(int pickupNumber) {
         this.pickupNumber = pickupNumber;
         if (this.pickupAssignedAt == null) {
-            this.pickupAssignedAt = LocalDateTime.now();
+            this.pickupAssignedAt = StoreTime.now();
         }
     }
 
@@ -143,13 +144,13 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = StoreTime.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = StoreTime.now();
     }
 }

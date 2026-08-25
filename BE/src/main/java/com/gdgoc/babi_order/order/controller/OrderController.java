@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -54,13 +55,19 @@ public class OrderController {
     }
 
     @GetMapping
-    @Operation(summary = "전체 주문 조회", description = "결제 내역이 있는 주문을 최근순으로 조회합니다. 미결제 임시 주문은 제외됩니다.")
-    public ResponseEntity<List<OrderSummaryResponse>> getOrders() {
+    @Operation(
+            summary = "주문 목록 조회",
+            description = "view=queue(기본): 오늘(KST) 대기열 FIFO. view=history: 결제 이력용 전체(정렬은 클라이언트 approvedAt DESC).")
+    public ResponseEntity<List<OrderSummaryResponse>> getOrders(
+            @RequestParam(name = "view", defaultValue = "queue") String view) {
+        if ("history".equalsIgnoreCase(view)) {
+            return ResponseEntity.ok(orderService.getPaidOrdersForHistory());
+        }
         return ResponseEntity.ok(orderService.getOrders());
     }
 
     @GetMapping("/waiting-count")
-    @Operation(summary = "매장 전체 대기 인원", description = "결제 완료된 PREPARING/READY 주문 수를 반환합니다.")
+    @Operation(summary = "매장 전체 대기 인원", description = "오늘(KST) PREPARING/READY 주문 수를 반환합니다.")
     public ResponseEntity<WaitingCountResponse> getWaitingCount() {
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store")
