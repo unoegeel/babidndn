@@ -182,6 +182,20 @@ export interface PaymentResponse {
   methodLabel?: string | null;
 }
 
+/** GET /api/admin/payments — Admin 결제 내역 (approvedAt DESC) */
+export interface AdminPaymentHistoryItem {
+  id: number;
+  paymentKey: string;
+  orderId: number;
+  pickupNumber: number;
+  amount: number;
+  status: string;
+  cancelReason?: string | null;
+  approvedAt: string;
+  createdAt: string;
+  methodLabel?: string | null;
+}
+
 export interface PaymentCancelRequest {
   cancelReason: string;
 }

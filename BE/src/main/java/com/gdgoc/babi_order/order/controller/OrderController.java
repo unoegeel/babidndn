@@ -57,7 +57,7 @@ public class OrderController {
     @GetMapping
     @Operation(
             summary = "주문 목록 조회",
-            description = "view=queue(기본): 오늘(KST) 대기열 FIFO. view=history: 결제 이력용 전체(정렬은 클라이언트 approvedAt DESC).")
+            description = "view=queue(기본): 오늘(KST) 대기열 FIFO. view=history: 결제 approvedAt DESC 주문 요약(Admin UI는 /api/admin/payments 권장).")
     public ResponseEntity<List<OrderSummaryResponse>> getOrders(
             @RequestParam(name = "view", defaultValue = "queue") String view) {
         if ("history".equalsIgnoreCase(view)) {
