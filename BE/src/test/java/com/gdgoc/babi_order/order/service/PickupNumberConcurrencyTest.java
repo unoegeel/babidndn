@@ -64,6 +64,7 @@ class PickupNumberConcurrencyTest {
 
     @BeforeEach
     void clearOrders() {
+        entityManager.getEntityManager().createNativeQuery("DELETE FROM payments").executeUpdate();
         entityManager.getEntityManager().createNativeQuery("DELETE FROM order_item_options").executeUpdate();
         entityManager.getEntityManager().createNativeQuery("DELETE FROM order_items").executeUpdate();
         entityManager.getEntityManager().createNativeQuery("DELETE FROM orders").executeUpdate();
