@@ -5,6 +5,15 @@ import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenuOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenusResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOptionsResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOverviewResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterFunnelResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterInsightsResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterMenusResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterOperationsResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterOverviewResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterPaymentsResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterPerformanceResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterReliabilityResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterSalesResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,92 +24,141 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 
 /**
- * Developer Console Analytics API.
- *
- * 기간 파라미터: from / to (ISO-8601, UTC Instant).
- * 미전달 시 Asia/Seoul 기준 오늘(00:00:00 ~ 현재)로 기본 처리.
- *
- * 모든 엔드포인트는 ROLE_DEVELOPER 전용 (SecurityConfig에서 /api/dev/** 일괄 처리).
+ * Developer Analytics Control Center API.
+ * Period: from/to ISO-8601 Instant. Default = Asia/Seoul today 00:00 → now (StoreTime).
  */
 @RestController
 @RequestMapping("/api/dev/analytics")
 @RequiredArgsConstructor
-@Tag(name = "DeveloperAnalytics", description = "Developer Console Analytics")
+@Tag(name = "DeveloperAnalytics", description = "Developer Analytics Control Center")
 public class DeveloperAnalyticsController {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
-
     private final DeveloperAnalyticsService analyticsService;
+    private final DeveloperControlCenterService controlCenterService;
 
     @GetMapping("/overview")
-    @Operation(summary = "KPI Overview", description = "기간 내 사용자 행동 KPI 집계")
-    public AnalyticsOverviewResponse overview(
+    @Operation(summary = "Control Center Overview KPIs")
+    public ControlCenterOverviewResponse overview(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
-        Instant[] range = resolveRange(from, to);
-        return analyticsService.overview(range[0], range[1]);
+        return controlCenterService.overview(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/behavior-overview")
+    @Operation(summary = "Legacy behavior-only overview (client_events)")
+    public AnalyticsOverviewResponse behaviorOverview(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        AnalyticsRange range = AnalyticsRange.of(from, to);
+        return analyticsService.overview(range.fromInstant(), range.toInstant());
+    }
+
+    @GetMapping("/sales")
+    public ControlCenterSalesResponse sales(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.sales(AnalyticsRange.of(from, to));
     }
 
     @GetMapping("/funnel")
-    @Operation(summary = "주문 Funnel", description = "기간 내 단계별 고유 사용자 수 및 전환율")
-    public AnalyticsFunnelResponse funnel(
+    @Operation(summary = "Funnel — aggregate + sequential session")
+    public ControlCenterFunnelResponse controlFunnel(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
-        Instant[] range = resolveRange(from, to);
-        return analyticsService.funnel(range[0], range[1]);
+        return controlCenterService.funnel(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/funnel-legacy")
+    @Operation(summary = "Legacy anonymous-id funnel (8 steps)")
+    public AnalyticsFunnelResponse funnelLegacy(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        AnalyticsRange range = AnalyticsRange.of(from, to);
+        return analyticsService.funnel(range.fromInstant(), range.toInstant());
     }
 
     @GetMapping("/menus")
-    @Operation(summary = "메뉴 Analytics", description = "메뉴별 조회 수 / 장바구니 추가 수 순위")
-    public AnalyticsMenusResponse menus(
+    @Operation(summary = "Menu performance — behavior + paid sales")
+    public ControlCenterMenusResponse controlMenus(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
-        Instant[] range = resolveRange(from, to);
-        return analyticsService.menus(range[0], range[1]);
+        return controlCenterService.menus(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/menus-behavior")
+    @Operation(summary = "Legacy menu views/cartAdds only")
+    public AnalyticsMenusResponse menusBehavior(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        AnalyticsRange range = AnalyticsRange.of(from, to);
+        return analyticsService.menus(range.fromInstant(), range.toInstant());
     }
 
     @GetMapping("/options")
-    @Operation(summary = "옵션 Analytics", description = "옵션 선택 수 순위")
     public AnalyticsOptionsResponse options(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
-        Instant[] range = resolveRange(from, to);
-        return analyticsService.options(range[0], range[1]);
+        AnalyticsRange range = AnalyticsRange.of(from, to);
+        return analyticsService.options(range.fromInstant(), range.toInstant());
     }
 
     @GetMapping("/menu-options")
-    @Operation(summary = "Menu × Option Analytics", description = "메뉴별 옵션 선택률 (MENU_OPTION_OPEN 기준)")
     public AnalyticsMenuOptionsResponse menuOptions(
             @RequestParam long menuId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
     ) {
-        Instant[] range = resolveRange(from, to);
-        return analyticsService.menuOptions(menuId, range[0], range[1]);
+        AnalyticsRange range = AnalyticsRange.of(from, to);
+        return analyticsService.menuOptions(menuId, range.fromInstant(), range.toInstant());
     }
 
-    /**
-     * from/to 미전달 시 Asia/Seoul 기준 오늘 00:00:00 ~ 현재로 기본 처리.
-     */
-    private static Instant[] resolveRange(Instant from, Instant to) {
-        Instant now = Instant.now();
-        if (from == null) {
-            ZonedDateTime todaySeoul = ZonedDateTime.now(SEOUL)
-                    .toLocalDate()
-                    .atStartOfDay(SEOUL);
-            from = todaySeoul.toInstant();
-        }
-        if (to == null) {
-            to = now;
-        }
-        return new Instant[]{from, to};
+    @GetMapping("/payments")
+    public ControlCenterPaymentsResponse payments(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.payments(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/operations")
+    public ControlCenterOperationsResponse operations(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.operations(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/performance")
+    public ControlCenterPerformanceResponse performance(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.performance(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/reliability")
+    public ControlCenterReliabilityResponse reliability(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.reliability(AnalyticsRange.of(from, to));
+    }
+
+    @GetMapping("/insights")
+    public ControlCenterInsightsResponse insights(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+    ) {
+        return controlCenterService.insights(AnalyticsRange.of(from, to));
     }
 }

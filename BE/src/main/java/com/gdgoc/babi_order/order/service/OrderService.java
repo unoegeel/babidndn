@@ -203,7 +203,8 @@ public class OrderService {
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         validateStatusTransition(order.getStatus(), nextStatus);
         order.changeStatus(nextStatus);
-        // 최초 READY 전환·재호출(READY→READY) 모두 updatedAt을 갱신해 고객 폴링이 감지할 수 있게 함
+        // 최초 READY 전환·재호출(READY→READY) 모두 updatedAt을 갱신해 고객 폴링이 감지할 수 있게 함.
+        // calledAt은 고객 호출 domain action(POST /call)에서만 기록한다 — generic READY 전환과 동일시하지 않음.
         if (nextStatus == OrderStatus.READY) {
             order.touchUpdatedAt();
         }
@@ -249,6 +250,7 @@ public class OrderService {
             );
         }
 
+        order.markCalledAtIfAbsent();
         order.touchUpdatedAt();
         orderRepository.saveAndFlush(order);
 
