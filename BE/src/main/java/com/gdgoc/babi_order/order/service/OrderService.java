@@ -1,5 +1,6 @@
 package com.gdgoc.babi_order.order.service;
 
+import com.gdgoc.babi_order.common.time.StoreTime;
 import com.gdgoc.babi_order.menu.entity.Menu;
 import com.gdgoc.babi_order.menu.entity.MenuOption;
 import com.gdgoc.babi_order.menu.entity.SaleStatus;
@@ -35,7 +36,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +50,6 @@ public class OrderService {
 
     private static final String UNPAID = "UNPAID";
     private static final int MAX_PICKUP_NUMBER = 99;
-    private static final ZoneId STORE_ZONE = ZoneId.of("Asia/Seoul");
 
     private final OrderRepository orderRepository;
     private final MenuRepository menuRepository;
@@ -137,9 +136,14 @@ public class OrderService {
         return response;
     }
 
-    /** 결제 내역이 있는 주문만 반환합니다. (미결제 임시 주문 제외) — 대기열 진입 순(FIFO). */
+    /**
+     * 오늘(KST) 대기열 주문 — Admin 보드용 FIFO ({@code pickupAssignedAt} asc).
+     * 결제 이력은 {@link #getPaidOrdersForHistory()}를 사용한다.
+     */
     public List<OrderSummaryResponse> getOrders() {
-        List<Order> orders = orderRepository.findAllForAdminQueue();
+        LocalDateTime dayStart = StoreTime.startOfToday();
+        LocalDateTime dayEnd = StoreTime.startOfTomorrow();
+        List<Order> orders = orderRepository.findAllForAdminQueueOnDay(dayStart, dayEnd);
         Map<Long, PaymentStatus> paymentStatusByOrderId = paymentStatusByOrderId(
                 orders.stream().map(Order::getId).toList());
 
@@ -151,13 +155,28 @@ public class OrderService {
     }
 
     /**
-     * 매장 전체 대기 인원: 결제 완료(DONE)이고 PREPARING 또는 READY인 주문 수.
-     * 주문 전 메뉴 화면용. 개인 주문의 waitingAheadCount 와는 별개다.
+     * 결제 내역용: 결제 row가 있는 주문 전체 (id desc). 정렬 계약은 FE에서 approvedAt DESC.
+     */
+    public List<OrderSummaryResponse> getPaidOrdersForHistory() {
+        List<Order> orders = orderRepository.findAllByOrderByIdDesc();
+        Map<Long, PaymentStatus> paymentStatusByOrderId = paymentStatusByOrderId(
+                orders.stream().map(Order::getId).toList());
+
+        return orders.stream()
+                .filter(order -> paymentStatusByOrderId.containsKey(order.getId()))
+                .map(order -> OrderSummaryResponse.from(order, toPaymentStatusName(
+                        paymentStatusByOrderId.get(order.getId()))))
+                .toList();
+    }
+
+    /**
+     * 매장 전체 대기 인원: 오늘(KST) PREPARING/READY 주문 수.
      */
     public WaitingCountResponse getWaitingCount() {
-        long waitingCount = orderRepository.countByStatusInAndPaid(
+        long waitingCount = orderRepository.countActiveInQueueOnDay(
                 List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                PaymentStatus.DONE);
+                StoreTime.startOfToday(),
+                StoreTime.startOfTomorrow());
         return WaitingCountResponse.builder().waitingCount(waitingCount).build();
     }
 
@@ -308,9 +327,8 @@ public class OrderService {
      * 활성(PREPARING/READY) 번호는 건너뛴다. 호출부는 {@link PickupNumberLock}으로 직렬화한다.
      */
     private int nextPickupNumber() {
-        LocalDate today = LocalDate.now(STORE_ZONE);
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
+        LocalDateTime startOfDay = StoreTime.startOfToday();
+        LocalDateTime endOfDay = StoreTime.startOfTomorrow();
 
         int last = orderRepository.findMaxAssignedPickupNumber(startOfDay, endOfDay);
         int start = last <= 0 || last >= MAX_PICKUP_NUMBER ? 1 : last + 1;
@@ -333,7 +351,7 @@ public class OrderService {
         );
     }
 
-    /** 결제 완료된 진행 중 주문 중, 나보다 먼저 대기열에 진입한 주문 수를 계산합니다. */
+    /** 같은 KST business-day 대기열에서 나보다 먼저 진입한 활성 주문 수. */
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus) {
         return toDetailResponse(order, paymentStatus, null);
     }
@@ -341,8 +359,11 @@ public class OrderService {
     private OrderDetailResponse toDetailResponse(Order order, String paymentStatus, String accessToken) {
         int waitingAheadCount = 0;
         if (order.getStatus() == OrderStatus.PREPARING && order.getPickupAssignedAt() != null) {
+            LocalDate queueDay = order.getPickupAssignedAt().toLocalDate();
             waitingAheadCount = (int) orderRepository.countActiveAheadInQueue(
                     List.of(OrderStatus.PREPARING, OrderStatus.READY),
+                    StoreTime.startOfDay(queueDay),
+                    StoreTime.startOfNextDay(queueDay),
                     order.getPickupAssignedAt(),
                     order.getId());
         }

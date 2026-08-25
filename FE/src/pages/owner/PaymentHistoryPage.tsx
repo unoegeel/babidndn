@@ -58,24 +58,26 @@ export default function PaymentHistoryPage() {
         ? rangeFromDateInputs(customStart, customEnd)
         : null;
 
-    return payments.filter((p) => {
-      if (k && String(p.orderNumber) !== k) {
-        return false;
-      }
-      if (period === "today" && p.paidAtMs < todayStart) {
-        return false;
-      }
-      if (period === "last3" && p.paidAtMs < threeDaysAgo) {
-        return false;
-      }
-      if (period === "custom") {
-        if (!customRange || customRange.endMs < customRange.startMs) return false;
-        if (p.paidAtMs < customRange.startMs || p.paidAtMs > customRange.endMs) {
+    return payments
+      .filter((p) => {
+        if (k && String(p.orderNumber) !== k) {
           return false;
         }
-      }
-      return true;
-    });
+        if (period === "today" && p.paidAtMs < todayStart) {
+          return false;
+        }
+        if (period === "last3" && p.paidAtMs < threeDaysAgo) {
+          return false;
+        }
+        if (period === "custom") {
+          if (!customRange || customRange.endMs < customRange.startMs) return false;
+          if (p.paidAtMs < customRange.startMs || p.paidAtMs > customRange.endMs) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .sort((a, b) => b.paidAtMs - a.paidAtMs);
   }, [payments, keyword, period, customStart, customEnd]);
 
   const toggleExpand = (payment: Payment) => {

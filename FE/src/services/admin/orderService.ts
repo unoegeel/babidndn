@@ -11,11 +11,19 @@ import type {
  */
 export const adminOrderService = {
   /**
-   * 전체 주문 조회 (최근 생성 순)
-   * GET /api/orders
+   * 오늘(KST) Admin 대기열 (pickupAssignedAt ASC)
+   * GET /api/orders?view=queue
    */
   getOrders(): Promise<OrderSummaryResponse[]> {
-    return adminApi.get<OrderSummaryResponse[]>("/api/orders");
+    return adminApi.get<OrderSummaryResponse[]>("/api/orders?view=queue");
+  },
+
+  /**
+   * 결제 내역용 전체 주문 (정렬은 호출부에서 approvedAt DESC)
+   * GET /api/orders?view=history
+   */
+  getOrdersForPaymentHistory(): Promise<OrderSummaryResponse[]> {
+    return adminApi.get<OrderSummaryResponse[]>("/api/orders?view=history");
   },
 
   /**

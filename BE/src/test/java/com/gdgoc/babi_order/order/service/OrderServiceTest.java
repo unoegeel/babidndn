@@ -80,7 +80,7 @@ class OrderServiceTest {
             java.util.function.Supplier<?> supplier = invocation.getArgument(0);
             return supplier.get();
         });
-        lenient().when(orderRepository.countActiveAheadInQueue(any(), any(), any()))
+        lenient().when(orderRepository.countActiveAheadInQueue(any(), any(), any(), any(), any()))
                 .thenReturn(0L);
         orderService = new OrderService(
                 orderRepository,
@@ -397,7 +397,7 @@ class OrderServiceTest {
         Order paidOrder = order(1L, 1);
         Order unpaidOrder = order(2L, 0);
         Payment payment = payment(paidOrder, PaymentStatus.DONE);
-        given(orderRepository.findAllForAdminQueue())
+        given(orderRepository.findAllForAdminQueueOnDay(any(LocalDateTime.class), any(LocalDateTime.class)))
                 .willReturn(List.of(paidOrder, unpaidOrder));
         given(paymentRepository.findByOrder_IdIn(List.of(1L, 2L))).willReturn(List.of(payment));
 
@@ -409,10 +409,11 @@ class OrderServiceTest {
     }
 
     @Test
-    void getWaitingCountCountsPaidPreparingAndReadyOrders() {
-        given(orderRepository.countByStatusInAndPaid(
-                List.of(OrderStatus.PREPARING, OrderStatus.READY),
-                PaymentStatus.DONE)).willReturn(2L);
+    void getWaitingCountCountsTodayPreparingAndReadyOrders() {
+        given(orderRepository.countActiveInQueueOnDay(
+                eq(List.of(OrderStatus.PREPARING, OrderStatus.READY)),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class))).willReturn(2L);
 
         WaitingCountResponse result = orderService.getWaitingCount();
 
@@ -533,6 +534,9 @@ class OrderServiceTest {
         Order order = new Order(pickupNumber);
         ReflectionTestUtils.setField(order, "id", id);
         ReflectionTestUtils.setField(order, "totalAmount", 8000);
+        if (pickupNumber != null && pickupNumber > 0) {
+            ReflectionTestUtils.setField(order, "pickupAssignedAt", java.time.LocalDateTime.now());
+        }
         return order;
     }
 

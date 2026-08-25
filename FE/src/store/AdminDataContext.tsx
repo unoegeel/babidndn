@@ -597,7 +597,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
   /* ── 결제 내역 ── */
 
   const refreshPayments = useCallback(async () => {
-    const summaries = await adminOrderService.getOrders();
+    const summaries = await adminOrderService.getOrdersForPaymentHistory();
 
     // 요약 문구("삼겹소금 외 1개")를 만들기 위해 주문 상세도 확보
     await Promise.all(
@@ -639,42 +639,44 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
         }),
     );
 
-    setPayments(
-      summaries.map((summary) => {
-        const payment = paymentCacheRef.current.get(summary.id) ?? null;
-        const detail = orderDetailCacheRef.current.get(summary.id);
+    const rows = summaries.map((summary) => {
+      const payment = paymentCacheRef.current.get(summary.id) ?? null;
+      const detail = orderDetailCacheRef.current.get(summary.id);
 
-        if (!payment) {
-          const createdMs = serverInstantMs(summary.createdAt);
-          return {
-            id: `order-${summary.id}`,
-            paidAt: formatDateTime(summary.createdAt),
-            paidAtMs: Number.isFinite(createdMs) ? createdMs : 0,
-            orderNumber: summary.pickupNumber,
-            method: "-",
-            amount: summary.totalAmount,
-            status: "미결제" as const,
-            summary: summarize(detail),
-            orderId: summary.id,
-          };
-        }
-
-        const approvedRaw = payment.approvedAt ?? payment.createdAt;
-        const approvedMs = serverInstantMs(approvedRaw);
+      if (!payment) {
+        const createdMs = serverInstantMs(summary.createdAt);
         return {
-          id: String(payment.id),
-          paidAt: formatDateTime(approvedRaw),
-          paidAtMs: Number.isFinite(approvedMs) ? approvedMs : 0,
+          id: `order-${summary.id}`,
+          paidAt: formatDateTime(summary.createdAt),
+          paidAtMs: Number.isFinite(createdMs) ? createdMs : 0,
           orderNumber: summary.pickupNumber,
-          method: payment.methodLabel?.trim() || "토스페이먼츠",
-          amount: payment.amount,
-          status: toAdminPaymentStatus(payment.status),
+          method: "-",
+          amount: summary.totalAmount,
+          status: "미결제" as const,
           summary: summarize(detail),
           orderId: summary.id,
-          paymentKey: payment.paymentKey,
         };
-      }),
-    );
+      }
+
+      const approvedRaw = payment.approvedAt ?? payment.createdAt;
+      const approvedMs = serverInstantMs(approvedRaw);
+      return {
+        id: String(payment.id),
+        paidAt: formatDateTime(approvedRaw),
+        paidAtMs: Number.isFinite(approvedMs) ? approvedMs : 0,
+        orderNumber: summary.pickupNumber,
+        method: payment.methodLabel?.trim() || "토스페이먼츠",
+        amount: payment.amount,
+        status: toAdminPaymentStatus(payment.status),
+        summary: summarize(detail),
+        orderId: summary.id,
+        paymentKey: payment.paymentKey,
+      };
+    });
+
+    // Queue FIFO(ASC)와 분리: 결제 내역은 항상 최신 결제 순(DESC)
+    rows.sort((a, b) => b.paidAtMs - a.paidAtMs);
+    setPayments(rows);
   }, []);
 
   const refundPayment = useCallback(
