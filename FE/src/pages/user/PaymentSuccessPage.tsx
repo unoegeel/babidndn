@@ -4,7 +4,7 @@ import { ApiError } from "../../api/client";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
 import type { OrderDetailResponse } from "../../types/api";
 import { useUserData } from "../../store/UserDataContext";
-import { linkPushSubscriptionToOrder } from "../../utils/webPush";
+import { saveOrderAccessToken } from "../../utils/orderAccessToken";
 import { trackPaymentSuccess } from "../../utils/userEvent/eventHelpers";
 
 function readPendingOrder(): OrderDetailResponse | null {
@@ -34,6 +34,37 @@ function parseOrderIdFromAlreadyProcessed(message: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** pendingOrder에 남아 있는 accessToken을 조회 맵에 재저장 — 결제 복귀 WebView/탭 간 유실 대비 */
+function ensureAccessTokenFromPending(
+  orderId: string | number,
+  pending: OrderDetailResponse | null,
+): void {
+  if (pending?.accessToken && String(pending.id) === String(orderId)) {
+    saveOrderAccessToken(orderId, pending.accessToken);
+  }
+}
+
+async function fetchPaidOrderWithRetry(
+  orderId: string,
+  attempts = 3,
+): Promise<OrderDetailResponse> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await orderService.getOrder(orderId);
+    } catch (err) {
+      lastError = err;
+      const retryable =
+        err instanceof ApiError && (err.status === 404 || err.status >= 500);
+      if (!retryable || i === attempts - 1) {
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 export const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -51,19 +82,28 @@ export const PaymentSuccessPage: React.FC = () => {
   const isBackendConfirmed = Boolean(confirmedOrderId);
   const isInvalidParams = !isBackendConfirmed && (!paymentKey || !tossOrderId || !amountStr);
 
-  const goToOrderStatus = (orderId: string | number, amount?: number) => {
+  /**
+   * 접근 토큰·주문 상태를 먼저 준비한 뒤 현황으로 이동한다.
+   * (이전: navigate 후 fire-and-forget getOrder → 첫 GET 404 / 치명 UI latch)
+   * Push link는 OrderStatusPage ownership.
+   */
+  const goToOrderStatus = async (orderId: string | number, amount?: number) => {
     const id = String(orderId);
+    const pending = readPendingOrder();
+    ensureAccessTokenFromPending(id, pending);
+
+    try {
+      const detail = await fetchPaidOrderWithRetry(id);
+      saveOrderToState(mapOrderDetailToOrder(detail));
+    } catch (e) {
+      console.error("결제 완료 주문 조회 실패:", e);
+      // 토큰/네트워크 일시 실패여도 현황으로 보내 OrderStatusPage가 재시도하게 한다.
+    }
+
     trackPaymentSuccess(id, amount);
     clearCart();
     clearPaymentStorage();
-    void linkPushSubscriptionToOrder(id);
     navigate(`/user/orders/${id}`, { replace: true });
-
-    // 현황 페이지에서도 조회하지만, 가능하면 로컬 상태도 미리 채움 (실패해도 이동은 완료된 상태)
-    void orderService
-      .getOrder(id)
-      .then((detail) => saveOrderToState(mapOrderDetailToOrder(detail)))
-      .catch((e) => console.error("결제 완료 주문 조회 실패:", e));
   };
 
   const restoreCartAndClear = async () => {
@@ -95,11 +135,11 @@ export const PaymentSuccessPage: React.FC = () => {
       return;
     }
 
-    // 백엔드에서 이미 승인 후 리다이렉트된 경우 — 즉시 현황으로 이동
+    // 백엔드에서 이미 승인 후 리다이렉트된 경우 — 주문 로드 후 현황으로 이동
     if (isBackendConfirmed && confirmedOrderId) {
       if (isRequestingRef.current) return;
       isRequestingRef.current = true;
-      goToOrderStatus(confirmedOrderId, readPendingOrder()?.totalAmount);
+      void goToOrderStatus(confirmedOrderId, readPendingOrder()?.totalAmount);
       return;
     }
 
@@ -112,7 +152,7 @@ export const PaymentSuccessPage: React.FC = () => {
       const pending = readPendingOrder();
       if (pending?.id) {
         sessionStorage.removeItem(sessionConfirmKey);
-        goToOrderStatus(pending.id, pending.totalAmount);
+        void goToOrderStatus(pending.id, pending.totalAmount);
       }
       return;
     }
@@ -147,7 +187,7 @@ export const PaymentSuccessPage: React.FC = () => {
       })
       .then((res) => {
         sessionStorage.removeItem(sessionConfirmKey);
-        goToOrderStatus(res.orderId, pendingOrder?.totalAmount ?? amount);
+        return goToOrderStatus(res.orderId, pendingOrder?.totalAmount ?? amount);
       })
       .catch(async (err: unknown) => {
         console.error("결제 승인 실패:", err);
@@ -166,7 +206,7 @@ export const PaymentSuccessPage: React.FC = () => {
           (pending?.id ? String(pending.id) : null);
 
         if (alreadyProcessed && recoveredId) {
-          goToOrderStatus(recoveredId, pending?.totalAmount ?? amount);
+          await goToOrderStatus(recoveredId, pending?.totalAmount ?? amount);
           return;
         }
 

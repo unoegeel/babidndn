@@ -67,6 +67,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-25 | Incident | Pickup: **primary** max(pickup) not createdAt-latest · **secondary** TX-bound `GET_LOCK`+JVM · FE post-payment load-before-nav · push exists derived · link dedupe. **DEPLOY READY · NO V102** |
 | 2026-08-24 | Order API | `PUT /api/orders/{id}/status` canonical — duplicate `@PatchMapping` 제거 (FE `adminOrderService` PUT 계약 유지). **CODE READY** |
 | 2026-08-24 | Security | Exclude `UserDetailsServiceAutoConfiguration` — Spring default generated password warning 제거 (Admin/JWT auth 유지). **CODE READY** |
 | 2026-08-24 | Docs | Admin/Developer responsibility boundary (ARCHITECTURE §5) · Feature Responsibility decision process (CONVENTIONS §2) |

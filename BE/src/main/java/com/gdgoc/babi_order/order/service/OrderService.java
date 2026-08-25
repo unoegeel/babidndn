@@ -59,6 +59,7 @@ public class OrderService {
     private final OrderEventService orderEventService;
     private final PushNotificationService pushNotificationService;
     private final OrderAccessGuard orderAccessGuard;
+    private final PickupNumberLock pickupNumberLock;
 
     /**
      * 결제 전 임시 주문을 생성합니다.
@@ -85,14 +86,17 @@ public class OrderService {
      */
     @Transactional
     public OrderDetailResponse activateAfterPayment(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-        if (!order.hasPickupNumber()) {
-            order.assignPickupNumber(nextPickupNumber());
-        }
-        OrderDetailResponse response = toDetailResponse(order, PaymentStatus.DONE.name());
-        publishAfterCommit("ORDER_CREATED", response);
-        return response;
+        return pickupNumberLock.executeExclusive(() -> {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new OrderNotFoundException(orderId));
+            if (!order.hasPickupNumber()) {
+                order.assignPickupNumber(nextPickupNumber());
+                orderRepository.flush();
+            }
+            OrderDetailResponse response = toDetailResponse(order, PaymentStatus.DONE.name());
+            publishAfterCommit("ORDER_CREATED", response);
+            return response;
+        });
     }
 
     /**
@@ -300,19 +304,33 @@ public class OrderService {
 
     /**
      * 픽업번호는 당일 기준 1~99 순환.
-     * 당일 주문이 없거나(일자 변경), 직전 번호가 99면 1부터 다시 시작합니다.
+     * Primary: 당일 max(pickup_number) 기준 다음 번호 (createdAt 최신 주문 번호 사용 금지).
+     * 활성(PREPARING/READY) 번호는 건너뛴다. 호출부는 {@link PickupNumberLock}으로 직렬화한다.
      */
     private int nextPickupNumber() {
         LocalDate today = LocalDate.now(STORE_ZONE);
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
 
-        return orderRepository
-                .findFirstByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndPickupNumberGreaterThanOrderByCreatedAtDescIdDesc(
-                        startOfDay, endOfDay, Order.UNASSIGNED_PICKUP_NUMBER)
-                .map(Order::getPickupNumber)
-                .map(last -> last >= MAX_PICKUP_NUMBER ? 1 : last + 1)
-                .orElse(1);
+        int last = orderRepository.findMaxAssignedPickupNumber(startOfDay, endOfDay);
+        int start = last <= 0 || last >= MAX_PICKUP_NUMBER ? 1 : last + 1;
+
+        Set<Integer> active = new HashSet<>(orderRepository.findActivePickupNumbers(
+                List.of(OrderStatus.PREPARING, OrderStatus.READY),
+                startOfDay,
+                endOfDay));
+
+        for (int i = 0; i < MAX_PICKUP_NUMBER; i++) {
+            int candidate = ((start - 1 + i) % MAX_PICKUP_NUMBER) + 1;
+            if (!active.contains(candidate)) {
+                return candidate;
+            }
+        }
+        throw new OrderApiException(
+                HttpStatus.CONFLICT,
+                "PICKUP_NUMBERS_EXHAUSTED",
+                "사용 가능한 픽업번호가 없습니다. 잠시 후 다시 시도해 주세요."
+        );
     }
 
     /** 결제 완료된 진행 중 주문 중, 나보다 먼저 생성된 주문 수를 계산합니다. */

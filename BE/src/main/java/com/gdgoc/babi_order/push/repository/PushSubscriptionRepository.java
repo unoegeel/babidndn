@@ -12,15 +12,7 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
 
     Optional<PushSubscription> findByEndpoint(String endpoint);
 
-    @Query(value = """
-            SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END
-            FROM push_subscription_orders
-            WHERE subscription_id = :subscriptionId AND order_id = :orderId
-            """, nativeQuery = true)
-    boolean existsOrderLink(
-            @Param("subscriptionId") Long subscriptionId,
-            @Param("orderId") Long orderId
-    );
+    boolean existsByIdAndOrderIdsContains(Long id, Long orderId);
 
     @Query("""
             select distinct s from PushSubscription s
