@@ -71,7 +71,7 @@ export const DEV_LABELS = {
   paidOrdersHelp: "실제 결제가 완료된 주문",
   paymentProgressSuccessRate: "결제 진행 성공률",
   paymentProgressSuccessRateHelp:
-    "결제 진행을 시작한 사용자 행동 중 결제 성공 이벤트까지 도달한 비율",
+    "결제 진행을 시작한 세션 중 결제 성공까지 도달한 비율",
   sequentialFunnelHelp:
     "메뉴 조회 → 장바구니 → 주문 확인 → 결제 단계를 실제 순서대로 진행한 세션",
   aggregateFunnelHelp: "기간 내 각 단계를 한 번 이상 수행한 고유 사용자(비순차)",

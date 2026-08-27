@@ -55,6 +55,8 @@ public class DeveloperControlCenterService {
         List<Long> latencies = opsQuery.httpDurationsMs(from, to);
         long req = opsQuery.countHttpRequests(from, to);
         long s5xx = opsQuery.countHttpByStatusRange(from, to, 500, 600);
+        long startSessions = opsQuery.countPaymentStartSessions(from, to);
+        long startThenSuccess = opsQuery.countPaymentStartThenSuccessSessions(from, to);
 
         return ControlCenterOverviewResponse.builder()
                 .period(period(range))
@@ -62,7 +64,7 @@ public class DeveloperControlCenterService {
                 .revenue(revenue)
                 .averageOrderValue(paid > 0 ? round2((double) revenue / paid) : null)
                 .averageItemsPerOrder(avgItems == null ? null : round2(avgItems))
-                .paymentSuccessRate(starts > 0 ? round2((double) successEv / starts * 100.0) : null)
+                .paymentSuccessRate(PaymentBehaviorSuccessRate.of(startSessions, startThenSuccess))
                 .avgProcessingSeconds(proc.isEmpty() ? null : round2(ControlCenterQueryRepository.average(proc)))
                 .p50ProcessingSeconds(ControlCenterQueryRepository.percentile(proc, 0.50))
                 .p95ProcessingSeconds(ControlCenterQueryRepository.percentile(proc, 0.95))
@@ -266,6 +268,8 @@ public class DeveloperControlCenterService {
         long canceled = salesQuery.countPaymentsByStatus("CANCELED", range.fromLdtInclusive(), range.toLdtExclusive());
         long partial = salesQuery.countPaymentsByStatus("PARTIAL_CANCELED", range.fromLdtInclusive(), range.toLdtExclusive());
         long txnTotal = done + canceled + partial;
+        long startSessions = opsQuery.countPaymentStartSessions(from, to);
+        long startThenSuccess = opsQuery.countPaymentStartThenSuccessSessions(from, to);
 
         return ControlCenterPaymentsResponse.builder()
                 .period(period(range))
@@ -275,7 +279,7 @@ public class DeveloperControlCenterService {
                 .donePayments(done)
                 .canceledPayments(canceled)
                 .partialCanceledPayments(partial)
-                .behaviorSuccessRate(starts > 0 ? round2((double) successEv / starts * 100.0) : null)
+                .behaviorSuccessRate(PaymentBehaviorSuccessRate.of(startSessions, startThenSuccess))
                 .transactionalDoneShare(txnTotal > 0 ? round2((double) done / txnTotal * 100.0) : null)
                 .reconciliationOpenCount(reconciliationIssueRepository.countByStatus(ReconciliationIssueStatus.OPEN))
                 .reconciliationResolvedCount(reconciliationIssueRepository.countByStatus(ReconciliationIssueStatus.RESOLVED))
