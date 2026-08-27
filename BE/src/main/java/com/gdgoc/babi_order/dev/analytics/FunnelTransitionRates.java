@@ -10,13 +10,14 @@ final class FunnelTransitionRates {
     }
 
     /**
-     * @param stepIndex 0 = funnel entry (baseline 100% / 0%); &gt;0 = transition from previous stage
+     * @param stepIndex 0 = funnel entry (no prior stage → rates not defined);
+     *                  &gt;0 = transition from previous stage
      * @param previousCount unique count of previous stage (ignored when stepIndex == 0)
      * @param currentCount unique count of current stage
      */
     static Rates of(int stepIndex, long previousCount, long currentCount) {
         if (stepIndex == 0) {
-            return new Rates(100.0, 0.0);
+            return new Rates(null, null);
         }
         if (previousCount <= 0) {
             return new Rates(null, null);
