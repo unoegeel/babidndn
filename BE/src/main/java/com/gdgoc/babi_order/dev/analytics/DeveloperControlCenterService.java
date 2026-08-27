@@ -132,19 +132,19 @@ public class DeveloperControlCenterService {
             String type = steps[i][0];
             long events = eventQuery.countEvents(type, from, to);
             long unique = eventQuery.countDistinctAnonymousId(type, from, to);
-            Double stepConv = i == 0 || prevAnon == 0 ? 100.0 : round2((double) unique / prevAnon * 100.0);
-            Double drop = i == 0 || prevAnon == 0 ? 0.0 : round2(100.0 - stepConv);
-            if (i > 0 && drop != null && drop > largestDropRate) {
-                largestDropRate = drop;
-                largestDrop = steps[i - 1][0] + " → " + type;
+            FunnelTransitionRates.Rates rates = FunnelTransitionRates.of(i, prevAnon, unique);
+            if (i > 0) {
+                largestDrop = FunnelTransitionRates.pickLargestDropOff(
+                        steps[i - 1][0], type, rates.dropOffRate(), largestDrop, largestDropRate);
+                largestDropRate = FunnelTransitionRates.nextLargestRate(rates.dropOffRate(), largestDropRate);
             }
             aggregate.add(ControlCenterFunnelResponse.FunnelAggregateStep.builder()
                     .eventType(type)
                     .label(steps[i][1])
                     .eventCount(events)
                     .uniqueCount(unique)
-                    .stepConversion(stepConv)
-                    .dropOffRate(drop)
+                    .stepConversion(rates.stepConversion())
+                    .dropOffRate(rates.dropOffRate())
                     .build());
             prevAnon = unique;
         }
@@ -155,15 +155,14 @@ public class DeveloperControlCenterService {
             String type = steps[i][0];
             long unique = opsQuery.countSessionsReaching(from, to, type);
             long events = eventQuery.countEvents(type, from, to);
-            Double stepConv = i == 0 || prevSeq == 0 ? 100.0 : round2((double) unique / prevSeq * 100.0);
-            Double drop = i == 0 || prevSeq == 0 ? 0.0 : round2(100.0 - stepConv);
+            FunnelTransitionRates.Rates rates = FunnelTransitionRates.of(i, prevSeq, unique);
             sequential.add(ControlCenterFunnelResponse.FunnelAggregateStep.builder()
                     .eventType(type)
                     .label(steps[i][1])
                     .eventCount(events)
                     .uniqueCount(unique)
-                    .stepConversion(stepConv)
-                    .dropOffRate(drop)
+                    .stepConversion(rates.stepConversion())
+                    .dropOffRate(rates.dropOffRate())
                     .build());
             prevSeq = unique;
         }

@@ -366,10 +366,12 @@ export default function DeveloperAnalyticsPage() {
 
         {!loading && !error && tab === "funnel" && funnel && (
           <div className="space-y-6">
-            {funnel.largestDropOffStage && (
+            {funnel.largestDropOffStage ? (
               <p className="text-sm text-amber-300">
                 최대 이탈: {formatDropOffStage(funnel.largestDropOffStage)}
               </p>
+            ) : (
+              <p className="text-sm text-gray-500">퍼널 분석 데이터 없음</p>
             )}
             <FunnelTable
               title="집계 퍼널 (고유 사용자)"
