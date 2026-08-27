@@ -403,6 +403,58 @@ public class ControlCenterQueryRepository {
         return n == null ? 0L : n.longValue();
     }
 
+    /**
+     * Unique sessions with at least one PAYMENT_START in the period.
+     * Null session_id excluded (cannot attribute conversion).
+     */
+    public long countPaymentStartSessions(Instant from, Instant to) {
+        Number n = (Number) em.createNativeQuery("""
+                        SELECT COUNT(DISTINCT session_id) FROM client_events
+                        WHERE event_type = 'PAYMENT_START'
+                          AND occurred_at >= :from AND occurred_at <= :to
+                          AND session_id IS NOT NULL
+                          AND session_id <> ''
+                        """)
+                .setParameter("from", from)
+                .setParameter("to", to)
+                .getSingleResult();
+        return n == null ? 0L : n.longValue();
+    }
+
+    /**
+     * Among sessions with PAYMENT_START in period, those with PAYMENT_SUCCESS
+     * at or after the session's first PAYMENT_START (same period window).
+     * Duplicate successes in one session count once.
+     */
+    public long countPaymentStartThenSuccessSessions(Instant from, Instant to) {
+        Number n = (Number) em.createNativeQuery("""
+                        SELECT COUNT(*) FROM (
+                          SELECT s.session_id
+                          FROM (
+                            SELECT session_id,
+                                   MIN(CASE WHEN event_type = 'PAYMENT_START' THEN occurred_at END) AS t_start
+                            FROM client_events
+                            WHERE occurred_at >= :from AND occurred_at <= :to
+                              AND event_type IN ('PAYMENT_START', 'PAYMENT_SUCCESS')
+                              AND session_id IS NOT NULL
+                              AND session_id <> ''
+                            GROUP BY session_id
+                          ) s
+                          INNER JOIN client_events e
+                            ON e.session_id = s.session_id
+                           AND e.event_type = 'PAYMENT_SUCCESS'
+                           AND e.occurred_at >= :from AND e.occurred_at <= :to
+                           AND e.occurred_at >= s.t_start
+                          WHERE s.t_start IS NOT NULL
+                          GROUP BY s.session_id
+                        ) x
+                        """)
+                .setParameter("from", from)
+                .setParameter("to", to)
+                .getSingleResult();
+        return n == null ? 0L : n.longValue();
+    }
+
     // ── Menu behavior counts by menuId ──
 
     @SuppressWarnings("unchecked")
