@@ -14,25 +14,28 @@ public final class ActionableBackendErrorCriteria {
     public static final String ASYNC_REQUEST_TIMEOUT =
             "org.springframework.web.context.request.async.AsyncRequestTimeoutException";
 
-    /**
-     * SQL predicate (no leading AND) for native queries on {@code backend_errors}.
-     * Bind {@code :sseStreamPath} to {@link #sseStreamPath()}.
-     */
-    public static final String SQL_ACTIONABLE_PREDICATE = """
-            NOT (
-              exception_class = 'org.springframework.web.servlet.resource.NoResourceFoundException'
-              OR (
-                exception_class = 'org.springframework.web.context.request.async.AsyncRequestTimeoutException'
-                AND path = :sseStreamPath
-              )
-            )
-            """;
-
     private ActionableBackendErrorCriteria() {
     }
 
     public static String sseStreamPath() {
         return OrderEventService.STREAM_PATH;
+    }
+
+    /**
+     * Predicate only (no leading AND/whitespace dependency).
+     * Callers must compose with {@code " AND " + sqlActionablePredicate()}.
+     * Bind {@code :sseStreamPath} to {@link #sseStreamPath()}.
+     */
+    public static String sqlActionablePredicate() {
+        return """
+                NOT (
+                  exception_class = 'org.springframework.web.servlet.resource.NoResourceFoundException'
+                  OR (
+                    exception_class = 'org.springframework.web.context.request.async.AsyncRequestTimeoutException'
+                    AND path = :sseStreamPath
+                  )
+                )
+                """.trim();
     }
 
     /**
