@@ -240,13 +240,15 @@ public class ControlCenterQueryRepository {
         return n == null ? 0L : n.longValue();
     }
 
+    /** Actionable backend errors for Analytics KPIs (excludes known historical noise). */
     public long countBackendErrors(Instant from, Instant to) {
-        Number n = (Number) em.createNativeQuery("""
-                        SELECT COUNT(*) FROM backend_errors
-                        WHERE created_at >= :from AND created_at <= :to
-                        """)
+        Number n = (Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM backend_errors"
+                                + " WHERE created_at >= :from AND created_at <= :to"
+                                + " AND " + ActionableBackendErrorCriteria.sqlActionablePredicate())
                 .setParameter("from", from)
                 .setParameter("to", to)
+                .setParameter("sseStreamPath", ActionableBackendErrorCriteria.sseStreamPath())
                 .getSingleResult();
         return n == null ? 0L : n.longValue();
     }
@@ -281,13 +283,14 @@ public class ControlCenterQueryRepository {
 
     @SuppressWarnings("unchecked")
     public List<NamedCount> topBackendExceptions(Instant from, Instant to, int limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-                        SELECT exception_class, COUNT(*) AS cnt FROM backend_errors
-                        WHERE created_at >= :from AND created_at <= :to
-                        GROUP BY exception_class ORDER BY cnt DESC LIMIT :lim
-                        """)
+        List<Object[]> rows = em.createNativeQuery(
+                        "SELECT exception_class, COUNT(*) AS cnt FROM backend_errors"
+                                + " WHERE created_at >= :from AND created_at <= :to"
+                                + " AND " + ActionableBackendErrorCriteria.sqlActionablePredicate()
+                                + " GROUP BY exception_class ORDER BY cnt DESC LIMIT :lim")
                 .setParameter("from", from)
                 .setParameter("to", to)
+                .setParameter("sseStreamPath", ActionableBackendErrorCriteria.sseStreamPath())
                 .setParameter("lim", limit)
                 .getResultList();
         return rows.stream().map(r -> new NamedCount(String.valueOf(r[0]), toLong(r[1]))).toList();
@@ -295,13 +298,14 @@ public class ControlCenterQueryRepository {
 
     @SuppressWarnings("unchecked")
     public List<NamedCount> topBackendPaths(Instant from, Instant to, int limit) {
-        List<Object[]> rows = em.createNativeQuery("""
-                        SELECT path, COUNT(*) AS cnt FROM backend_errors
-                        WHERE created_at >= :from AND created_at <= :to
-                        GROUP BY path ORDER BY cnt DESC LIMIT :lim
-                        """)
+        List<Object[]> rows = em.createNativeQuery(
+                        "SELECT path, COUNT(*) AS cnt FROM backend_errors"
+                                + " WHERE created_at >= :from AND created_at <= :to"
+                                + " AND " + ActionableBackendErrorCriteria.sqlActionablePredicate()
+                                + " GROUP BY path ORDER BY cnt DESC LIMIT :lim")
                 .setParameter("from", from)
                 .setParameter("to", to)
+                .setParameter("sseStreamPath", ActionableBackendErrorCriteria.sseStreamPath())
                 .setParameter("lim", limit)
                 .getResultList();
         return rows.stream().map(r -> new NamedCount(String.valueOf(r[0]), toLong(r[1]))).toList();

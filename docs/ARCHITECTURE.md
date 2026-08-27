@@ -247,6 +247,9 @@ POST /api/client-errors → client_errors (+ structured log)
 Expected client outcomes (ApiException 4xx, RATE_LIMIT_EXCEEDED, NoResourceFoundException 404)
   → ErrorResponse only · backend_errors 미기록
 Uncaught unexpected BE exception → 500 + backend_errors (+ ApiExceptionHandler)
+Analytics “서버 오류” KPI → actionable `backend_errors` only
+  (excludes historical NoResourceFoundException · SSE AsyncRequestTimeoutException on `/api/orders/stream`)
+  · raw `/dev/errors` unchanged · HTTP 5xx still from `http_request_records` status
 ```
 
 ### User events
