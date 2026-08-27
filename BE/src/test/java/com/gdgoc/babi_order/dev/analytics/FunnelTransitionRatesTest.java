@@ -28,10 +28,14 @@ class FunnelTransitionRatesTest {
     }
 
     @Test
-    void entryStep_keepsBaseline() {
-        FunnelTransitionRates.Rates rates = FunnelTransitionRates.of(0, 0, 0);
-        assertThat(rates.stepConversion()).isEqualTo(100.0);
-        assertThat(rates.dropOffRate()).isEqualTo(0.0);
+    void entryStep_hasNoTransitionRates_evenWhenCountPositive() {
+        FunnelTransitionRates.Rates empty = FunnelTransitionRates.of(0, 0, 0);
+        assertThat(empty.stepConversion()).isNull();
+        assertThat(empty.dropOffRate()).isNull();
+
+        FunnelTransitionRates.Rates withViews = FunnelTransitionRates.of(0, 0, 42);
+        assertThat(withViews.stepConversion()).isNull();
+        assertThat(withViews.dropOffRate()).isNull();
     }
 
     @Test
