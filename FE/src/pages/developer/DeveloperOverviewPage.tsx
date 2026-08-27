@@ -13,6 +13,7 @@ import type {
   ControlCenterOverview,
   InsightItem,
 } from "../../types/developerAnalytics";
+import { insightSeverityLabelKo } from "../../utils/insightFormat";
 
 function fmt(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
@@ -146,7 +147,7 @@ export default function DeveloperOverviewPage() {
             <MetricCard
               title="현재 대기 주문"
               value={loading ? "…" : fmt(operations?.activeQueueSizeToday)}
-              sub="오늘 PREPARING · READY"
+              sub="오늘 준비 중 · 준비 완료"
               to="/dev/analytics"
             />
             <MetricCard
@@ -229,7 +230,7 @@ export default function DeveloperOverviewPage() {
               }
               sub={
                 topInsights.length > 0
-                  ? `${topInsights[0].severity} · 인사이트`
+                  ? `${insightSeverityLabelKo(topInsights[0].severity)} · 인사이트`
                   : "오늘 규칙 기반 인사이트"
               }
               to="/dev/analytics"
@@ -256,7 +257,7 @@ export default function DeveloperOverviewPage() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-gray-300">
-                    {ig.severity}
+                    {insightSeverityLabelKo(ig.severity)}
                   </span>
                 </div>
                 <p className="mt-1 text-sm font-medium text-gray-100">{ig.title}</p>

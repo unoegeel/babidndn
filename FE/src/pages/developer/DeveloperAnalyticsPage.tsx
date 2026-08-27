@@ -19,8 +19,13 @@ import type {
   ControlCenterPerformance,
   ControlCenterReliability,
   ControlCenterSales,
+  InsightItem,
   PeriodPreset,
 } from "../../types/developerAnalytics";
+import {
+  formatInsightEvidenceSummary,
+  insightSeverityLabelKo,
+} from "../../utils/insightFormat";
 
 function fmt(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
@@ -462,8 +467,8 @@ export default function DeveloperAnalyticsPage() {
             <p className="text-xs text-gray-500">{DEV_LABELS.processingTimeHelp}</p>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <Kpi title="현재 대기 주문" value={fmt(operations.activeQueueSizeToday)} />
-              <Kpi title="PREPARING" value={fmt(operations.preparingCountToday)} />
-              <Kpi title="READY" value={fmt(operations.readyCountToday)} />
+              <Kpi title="준비 중" value={fmt(operations.preparingCountToday)} />
+              <Kpi title="준비 완료" value={fmt(operations.readyCountToday)} />
               <Kpi
                 title="주문 처리시간 (평균)"
                 value={sec(operations.avgProcessingSeconds, operations.processingSampleCount)}
@@ -671,35 +676,61 @@ function InsightsPanel({ insights }: { insights: ControlCenterInsights }) {
   return (
     <div className="space-y-3">
       {insights.insights.map((ig, idx) => (
-        <div key={`${ig.type}-${idx}`} className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] uppercase text-gray-300">
-              {ig.severity}
-            </span>
-          </div>
-          <p className="mt-2 text-sm font-medium text-gray-100">{ig.title}</p>
-          <p className="mt-1 text-sm text-gray-400">{ig.description}</p>
-          {ig.metric && (
-            <p className="mt-2 text-xs text-gray-500">
-              핵심 근거: <span className="font-mono text-gray-400">{ig.metric}</span>
-            </p>
-          )}
-          <button
-            type="button"
-            className="mt-2 text-xs text-indigo-300 underline"
-            onClick={() =>
-              setOpenEvidence((prev) => ({ ...prev, [idx]: !prev[idx] }))
-            }
-          >
-            {openEvidence[idx] ? "근거 접기" : "근거 보기"}
-          </button>
-          {openEvidence[idx] && (
-            <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-gray-400">
-              {JSON.stringify(ig.evidence, null, 2)}
-            </pre>
-          )}
-        </div>
+        <InsightCard
+          key={`${ig.type}-${idx}`}
+          item={ig}
+          evidenceOpen={!!openEvidence[idx]}
+          onToggleEvidence={() =>
+            setOpenEvidence((prev) => ({ ...prev, [idx]: !prev[idx] }))
+          }
+        />
       ))}
+    </div>
+  );
+}
+
+function InsightCard({
+  item,
+  evidenceOpen,
+  onToggleEvidence,
+}: {
+  item: InsightItem;
+  evidenceOpen: boolean;
+  onToggleEvidence: () => void;
+}) {
+  const evidenceSummary = formatInsightEvidenceSummary(item.metric, item.evidence);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#171b24] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-gray-300">
+          {insightSeverityLabelKo(item.severity)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-medium text-gray-100">{item.title}</p>
+      <p className="mt-1 text-sm text-gray-400">{item.description}</p>
+      {evidenceSummary && (
+        <p className="mt-2 text-xs text-gray-500">핵심 근거: {evidenceSummary}</p>
+      )}
+      <button
+        type="button"
+        className="mt-2 text-xs text-indigo-300 underline"
+        onClick={onToggleEvidence}
+      >
+        {evidenceOpen ? "근거 접기" : "근거 보기"}
+      </button>
+      {evidenceOpen && (
+        <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-gray-400">
+          {JSON.stringify(
+            {
+              metric: item.metric,
+              evidence: item.evidence,
+            },
+            null,
+            2,
+          )}
+        </pre>
+      )}
     </div>
   );
 }
