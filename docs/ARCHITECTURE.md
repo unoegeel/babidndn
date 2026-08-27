@@ -259,14 +259,18 @@ FE: `utils/userEvent/trackEvent.ts`, `eventHelpers.ts` · BE allow-list: `Client
 
 ### Developer Console
 
+IA (flat nav): 개요 → 분석 → 사용자 이벤트 → 요청 → 오류 → 결제 정합성.
+
 | FE Route | BE API | 역할 |
 |----------|--------|------|
-| `/dev` | `GET /api/dev/overview` | Dashboard KPI (오류 24h, 요청·이벤트 오늘, funnel 위임) |
-| `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 오류 merge 목록·상세 |
-| `/dev/requests` | `GET /api/dev/requests`, `/{id}` | HTTP 요청 기록 |
+| `/dev` | `/api/dev/analytics/{overview,operations,insights}` (오늘) | 서비스 현황·경고·인사이트 요약 (상세 분석 금지) |
+| `/dev/analytics` | `/api/dev/analytics/*` | Analytics Control Center — 기간 패턴·퍼널·운영·성능·안정성·인사이트 |
+| `/dev/events` | `GET /api/dev/events`, `/{id}` | 개별 사용자 행동 event 조사 |
+| `/dev/requests` | `GET /api/dev/requests`, `/{id}` | 개별 HTTP / requestId 추적 |
+| `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 실패 원인 조사 |
 | `/dev/reconciliation` | `/api/dev/reconciliation/**` | Order/Payment/Toss 정합성 진단 (core: `payment/reconciliation/`) |
-| `/dev/events` | `GET /api/dev/events`, `/{id}` | Client events |
-| `/dev/analytics` | `/api/dev/analytics/*` | KPI, funnel, menus, options, **menu-options** |
+
+`GET /api/dev/overview`는 legacy 요약 API로 유지. `/dev` UI는 Control Center analytics API를 재사용한다.
 
 Observability 저장 실패는 주문/결제 트랜잭션과 분리 (비즈니스 flow에 영향 주지 않음).
 
