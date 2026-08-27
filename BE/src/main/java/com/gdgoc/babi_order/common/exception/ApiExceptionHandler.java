@@ -2,6 +2,7 @@ package com.gdgoc.babi_order.common.exception;
 
 import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.logging.HttpErrorLogger;
+import com.gdgoc.babi_order.order.service.OrderEventService;
 import com.gdgoc.babi_order.ratelimit.RateLimitExceededException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.Ordered;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -89,6 +91,29 @@ public class ApiExceptionHandler {
                 METHOD_NOT_ALLOWED_CODE,
                 METHOD_NOT_ALLOWED_MESSAGE
         ));
+    }
+
+    /**
+     * Admin order SSE ({@link OrderEventService#STREAM_PATH}) uses a 30-minute emitter timeout
+     * as the normal reconnect lifecycle. That timeout surfaces as {@link AsyncRequestTimeoutException}
+     * and must not be recorded as an unexpected backend failure.
+     * Other async timeouts remain unexpected and are recorded.
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public ResponseEntity<Void> handleAsyncRequestTimeout(
+            AsyncRequestTimeoutException exception,
+            HttpServletRequest request
+    ) {
+        if (isOrderSseStream(request)) {
+            // Expected emitter reconnect lifecycle — no backend_errors row.
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+        backendErrorRecordService.recordServerError(request, HttpStatus.SERVICE_UNAVAILABLE, exception);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+    }
+
+    static boolean isOrderSseStream(HttpServletRequest request) {
+        return OrderEventService.STREAM_PATH.equals(request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)
