@@ -102,7 +102,9 @@ export default function DeveloperEventsPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">{DEV_LABELS.eventMonitoring}</h2>
-          <p className="text-sm text-gray-500">사용자가 서비스에서 수행한 주요 행동을 확인합니다.</p>
+          <p className="text-sm text-gray-500">
+            기록된 개별 사용자 행동을 조사합니다. 기간 퍼널·전환율은 「분석 › 퍼널」을 사용하세요.
+          </p>
         </div>
 
         <div className="min-w-0 rounded-lg border border-white/10 bg-[#171b24] p-4">

@@ -21,8 +21,9 @@
 - Request ID · `http_request_records`
 - `client_errors` · `backend_errors` · `client_events`
   - `client_errors.stack` / `component_stack` = MySQL `TEXT` (VARCHAR(8000)은 utf8mb4 row-size ERROR 1118)
-- `/dev` Overview · `/dev/errors|requests|reconciliation|events|analytics`
-- `GET /api/dev/overview` · `GET /api/dev/analytics/menu-options`
+- `/dev` Overview · `/dev/analytics|events|requests|errors|reconciliation` (flat IA)
+- `/dev` UI: Control Center `overview`/`operations`/`insights` (오늘) 재사용 — legacy funnel 카드 제거
+- `GET /api/dev/overview` (legacy) · `GET /api/dev/analytics/menu-options`
 - Menu×Option 선택률 (분모 `MENU_OPTION_OPEN`, 분자 `OPTION_SELECTED` + `menuId`)
 
 ### Payment Reconciliation (code verified 2026-08-24)
@@ -63,10 +64,12 @@
 
 ### Developer Analytics Control Center v1 (CODE READY — 2026-08-25)
 
-- Hub: `/dev/analytics` tabs — Overview · Sales · Funnel · Menus · Payments · Operations · Performance · Reliability · Insights
+- Hub: `/dev/analytics` tabs — 개요 · 주문·매출 · 퍼널 · 메뉴 분석 · 결제 · 주문 운영 · API 성능 · 안정성 · 인사이트
+- Header: `Analytics Control Center` / `사용량 · 매출 · 퍼널 · 운영 · 성능 · 오류 · 정합성`
 - APIs: `/api/dev/analytics/{overview,sales,funnel,menus,payments,operations,performance,reliability,insights}`
 - Reuses `SalesQueryRepository` for DONE payments · rule-based insights (no LLM/QR)
-- Deferred: QR attribution · readyAt/completedAt · price/sold-out history · ML
+- IA refinement: Overview=status, Analytics=detail, diagnostics=raw inspection · Sales 메뉴 테이블 UI 제거(메뉴 분석 단일화)
+- Deferred: QR attribution · readyAt/completedAt · price/sold-out history · ML · request 5xx range filter
 
 ### Menu / UX (2026-08)
 
@@ -84,6 +87,7 @@
 
 | 일자 | 영역 | 내용 |
 |------|------|------|
+| 2026-08-25 | **Dev Console IA** | Flat nav · `/dev` status overview · Analytics KO labels/density · Sales/Menu 책임 분리 · **CODE READY** |
 | 2026-08-25 | **Dev Analytics v1** | Control Center on `/dev/analytics` — sales/funnel/menus/payments/ops/perf/reliability/insights · `called_at` **V104** · **CODE READY** (dev deploy smoke Pending) |
 | 2026-08-25 | **Prod incident** | Pickup/queue/push/payment-history hotfix **prod runtime verified** — 상세 §2.1. Flyway **prod = 103** (V104는 다음 배포) |
 | 2026-08-24 | Order API | `PUT /api/orders/{id}/status` canonical — duplicate `@PatchMapping` 제거 (FE `adminOrderService` PUT 계약 유지). **CODE READY** |

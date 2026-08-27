@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import DeveloperShell from "../../components/developer/DeveloperShell";
+import { DEV_LABELS, funnelStepLabelKo } from "../../constants/developerLabels";
 import {
   daysAgoUtc,
   developerAnalyticsService,
@@ -31,11 +32,12 @@ function pct(n: number | null | undefined): string {
   return `${n.toFixed(1)}%`;
 }
 
-function sec(n: number | null | undefined): string {
+function sec(n: number | null | undefined, sampleCount?: number): string {
+  if (sampleCount != null && sampleCount <= 0) return DEV_LABELS.noAnalyticsData;
   if (n == null) return "—";
   const m = Math.floor(n / 60);
   const s = Math.round(n % 60);
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
 }
 
 function barWidth(current: number, max: number): string {
@@ -63,15 +65,15 @@ function resolveRange(preset: PeriodPreset, customFrom: string, customTo: string
 }
 
 const TABS: { id: AnalyticsTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "sales", label: "Orders & Sales" },
-  { id: "funnel", label: "Funnel" },
-  { id: "menus", label: "Menus" },
-  { id: "payments", label: "Payments" },
-  { id: "operations", label: "Operations" },
-  { id: "performance", label: "Performance" },
-  { id: "reliability", label: "Reliability" },
-  { id: "insights", label: "Insights" },
+  { id: "overview", label: "개요" },
+  { id: "sales", label: "주문·매출" },
+  { id: "funnel", label: "퍼널" },
+  { id: "menus", label: "메뉴 분석" },
+  { id: "payments", label: "결제" },
+  { id: "operations", label: "주문 운영" },
+  { id: "performance", label: "API 성능" },
+  { id: "reliability", label: "안정성" },
+  { id: "insights", label: "인사이트" },
 ];
 
 function Kpi({
@@ -104,7 +106,7 @@ function HourBars({
     <div className="space-y-1.5">
       <p className="text-xs text-gray-500">{label}</p>
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">데이터 없음</p>
+        <p className="text-sm text-gray-500">{DEV_LABELS.noData}</p>
       ) : (
         rows.map((r) => (
           <div key={r.hour} className="flex items-center gap-2 text-xs">
@@ -121,6 +123,10 @@ function HourBars({
       )}
     </div>
   );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return <h3 className="text-sm font-medium text-gray-300">{children}</h3>;
 }
 
 export default function DeveloperAnalyticsPage() {
@@ -189,7 +195,7 @@ export default function DeveloperAnalyticsPage() {
         <section>
           <h2 className="text-lg font-semibold text-gray-100">Analytics Control Center</h2>
           <p className="mt-1 text-sm text-gray-500">
-            사용량 · 매출 · 퍼널 · 운영 · 성능 · 오류 · 정합성 — read-only. QR analytics 제외.
+            사용량 · 매출 · 퍼널 · 운영 · 성능 · 오류 · 정합성
           </p>
         </section>
         <div className="flex flex-wrap items-end gap-3">
@@ -200,10 +206,10 @@ export default function DeveloperAnalyticsPage() {
               value={preset}
               onChange={(e) => setPreset(e.target.value as PeriodPreset)}
             >
-              <option value="today">Today (KST)</option>
-              <option value="7d">7 days</option>
-              <option value="30d">30 days</option>
-              <option value="custom">Custom</option>
+              <option value="today">오늘 (KST)</option>
+              <option value="7d">7일</option>
+              <option value="30d">30일</option>
+              <option value="custom">직접 지정</option>
             </select>
           </label>
           {preset === "custom" && (
@@ -227,7 +233,7 @@ export default function DeveloperAnalyticsPage() {
             className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white"
             onClick={() => void load(preset, customFrom, customTo)}
           >
-            새로고침
+            {DEV_LABELS.refresh}
           </button>
         </div>
 
@@ -248,91 +254,135 @@ export default function DeveloperAnalyticsPage() {
           ))}
         </div>
 
-        {loading && <p className="text-sm text-gray-500">불러오는 중…</p>}
+        {loading && <p className="text-sm text-gray-500">{DEV_LABELS.loading}</p>}
         {error && <p className="text-sm text-rose-400">{error}</p>}
 
         {!loading && !error && tab === "overview" && overview && (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Kpi title="Paid orders" value={fmt(overview.paidOrders)} sub="payments DONE" />
-              <Kpi title="Revenue" value={`${fmt(overview.revenue)}원`} />
-              <Kpi title="AOV" value={overview.averageOrderValue != null ? `${fmt(overview.averageOrderValue)}원` : "—"} />
-              <Kpi title="Items / order" value={fmt(overview.averageItemsPerOrder)} />
-              <Kpi title="Pay success (behavior)" value={pct(overview.paymentSuccessRate)} sub="START→SUCCESS events" />
-              <Kpi title="Avg process time" value={sec(overview.avgProcessingSeconds)} sub={`n=${overview.processingSampleCount}`} />
-              <Kpi title="API p95" value={overview.apiP95LatencyMs != null ? `${fmt(overview.apiP95LatencyMs)}ms` : "—"} />
-              <Kpi title="5xx rate" value={pct(overview.status5xxRate)} sub={`${fmt(overview.status5xxCount)}건`} />
-              <Kpi title="Client errors" value={fmt(overview.clientErrorCount)} />
-              <Kpi title="Backend errors" value={fmt(overview.backendErrorCount)} />
-              <Kpi title="Recon OPEN" value={fmt(overview.reconciliationOpenCount)} />
-              <Kpi title="Unique visitors" value={fmt(overview.uniqueVisitors)} sub="MENU_VIEW anonymous" />
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <SectionTitle>주요</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Kpi
+                  title="결제 주문"
+                  value={fmt(overview.paidOrders)}
+                  sub={DEV_LABELS.paidOrdersHelp}
+                />
+                <Kpi title="매출" value={`${fmt(overview.revenue)}원`} />
+                <Kpi
+                  title={DEV_LABELS.paymentProgressSuccessRate}
+                  value={pct(overview.paymentSuccessRate)}
+                  sub={DEV_LABELS.paymentProgressSuccessRateHelp}
+                />
+                <Kpi
+                  title="주문 처리시간"
+                  value={sec(overview.avgProcessingSeconds, overview.processingSampleCount)}
+                  sub={
+                    overview.processingSampleCount > 0
+                      ? `${DEV_LABELS.processingTimeHelp} · 분석 주문 수 ${fmt(overview.processingSampleCount)}`
+                      : DEV_LABELS.processingTimeHelp
+                  }
+                />
+              </div>
             </div>
-            <p className="text-xs text-gray-500">
-              매출/결제 건수는 payments 정본. uniqueVisitors·paymentStarts는 client_events (행동 지표).
-            </p>
+            <div className="space-y-2">
+              <SectionTitle>보조</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Kpi
+                  title="평균 주문 금액"
+                  value={
+                    overview.averageOrderValue != null
+                      ? `${fmt(overview.averageOrderValue)}원`
+                      : "—"
+                  }
+                />
+                <Kpi title="주문당 평균 메뉴 수" value={fmt(overview.averageItemsPerOrder)} />
+                <Kpi
+                  title="고유 방문자"
+                  value={fmt(overview.uniqueVisitors)}
+                  sub="메뉴 조회 기준"
+                />
+                <Kpi
+                  title="결제 시작 이벤트"
+                  value={fmt(overview.paymentStarts)}
+                  sub={`성공 이벤트 ${fmt(overview.paymentSuccessEvents)}`}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SectionTitle>시스템</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Kpi
+                  title="API p95"
+                  value={
+                    overview.apiP95LatencyMs != null
+                      ? `${fmt(overview.apiP95LatencyMs)}ms`
+                      : DEV_LABELS.noAnalyticsData
+                  }
+                />
+                <Kpi
+                  title="5xx"
+                  value={`${fmt(overview.status5xxCount)} · ${pct(overview.status5xxRate)}`}
+                />
+                <Kpi title="클라이언트 오류" value={fmt(overview.clientErrorCount)} />
+                <Kpi title="서버 오류" value={fmt(overview.backendErrorCount)} />
+                <Kpi
+                  title="정합성 미해결"
+                  value={fmt(overview.reconciliationOpenCount)}
+                  sub="결제 정합성 이슈"
+                />
+              </div>
+            </div>
           </div>
         )}
 
         {!loading && !error && tab === "sales" && sales && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-4">
-              <Kpi title="Paid orders" value={fmt(sales.paidOrders)} />
-              <Kpi title="Revenue" value={`${fmt(sales.revenue)}원`} />
-              <Kpi title="AOV" value={sales.averageOrderValue != null ? `${fmt(sales.averageOrderValue)}원` : "—"} />
-              <Kpi title="Items/order" value={fmt(sales.averageItemsPerOrder)} />
+              <Kpi title="결제 주문" value={fmt(sales.paidOrders)} sub={DEV_LABELS.paidOrdersHelp} />
+              <Kpi title="매출" value={`${fmt(sales.revenue)}원`} />
+              <Kpi
+                title="평균 주문 금액"
+                value={
+                  sales.averageOrderValue != null ? `${fmt(sales.averageOrderValue)}원` : "—"
+                }
+              />
+              <Kpi title="주문당 평균 메뉴 수" value={fmt(sales.averageItemsPerOrder)} />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <HourBars
-                label="Orders by hour"
+                label="시간대별 결제 주문"
                 rows={sales.byHour.map((h) => ({ hour: h.hour, value: h.paidOrders }))}
               />
               <HourBars
-                label="Revenue by hour"
+                label="시간대별 매출"
                 rows={sales.byHour.map((h) => ({ hour: h.hour, value: h.revenue }))}
               />
             </div>
-            <div className="overflow-x-auto rounded border border-white/10">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-white/5 text-xs text-gray-400">
-                  <tr>
-                    <th className="px-3 py-2">Menu</th>
-                    <th className="px-3 py-2 text-right">Qty</th>
-                    <th className="px-3 py-2 text-right">Revenue</th>
-                    <th className="px-3 py-2 text-right">Orders</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sales.byMenu.map((m) => (
-                    <tr key={`${m.menuId}-${m.menuName}`} className="border-t border-white/5">
-                      <td className="px-3 py-2 text-gray-200">{m.menuName}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(m.paidQuantity)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(m.paidRevenue)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{fmt(m.paidOrderCount)}</td>
-                    </tr>
-                  ))}
-                  {sales.byMenu.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-4 text-gray-500">
-                        데이터 없음
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <p className="text-xs text-gray-500">
+              메뉴별 판매·전환율은 「메뉴 분석」 탭에서 확인합니다.
+            </p>
           </div>
         )}
 
         {!loading && !error && tab === "funnel" && funnel && (
           <div className="space-y-6">
-            <p className="text-xs text-gray-500">{funnel.metricNote}</p>
             {funnel.largestDropOffStage && (
-              <p className="text-sm text-amber-300">Largest drop-off (anonymous): {funnel.largestDropOffStage}</p>
+              <p className="text-sm text-amber-300">
+                최대 이탈: {formatDropOffStage(funnel.largestDropOffStage)}
+              </p>
             )}
-            <FunnelTable title="Aggregate (distinct anonymous_id)" steps={funnel.aggregateByAnonymous} />
-            <FunnelTable title="Sequential (session_id ordered)" steps={funnel.sequentialBySession} />
+            <FunnelTable
+              title="집계 퍼널 (고유 사용자)"
+              help={DEV_LABELS.aggregateFunnelHelp}
+              steps={funnel.aggregateByAnonymous}
+            />
+            <FunnelTable
+              title="순차 진행 세션"
+              help={DEV_LABELS.sequentialFunnelHelp}
+              steps={funnel.sequentialBySession}
+            />
             <Link className="text-sm text-indigo-300 underline" to="/dev/events">
-              → Events diagnostic
+              → 사용자 이벤트에서 확인
             </Link>
           </div>
         )}
@@ -340,20 +390,20 @@ export default function DeveloperAnalyticsPage() {
         {!loading && !error && tab === "menus" && menus && (
           <div className="space-y-3">
             <p className="text-xs text-gray-500">
-              Conversion rates require views ≥ {menus.minViewsForConversion}. Paid metrics from order_items × DONE
-              payments.
+              전환율은 조회 {menus.minViewsForConversion}회 이상인 메뉴만 표시합니다. 결제 지표는
+              완료된 결제(DONE) 기준입니다.
             </p>
             <div className="overflow-x-auto rounded border border-white/10">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-white/5 text-xs text-gray-400">
                   <tr>
-                    <th className="px-3 py-2">Menu</th>
-                    <th className="px-3 py-2 text-right">Views</th>
-                    <th className="px-3 py-2 text-right">Cart</th>
-                    <th className="px-3 py-2 text-right">Paid qty</th>
-                    <th className="px-3 py-2 text-right">Revenue</th>
-                    <th className="px-3 py-2 text-right">View→Cart</th>
-                    <th className="px-3 py-2 text-right">View→Buy</th>
+                    <th className="px-3 py-2">메뉴</th>
+                    <th className="px-3 py-2 text-right">조회</th>
+                    <th className="px-3 py-2 text-right">장바구니 추가</th>
+                    <th className="px-3 py-2 text-right">판매 수량</th>
+                    <th className="px-3 py-2 text-right">매출</th>
+                    <th className="px-3 py-2 text-right">조회→장바구니</th>
+                    <th className="px-3 py-2 text-right">조회→구매</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -368,6 +418,13 @@ export default function DeveloperAnalyticsPage() {
                       <td className="px-3 py-2 text-right font-mono">{pct(m.viewToPurchaseRate)}</td>
                     </tr>
                   ))}
+                  {menus.menus.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-4 text-gray-500">
+                        {DEV_LABELS.noData}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -377,75 +434,107 @@ export default function DeveloperAnalyticsPage() {
         {!loading && !error && tab === "payments" && payments && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Kpi title="START events" value={fmt(payments.paymentStartEvents)} sub="behavior" />
-              <Kpi title="SUCCESS events" value={fmt(payments.paymentSuccessEvents)} sub="behavior" />
-              <Kpi title="FAIL events" value={fmt(payments.paymentFailEvents)} sub="behavior" />
-              <Kpi title="Behavior success" value={pct(payments.behaviorSuccessRate)} />
-              <Kpi title="DONE payments" value={fmt(payments.donePayments)} sub="transactional" />
-              <Kpi title="CANCELED" value={fmt(payments.canceledPayments)} />
-              <Kpi title="PARTIAL_CANCELED" value={fmt(payments.partialCanceledPayments)} />
-              <Kpi title="DONE share" value={pct(payments.transactionalDoneShare)} />
-              <Kpi title="Recon OPEN" value={fmt(payments.reconciliationOpenCount)} />
-              <Kpi title="Recon RESOLVED" value={fmt(payments.reconciliationResolvedCount)} />
+              <Kpi title="결제 시작 이벤트" value={fmt(payments.paymentStartEvents)} sub="행동" />
+              <Kpi title="결제 성공 이벤트" value={fmt(payments.paymentSuccessEvents)} sub="행동" />
+              <Kpi title="결제 실패 이벤트" value={fmt(payments.paymentFailEvents)} sub="행동" />
+              <Kpi
+                title={DEV_LABELS.paymentProgressSuccessRate}
+                value={pct(payments.behaviorSuccessRate)}
+                sub={DEV_LABELS.paymentProgressSuccessRateHelp}
+              />
+              <Kpi title="완료 결제 (DONE)" value={fmt(payments.donePayments)} sub="거래" />
+              <Kpi title="취소 (CANCELED)" value={fmt(payments.canceledPayments)} />
+              <Kpi title="부분 취소" value={fmt(payments.partialCanceledPayments)} />
+              <Kpi title="DONE 비중" value={pct(payments.transactionalDoneShare)} />
+              <Kpi title="정합성 미해결" value={fmt(payments.reconciliationOpenCount)} />
+              <Kpi title="정합성 해결됨" value={fmt(payments.reconciliationResolvedCount)} />
             </div>
             <Link className="text-sm text-indigo-300 underline" to="/dev/reconciliation">
-              → Reconciliation
+              → 결제 정합성에서 이슈 확인
             </Link>
           </div>
         )}
 
         {!loading && !error && tab === "operations" && operations && (
           <div className="space-y-4">
+            <p className="text-xs text-gray-500">{DEV_LABELS.processingTimeHelp}</p>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Kpi title="Active queue (today)" value={fmt(operations.activeQueueSizeToday)} />
+              <Kpi title="현재 대기 주문" value={fmt(operations.activeQueueSizeToday)} />
               <Kpi title="PREPARING" value={fmt(operations.preparingCountToday)} />
               <Kpi title="READY" value={fmt(operations.readyCountToday)} />
-              <Kpi title="Avg process" value={sec(operations.avgProcessingSeconds)} />
-              <Kpi title="p50" value={sec(operations.p50ProcessingSeconds)} />
-              <Kpi title="p95" value={sec(operations.p95ProcessingSeconds)} />
-              <Kpi title="Sample n" value={fmt(operations.processingSampleCount)} />
-              <Kpi title="≥10m" value={fmt(operations.slowProcessingCount)} />
+              <Kpi
+                title="주문 처리시간 (평균)"
+                value={sec(operations.avgProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi
+                title="p50"
+                value={sec(operations.p50ProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi
+                title="p95"
+                value={sec(operations.p95ProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi title="분석 주문 수" value={fmt(operations.processingSampleCount)} />
+              <Kpi title="10분 이상" value={fmt(operations.slowProcessingCount)} />
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <HourBars
-                label="Queue entries by hour"
+                label="시간대별 대기열 진입"
                 rows={operations.queueEntriesByHour.map((h) => ({ hour: h.hour, value: h.count }))}
               />
               <HourBars
-                label="Avg processing sec by hour"
+                label="시간대별 평균 처리시간 (초)"
                 rows={operations.processingAvgByHour.map((h) => ({
                   hour: h.hour,
                   value: Math.round(h.avgSeconds ?? 0),
                 }))}
               />
             </div>
-            <p className="text-xs text-gray-500">
-              Processing = calledAt − pickupAssignedAt (calledAt NULL 제외). updated_at 미사용.
-            </p>
           </div>
         )}
 
         {!loading && !error && tab === "performance" && performance && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Kpi title="Requests" value={fmt(performance.totalRequests)} />
-              <Kpi title="4xx rate" value={pct(performance.rate4xx)} />
-              <Kpi title="5xx rate" value={pct(performance.rate5xx)} />
-              <Kpi title="p50" value={performance.p50LatencyMs != null ? `${fmt(performance.p50LatencyMs)}ms` : "—"} />
-              <Kpi title="p95" value={performance.p95LatencyMs != null ? `${fmt(performance.p95LatencyMs)}ms` : "—"} />
-              <Kpi title="p99" value={performance.p99LatencyMs != null ? `${fmt(performance.p99LatencyMs)}ms` : "—"} />
+              <Kpi title="API 요청" value={fmt(performance.totalRequests)} />
+              <Kpi title="4xx 비율" value={pct(performance.rate4xx)} />
+              <Kpi title="5xx 비율" value={pct(performance.rate5xx)} />
+              <Kpi
+                title="p50"
+                value={
+                  performance.p50LatencyMs != null
+                    ? `${fmt(performance.p50LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
+              <Kpi
+                title="p95"
+                value={
+                  performance.p95LatencyMs != null
+                    ? `${fmt(performance.p95LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
+              <Kpi
+                title="p99"
+                value={
+                  performance.p99LatencyMs != null
+                    ? `${fmt(performance.p99LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
             </div>
             <HourBars
-              label="Requests by hour"
+              label="시간대별 API 요청"
               rows={performance.byHour.map((h) => ({ hour: h.hour, value: h.requests }))}
             />
             <div className="overflow-x-auto rounded border border-white/10">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-white/5 text-xs text-gray-400">
                   <tr>
-                    <th className="px-3 py-2">Path</th>
-                    <th className="px-3 py-2 text-right">Req</th>
-                    <th className="px-3 py-2 text-right">Avg</th>
+                    <th className="px-3 py-2">endpoint</th>
+                    <th className="px-3 py-2 text-right">요청</th>
+                    <th className="px-3 py-2 text-right">평균</th>
                     <th className="px-3 py-2 text-right">p95</th>
                     <th className="px-3 py-2 text-right">5xx</th>
                   </tr>
@@ -453,7 +542,9 @@ export default function DeveloperAnalyticsPage() {
                 <tbody>
                   {performance.topEndpoints.map((e) => (
                     <tr key={e.path} className="border-t border-white/5">
-                      <td className="max-w-md truncate px-3 py-2 font-mono text-xs text-gray-300">{e.path}</td>
+                      <td className="max-w-md truncate px-3 py-2 font-mono text-xs text-gray-300">
+                        {e.path}
+                      </td>
                       <td className="px-3 py-2 text-right font-mono">{fmt(e.requests)}</td>
                       <td className="px-3 py-2 text-right font-mono">{fmt(Math.round(e.avgMs))}</td>
                       <td className="px-3 py-2 text-right font-mono">{fmt(e.p95Ms)}</td>
@@ -464,7 +555,7 @@ export default function DeveloperAnalyticsPage() {
               </table>
             </div>
             <Link className="text-sm text-indigo-300 underline" to="/dev/requests">
-              → Requests
+              → 요청에서 확인
             </Link>
           </div>
         )}
@@ -472,76 +563,73 @@ export default function DeveloperAnalyticsPage() {
         {!loading && !error && tab === "reliability" && reliability && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Kpi title="Client errors" value={fmt(reliability.clientErrorCount)} />
-              <Kpi title="Backend errors" value={fmt(reliability.backendErrorCount)} />
-              <Kpi title="Client /1k req" value={fmt(reliability.clientErrorPer1kRequests)} />
-              <Kpi title="Backend /1k req" value={fmt(reliability.backendErrorPer1kRequests)} />
+              <Kpi title="클라이언트 오류" value={fmt(reliability.clientErrorCount)} />
+              <Kpi title="서버 오류" value={fmt(reliability.backendErrorCount)} />
+              <Kpi
+                title="클라이언트 오류 /1k 요청"
+                value={fmt(reliability.clientErrorPer1kRequests)}
+              />
+              <Kpi
+                title="서버 오류 /1k 요청"
+                value={fmt(reliability.backendErrorPer1kRequests)}
+              />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
-              <NamedList title="Top client sources" rows={reliability.topClientSources} />
-              <NamedList title="Top client routes" rows={reliability.topClientRoutes} />
-              <NamedList title="Top backend exceptions" rows={reliability.topBackendExceptions} />
-              <NamedList title="Top backend paths" rows={reliability.topBackendPaths} />
+              <NamedList title="주요 클라이언트 출처" rows={reliability.topClientSources} />
+              <NamedList title="주요 클라이언트 경로" rows={reliability.topClientRoutes} />
+              <NamedList title="주요 서버 예외" rows={reliability.topBackendExceptions} />
+              <NamedList title="주요 서버 경로" rows={reliability.topBackendPaths} />
             </div>
             <Link className="text-sm text-indigo-300 underline" to="/dev/errors">
-              → Errors
+              → 오류에서 확인
             </Link>
           </div>
         )}
 
         {!loading && !error && tab === "insights" && insights && (
-          <div className="space-y-3">
-            {insights.insights.length === 0 && (
-              <p className="text-sm text-gray-500">기간 내 규칙 기반 insight 없음 (sample/threshold 미충족).</p>
-            )}
-            {insights.insights.map((ig, idx) => (
-              <div key={`${ig.type}-${idx}`} className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] uppercase text-gray-300">
-                    {ig.severity}
-                  </span>
-                  <span className="font-mono text-[10px] text-gray-500">{ig.type}</span>
-                </div>
-                <p className="mt-2 text-sm font-medium text-gray-100">{ig.title}</p>
-                <p className="mt-1 text-sm text-gray-400">{ig.description}</p>
-                <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-gray-400">
-                  {JSON.stringify(ig.evidence, null, 2)}
-                </pre>
-              </div>
-            ))}
-          </div>
+          <InsightsPanel insights={insights} />
         )}
       </div>
     </DeveloperShell>
   );
 }
 
+function formatDropOffStage(raw: string): string {
+  return raw
+    .split(" → ")
+    .map((part) => funnelStepLabelKo(part.trim(), part.trim()))
+    .join(" → ");
+}
+
 function FunnelTable({
   title,
+  help,
   steps,
 }: {
   title: string;
+  help: string;
   steps: ControlCenterFunnel["aggregateByAnonymous"];
 }) {
   const max = Math.max(0, ...steps.map((s) => s.uniqueCount));
   return (
     <div>
-      <p className="mb-2 text-sm text-gray-300">{title}</p>
+      <p className="mb-0.5 text-sm text-gray-300">{title}</p>
+      <p className="mb-2 text-xs text-gray-500">{help}</p>
       <div className="space-y-2">
         {steps.map((s) => (
           <div key={s.eventType}>
             <div className="mb-0.5 flex justify-between text-xs text-gray-400">
-              <span>
-                {s.label}{" "}
-                <span className="font-mono text-gray-600">({s.eventType})</span>
-              </span>
+              <span>{funnelStepLabelKo(s.eventType, s.label)}</span>
               <span className="font-mono">
-                {fmt(s.uniqueCount)} · events {fmt(s.eventCount)} · step {pct(s.stepConversion)} · drop{" "}
-                {pct(s.dropOffRate)}
+                {fmt(s.uniqueCount)} · 이벤트 {fmt(s.eventCount)} · 전환 {pct(s.stepConversion)} ·
+                이탈 {pct(s.dropOffRate)}
               </span>
             </div>
             <div className="h-2 rounded bg-white/5">
-              <div className="h-2 rounded bg-emerald-500/60" style={{ width: barWidth(s.uniqueCount, max) }} />
+              <div
+                className="h-2 rounded bg-emerald-500/60"
+                style={{ width: barWidth(s.uniqueCount, max) }}
+              />
             </div>
           </div>
         ))}
@@ -563,6 +651,53 @@ function NamedList({ title, rows }: { title: string; rows: { name: string; count
         ))}
         {rows.length === 0 && <li className="text-gray-500">없음</li>}
       </ul>
+    </div>
+  );
+}
+
+function InsightsPanel({ insights }: { insights: ControlCenterInsights }) {
+  const [openEvidence, setOpenEvidence] = useState<Record<number, boolean>>({});
+
+  if (insights.insights.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        기간 내 규칙 기반 인사이트가 없습니다 (표본/임계값 미충족).
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {insights.insights.map((ig, idx) => (
+        <div key={`${ig.type}-${idx}`} className="rounded-lg border border-white/10 bg-[#171b24] p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] uppercase text-gray-300">
+              {ig.severity}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-medium text-gray-100">{ig.title}</p>
+          <p className="mt-1 text-sm text-gray-400">{ig.description}</p>
+          {ig.metric && (
+            <p className="mt-2 text-xs text-gray-500">
+              핵심 근거: <span className="font-mono text-gray-400">{ig.metric}</span>
+            </p>
+          )}
+          <button
+            type="button"
+            className="mt-2 text-xs text-indigo-300 underline"
+            onClick={() =>
+              setOpenEvidence((prev) => ({ ...prev, [idx]: !prev[idx] }))
+            }
+          >
+            {openEvidence[idx] ? "근거 접기" : "근거 보기"}
+          </button>
+          {openEvidence[idx] && (
+            <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-gray-400">
+              {JSON.stringify(ig.evidence, null, 2)}
+            </pre>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
