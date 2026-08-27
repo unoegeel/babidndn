@@ -124,56 +124,110 @@ export default function DeveloperRequestsPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">{DEV_LABELS.requestMonitoring}</h2>
-          <p className="text-sm text-gray-500">요청 ID 기반 HTTP API 요청 추적</p>
+          <p className="text-sm text-gray-500">개별 HTTP 요청을 requestId로 추적합니다. 집계 성능은 「분석 › API 성능」을 사용하세요.</p>
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-white/10 bg-[#171b24] p-4 md:grid-cols-[1fr_auto_auto_auto_auto_auto]">
-          <input
-            value={draftRequestId}
-            onChange={(e) => setDraftRequestId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="요청 ID 검색..."
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100 outline-none focus:border-indigo-400/40"
-          />
-          <select
-            value={query.method ?? ""}
-            onChange={(e) => updateFilter({ method: e.target.value || undefined })}
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          >
-            <option value="">전체 메서드</option>
-            {HTTP_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <input
-            value={query.status ?? ""}
-            onChange={(e) => updateFilter({ status: e.target.value || undefined })}
-            placeholder="상태"
-            className="w-24 rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <input
-            value={draftPath}
-            onChange={(e) => setDraftPath(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-            placeholder="경로"
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-          />
-          <input
-            type="datetime-local"
-            value={toDateTimeLocal(query.from)}
-            onChange={(e) => updateFilter({ from: fromDateTimeLocal(e.target.value) })}
-            className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
-            title="시작 기간"
-          />
-          <button
-            type="button"
-            onClick={applyFilters}
-            className="rounded-md bg-indigo-500/20 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/30"
-          >
-            {DEV_LABELS.apply}
-          </button>
+        <div className="space-y-3 rounded-lg border border-white/10 bg-[#171b24] p-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setQuery((prev) => ({
+                  ...prev,
+                  status: "500",
+                  minDuration: undefined,
+                  page: 0,
+                }))
+              }
+              className={`rounded-md px-3 py-1.5 text-xs ${
+                query.status === "500" && !query.minDuration
+                  ? "bg-indigo-500/30 text-indigo-100"
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
+            >
+              HTTP 500
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setQuery((prev) => ({
+                  ...prev,
+                  minDuration: "1000",
+                  status: undefined,
+                  page: 0,
+                }))
+              }
+              className={`rounded-md px-3 py-1.5 text-xs ${
+                query.minDuration === "1000"
+                  ? "bg-indigo-500/30 text-indigo-100"
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
+            >
+              느린 요청 (≥1s
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setQuery((prev) => ({
+                  ...prev,
+                  status: undefined,
+                  minDuration: undefined,
+                  page: 0,
+                }))
+              }
+              className="rounded-md bg-white/5 px-3 py-1.5 text-xs text-gray-400 hover:bg-white/10"
+            >
+              빠른 필터 해제
+            </button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto_auto]">
+            <input
+              value={draftRequestId}
+              onChange={(e) => setDraftRequestId(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+              placeholder="요청 ID 검색..."
+              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100 outline-none focus:border-indigo-400/40"
+            />
+            <select
+              value={query.method ?? ""}
+              onChange={(e) => updateFilter({ method: e.target.value || undefined })}
+              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+            >
+              <option value="">전체 메서드</option>
+              {HTTP_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <input
+              value={query.status ?? ""}
+              onChange={(e) => updateFilter({ status: e.target.value || undefined })}
+              placeholder="상태"
+              className="w-24 rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+            />
+            <input
+              value={draftPath}
+              onChange={(e) => setDraftPath(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+              placeholder="경로"
+              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+            />
+            <input
+              type="datetime-local"
+              value={toDateTimeLocal(query.from)}
+              onChange={(e) => updateFilter({ from: fromDateTimeLocal(e.target.value) })}
+              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-2 text-sm text-gray-100"
+              title="시작 기간"
+            />
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="rounded-md bg-indigo-500/20 px-4 py-2 text-sm font-medium text-indigo-200 hover:bg-indigo-500/30"
+            >
+              {DEV_LABELS.apply}
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-rose-300">{error}</p>}

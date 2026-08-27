@@ -152,7 +152,15 @@ Actor = **SYSTEM** · Feature type = infrastructure/security. Enforcement는 Bac
   - **Primary fix:** 당일 `max(pickup_number)` 기준 다음 번호 (createdAt 최신 주문 번호 사용 금지 — 결제 순서가 생성 순서와 어긋나면 활성 번호 재할당되던 사고)
   - **Secondary:** `PickupNumberLock`(JVM + MySQL `GET_LOCK` on TX-bound JDBC connection)로 할당 직렬화 · 활성(PREPARING/READY) 번호 skip
   - **Queue chronology:** `orders.pickup_assigned_at` (V102) — Admin 목록·고객 waitingAhead의 canonical 대기열 시각. createdAt/updatedAt/pickup_number 숫자 정렬 사용 금지.
+  - **First call:** `orders.called_at` (V104) — **`POST /api/orders/{id}/call` 성공 시만** 1회 설정. generic `PUT …/status` → READY·재호출·complete/cancel로는 변경하지 않음. 처리시간 = `calledAt − pickupAssignedAt` (둘 다 non-null만). `updated_at`은 lifecycle metric 금지.
 - **Order↔Payment reconciliation:** core `payment/reconciliation/` (detect · OPEN/RESOLVED · `logical_key`/`active_key` · Toss read-only verify). Exposure는 Developer (§5 Responsibility Boundary) — `/dev/reconciliation`, `/api/dev/reconciliation/**`, `ROLE_DEVELOPER`. Admin `/admin/payments`는 결제 운영만.
+
+### Developer Analytics Control Center
+
+- Exposure: `/dev/analytics` · `/api/dev/analytics/**` · `ROLE_DEVELOPER` · **read-only**
+- Domain ownership ≠ exposure: Sales SQL은 `sales/` 재사용, Order/Payment 정본은 각 domain. Developer는 observe/analyze만.
+- Source-of-truth: behavior→`client_events` · revenue→`payments`/`order_items` · queue→`pickup_assigned_at`/`called_at` · HTTP→`http_request_records` · FE/BE errors→error tables · consistency→reconciliation
+- Insights: rule-based only (no LLM). QR analytics deferred.
 
 ### Saved Menu
 
@@ -251,14 +259,18 @@ FE: `utils/userEvent/trackEvent.ts`, `eventHelpers.ts` · BE allow-list: `Client
 
 ### Developer Console
 
+IA (flat nav): 개요 → 분석 → 사용자 이벤트 → 요청 → 오류 → 결제 정합성.
+
 | FE Route | BE API | 역할 |
 |----------|--------|------|
-| `/dev` | `GET /api/dev/overview` | Dashboard KPI (오류 24h, 요청·이벤트 오늘, funnel 위임) |
-| `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 오류 merge 목록·상세 |
-| `/dev/requests` | `GET /api/dev/requests`, `/{id}` | HTTP 요청 기록 |
+| `/dev` | `/api/dev/analytics/{overview,operations,insights}` (오늘) | 서비스 현황·경고·인사이트 요약 (상세 분석 금지) |
+| `/dev/analytics` | `/api/dev/analytics/*` | Analytics Control Center — 기간 패턴·퍼널·운영·성능·안정성·인사이트 |
+| `/dev/events` | `GET /api/dev/events`, `/{id}` | 개별 사용자 행동 event 조사 |
+| `/dev/requests` | `GET /api/dev/requests`, `/{id}` | 개별 HTTP / requestId 추적 |
+| `/dev/errors` | `GET /api/dev/errors`, `/{id}` | FE/BE 실패 원인 조사 |
 | `/dev/reconciliation` | `/api/dev/reconciliation/**` | Order/Payment/Toss 정합성 진단 (core: `payment/reconciliation/`) |
-| `/dev/events` | `GET /api/dev/events`, `/{id}` | Client events |
-| `/dev/analytics` | `/api/dev/analytics/*` | KPI, funnel, menus, options, **menu-options** |
+
+`GET /api/dev/overview`는 legacy 요약 API로 유지. `/dev` UI는 Control Center analytics API를 재사용한다.
 
 Observability 저장 실패는 주문/결제 트랜잭션과 분리 (비즈니스 flow에 영향 주지 않음).
 

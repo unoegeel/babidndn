@@ -95,7 +95,9 @@ export default function DeveloperErrorsPage() {
       <div className="mx-auto max-w-7xl space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">{DEV_LABELS.errorMonitoring}</h2>
-          <p className="text-sm text-gray-500">프론트엔드/백엔드 구조화 오류 모니터링</p>
+          <p className="text-sm text-gray-500">
+            클라이언트·서버 실패 원인을 조사합니다. 추세·비율은 「분석 › 안정성」을 사용하세요.
+          </p>
         </div>
 
         <div className="grid gap-3 rounded-lg border border-white/10 bg-[#171b24] p-4 md:grid-cols-[1fr_auto_auto_auto_auto]">

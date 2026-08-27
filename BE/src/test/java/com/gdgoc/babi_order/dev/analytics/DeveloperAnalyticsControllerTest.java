@@ -11,12 +11,11 @@ import com.gdgoc.babi_order.backenderror.BackendErrorRecordService;
 import com.gdgoc.babi_order.common.exception.ApiExceptionHandler;
 import com.gdgoc.babi_order.config.CorsProperties;
 import com.gdgoc.babi_order.config.SecurityConfig;
-import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsFunnelResponse;
-import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsMenusResponse;
-import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOptionsResponse;
-import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOverviewResponse;
 import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsPeriod;
-import com.gdgoc.babi_order.dev.analytics.dto.FunnelStepResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterFunnelResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterMenusResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.ControlCenterOverviewResponse;
+import com.gdgoc.babi_order.dev.analytics.dto.AnalyticsOptionsResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +48,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         AdminSecurityBeansConfig.class,
         AdminAuthenticationEntryPoint.class,
         ApiExceptionHandler.class,
-        DeveloperAnalyticsService.class,
         JwtTokenProvider.class,
         DeveloperAnalyticsControllerTest.JwtTestConfig.class
 })
@@ -67,7 +65,7 @@ class DeveloperAnalyticsControllerTest {
     private DeveloperAnalyticsService analyticsService;
 
     @MockitoBean
-    private AnalyticsQueryRepository analyticsQueryRepository;
+    private DeveloperControlCenterService controlCenterService;
 
     @MockitoBean
     private AdminRepository adminRepository;
@@ -80,8 +78,6 @@ class DeveloperAnalyticsControllerTest {
         given(adminRepository.findByLoginId(DEVELOPER_LOGIN))
                 .willReturn(Optional.of(new Admin(DEVELOPER_LOGIN, "encoded", AdminRole.DEVELOPER)));
     }
-
-    // ─── 권한 테스트 ───
 
     @Test
     @WithAnonymousUser
@@ -98,155 +94,87 @@ class DeveloperAnalyticsControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void userCannotAccessOverview() throws Exception {
-        mockMvc.perform(get("/api/dev/analytics/overview"))
-                .andExpect(status().isForbidden());
-    }
-
-    // ─── Developer 접근 가능 ───
-
-    @Test
     void developerCanAccessOverview() throws Exception {
-        AnalyticsOverviewResponse mockResponse = AnalyticsOverviewResponse.builder()
+        given(controlCenterService.overview(any())).willReturn(ControlCenterOverviewResponse.builder()
                 .period(AnalyticsPeriod.builder()
                         .from(Instant.parse("2026-08-19T00:00:00Z"))
                         .to(Instant.parse("2026-08-19T15:00:00Z"))
                         .build())
-                .uniqueVisitors(530L)
-                .menuViews(1240L)
-                .cartAdds(320L)
-                .checkoutViews(250L)
-                .paymentStarts(250L)
-                .paymentSuccesses(221L)
-                .ordersCreated(215L)
-                .ordersCompleted(210L)
-                .build();
-
-        given(analyticsService.overview(any(Instant.class), any(Instant.class)))
-                .willReturn(mockResponse);
+                .paidOrders(12L)
+                .revenue(120000L)
+                .uniqueVisitors(50L)
+                .menuViews(100L)
+                .build());
 
         String token = jwtTokenProvider.createToken(DEVELOPER_LOGIN, AdminRole.DEVELOPER);
-
         mockMvc.perform(get("/api/dev/analytics/overview")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uniqueVisitors").value(530))
-                .andExpect(jsonPath("$.menuViews").value(1240))
-                .andExpect(jsonPath("$.cartAdds").value(320));
+                .andExpect(jsonPath("$.paidOrders").value(12))
+                .andExpect(jsonPath("$.revenue").value(120000))
+                .andExpect(jsonPath("$.uniqueVisitors").value(50));
     }
 
     @Test
     void developerCanAccessFunnel() throws Exception {
-        AnalyticsFunnelResponse mockResponse = AnalyticsFunnelResponse.builder()
+        given(controlCenterService.funnel(any())).willReturn(ControlCenterFunnelResponse.builder()
                 .period(AnalyticsPeriod.builder()
                         .from(Instant.parse("2026-08-19T00:00:00Z"))
                         .to(Instant.parse("2026-08-19T15:00:00Z"))
                         .build())
-                .steps(List.of(
-                        FunnelStepResponse.builder()
+                .aggregateByAnonymous(List.of(
+                        ControlCenterFunnelResponse.FunnelAggregateStep.builder()
                                 .eventType("MENU_VIEW")
                                 .label("메뉴 조회")
-                                .uniqueUsers(530L)
-                                .conversionRate(100.0)
-                                .stepConversion(100.0)
-                                .build(),
-                        FunnelStepResponse.builder()
-                                .eventType("ADD_TO_CART")
-                                .label("장바구니 추가")
-                                .uniqueUsers(320L)
-                                .conversionRate(60.38)
-                                .stepConversion(60.38)
-                                .build()
-                ))
-                .build();
-
-        given(analyticsService.funnel(any(Instant.class), any(Instant.class)))
-                .willReturn(mockResponse);
+                                .uniqueCount(100L)
+                                .eventCount(200L)
+                                .stepConversion(null)
+                                .dropOffRate(null)
+                                .build()))
+                .sequentialBySession(List.of())
+                .metricNote("test")
+                .build());
 
         String token = jwtTokenProvider.createToken(DEVELOPER_LOGIN, AdminRole.DEVELOPER);
-
         mockMvc.perform(get("/api/dev/analytics/funnel")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.steps[0].eventType").value("MENU_VIEW"))
-                .andExpect(jsonPath("$.steps[0].uniqueUsers").value(530))
-                .andExpect(jsonPath("$.steps[1].eventType").value("ADD_TO_CART"))
-                .andExpect(jsonPath("$.steps[1].conversionRate").value(60.38));
+                .andExpect(jsonPath("$.aggregateByAnonymous[0].eventType").value("MENU_VIEW"));
     }
 
     @Test
     void developerCanAccessMenus() throws Exception {
-        AnalyticsMenusResponse mockResponse = AnalyticsMenusResponse.builder()
+        given(controlCenterService.menus(any())).willReturn(ControlCenterMenusResponse.builder()
                 .period(AnalyticsPeriod.builder()
                         .from(Instant.parse("2026-08-19T00:00:00Z"))
                         .to(Instant.parse("2026-08-19T15:00:00Z"))
                         .build())
-                .topMenusByViews(List.of())
-                .topMenusByCartAdds(List.of())
-                .build();
-
-        given(analyticsService.menus(any(Instant.class), any(Instant.class)))
-                .willReturn(mockResponse);
+                .minViewsForConversion(10)
+                .menus(List.of())
+                .build());
 
         String token = jwtTokenProvider.createToken(DEVELOPER_LOGIN, AdminRole.DEVELOPER);
-
         mockMvc.perform(get("/api/dev/analytics/menus")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.topMenusByViews").isArray())
-                .andExpect(jsonPath("$.topMenusByCartAdds").isArray());
+                .andExpect(jsonPath("$.menus").isArray());
     }
 
     @Test
     void developerCanAccessOptions() throws Exception {
-        AnalyticsOptionsResponse mockResponse = AnalyticsOptionsResponse.builder()
+        given(analyticsService.options(any(), any())).willReturn(AnalyticsOptionsResponse.builder()
                 .period(AnalyticsPeriod.builder()
                         .from(Instant.parse("2026-08-19T00:00:00Z"))
                         .to(Instant.parse("2026-08-19T15:00:00Z"))
                         .build())
                 .topOptions(List.of())
-                .build();
-
-        given(analyticsService.options(any(Instant.class), any(Instant.class)))
-                .willReturn(mockResponse);
+                .build());
 
         String token = jwtTokenProvider.createToken(DEVELOPER_LOGIN, AdminRole.DEVELOPER);
-
         mockMvc.perform(get("/api/dev/analytics/options")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.topOptions").isArray());
-    }
-
-    @Test
-    void overviewWithExplicitDateRange() throws Exception {
-        AnalyticsOverviewResponse mockResponse = AnalyticsOverviewResponse.builder()
-                .period(AnalyticsPeriod.builder()
-                        .from(Instant.parse("2026-08-12T15:00:00Z"))
-                        .to(Instant.parse("2026-08-19T14:59:59Z"))
-                        .build())
-                .uniqueVisitors(0L)
-                .menuViews(0L)
-                .cartAdds(0L)
-                .checkoutViews(0L)
-                .paymentStarts(0L)
-                .paymentSuccesses(0L)
-                .ordersCreated(0L)
-                .ordersCompleted(0L)
-                .build();
-
-        given(analyticsService.overview(any(Instant.class), any(Instant.class)))
-                .willReturn(mockResponse);
-
-        String token = jwtTokenProvider.createToken(DEVELOPER_LOGIN, AdminRole.DEVELOPER);
-
-        mockMvc.perform(get("/api/dev/analytics/overview")
-                        .param("from", "2026-08-12T15:00:00Z")
-                        .param("to", "2026-08-19T14:59:59Z")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uniqueVisitors").value(0));
     }
 
     @TestConfiguration

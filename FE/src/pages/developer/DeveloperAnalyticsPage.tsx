@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import DeveloperShell from "../../components/developer/DeveloperShell";
+import { DEV_LABELS, funnelStepLabelKo } from "../../constants/developerLabels";
 import {
   daysAgoUtc,
   developerAnalyticsService,
@@ -7,33 +9,46 @@ import {
   seoulTodayStart,
 } from "../../services/developer/analyticsService";
 import type {
-  AnalyticsFunnel,
-  AnalyticsMenuOptions,
-  AnalyticsMenus,
-  AnalyticsOptions,
-  AnalyticsOverview,
-  FunnelStep,
-  MenuAnalyticsItem,
-  OptionAnalyticsItem,
+  AnalyticsTab,
+  ControlCenterFunnel,
+  ControlCenterInsights,
+  ControlCenterMenus,
+  ControlCenterOperations,
+  ControlCenterOverview,
+  ControlCenterPayments,
+  ControlCenterPerformance,
+  ControlCenterReliability,
+  ControlCenterSales,
+  InsightItem,
   PeriodPreset,
 } from "../../types/developerAnalytics";
+import {
+  formatInsightEvidenceSummary,
+  insightSeverityLabelKo,
+} from "../../utils/insightFormat";
 
-// ────────── helpers ──────────
-
-function fmt(n: number): string {
+function fmt(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
   return n.toLocaleString("ko-KR");
 }
 
-function pct(n: number): string {
+function pct(n: number | null | undefined): string {
+  if (n == null) return "—";
   return `${n.toFixed(1)}%`;
 }
 
-function barWidth(current: number, max: number): string {
-  if (max === 0) return "0%";
-  return `${Math.min(100, (current / max) * 100).toFixed(1)}%`;
+function sec(n: number | null | undefined, sampleCount?: number): string {
+  if (sampleCount != null && sampleCount <= 0) return DEV_LABELS.noAnalyticsData;
+  if (n == null) return "—";
+  const m = Math.floor(n / 60);
+  const s = Math.round(n % 60);
+  return m > 0 ? `${m}분 ${s}초` : `${s}초`;
 }
 
-// ────────── 기간 계산 ──────────
+function barWidth(current: number, max: number): string {
+  if (max <= 0) return "0%";
+  return `${Math.min(100, (current / max) * 100).toFixed(1)}%`;
+}
 
 interface PeriodRange {
   from: string;
@@ -54,232 +69,86 @@ function resolveRange(preset: PeriodPreset, customFrom: string, customTo: string
   }
 }
 
-// ────────── KPI Card ──────────
+const TABS: { id: AnalyticsTab; label: string }[] = [
+  { id: "overview", label: "개요" },
+  { id: "sales", label: "주문·매출" },
+  { id: "funnel", label: "퍼널" },
+  { id: "menus", label: "메뉴 분석" },
+  { id: "payments", label: "결제" },
+  { id: "operations", label: "주문 운영" },
+  { id: "performance", label: "API 성능" },
+  { id: "reliability", label: "안정성" },
+  { id: "insights", label: "인사이트" },
+];
 
-function KpiCard({
+function Kpi({
   title,
   value,
   sub,
 }: {
   title: string;
-  value: number | null;
+  value: string;
   sub?: string;
 }) {
   return (
     <div className="rounded-lg border border-white/10 bg-[#171b24] p-4">
       <p className="text-xs text-gray-500">{title}</p>
-      {value === null ? (
-        <p className="mt-1 text-sm text-gray-500">불러오는 중...</p>
+      <p className="mt-1 text-xl font-semibold text-gray-100">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
+    </div>
+  );
+}
+
+function HourBars({
+  rows,
+  label,
+}: {
+  rows: { hour: number; value: number }[];
+  label: string;
+}) {
+  const max = Math.max(0, ...rows.map((r) => r.value));
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-gray-500">{label}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-gray-500">{DEV_LABELS.noData}</p>
       ) : (
-        <>
-          <p className="mt-1 text-2xl font-semibold text-gray-100">{fmt(value)}</p>
-          {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
-        </>
+        rows.map((r) => (
+          <div key={r.hour} className="flex items-center gap-2 text-xs">
+            <span className="w-10 font-mono text-gray-400">{String(r.hour).padStart(2, "0")}시</span>
+            <div className="h-2 flex-1 rounded bg-white/5">
+              <div
+                className="h-2 rounded bg-indigo-500/70"
+                style={{ width: barWidth(r.value, max) }}
+              />
+            </div>
+            <span className="w-16 text-right font-mono text-gray-300">{fmt(r.value)}</span>
+          </div>
+        ))
       )}
     </div>
   );
 }
 
-// ────────── Funnel ──────────
-
-function FunnelChart({ steps }: { steps: FunnelStep[] }) {
-  if (steps.length === 0) {
-    return <p className="text-sm text-gray-500">데이터 없음</p>;
-  }
-  const maxUsers = steps[0].uniqueUsers;
-
-  return (
-    <div className="space-y-2">
-      {steps.map((step, idx) => (
-        <div key={step.eventType}>
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <span>{step.label}</span>
-            <span className="font-mono">
-              {fmt(step.uniqueUsers)}명 · {pct(step.conversionRate)}
-              {idx > 0 && (
-                <span className="ml-2 text-gray-600">
-                  (전 단계 {pct(step.stepConversion)})
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-indigo-500/60"
-              style={{ width: barWidth(step.uniqueUsers, maxUsers) }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+function SectionTitle({ children }: { children: string }) {
+  return <h3 className="text-sm font-medium text-gray-300">{children}</h3>;
 }
-
-// ────────── Menu Table ──────────
-
-function MenuTable({
-  title,
-  items,
-  valueKey,
-  valueLabel,
-}: {
-  title: string;
-  items: MenuAnalyticsItem[];
-  valueKey: "views" | "cartAdds";
-  valueLabel: string;
-}) {
-  if (items.length === 0) {
-    return (
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-        <p className="text-sm text-gray-500">데이터 없음</p>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-      <table className="min-w-full text-xs">
-        <thead className="text-[11px] text-gray-500">
-          <tr>
-            <th className="pb-1 text-left font-medium">메뉴</th>
-            <th className="pb-1 text-right font-medium">{valueLabel}</th>
-            {valueKey === "views" && (
-              <th className="pb-1 text-right font-medium">고유 방문자</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, i) => (
-            <tr key={item.menuId} className="border-t border-white/5">
-              <td className="py-1.5 text-gray-200">
-                <span className="mr-2 text-gray-500">{i + 1}.</span>
-                {item.menuName}
-              </td>
-              <td className="py-1.5 text-right font-mono text-gray-300">{fmt(item[valueKey])}</td>
-              {valueKey === "views" && (
-                <td className="py-1.5 text-right font-mono text-gray-500">
-                  {fmt(item.uniqueViewers)}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ────────── Option Table ──────────
-
-function OptionTable({ items }: { items: OptionAnalyticsItem[] }) {
-  if (items.length === 0) {
-    return (
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          옵션 선택 순위
-        </p>
-        <p className="text-sm text-gray-500">데이터 없음</p>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        옵션 선택 순위
-      </p>
-      <table className="min-w-full text-xs">
-        <thead className="text-[11px] text-gray-500">
-          <tr>
-            <th className="pb-1 text-left font-medium">옵션</th>
-            <th className="pb-1 text-left font-medium">그룹</th>
-            <th className="pb-1 text-right font-medium">선택 횟수</th>
-            <th className="pb-1 text-right font-medium">고유 사용자</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, i) => (
-            <tr key={item.optionId} className="border-t border-white/5">
-              <td className="py-1.5 text-gray-200">
-                <span className="mr-2 text-gray-500">{i + 1}.</span>
-                {item.optionName}
-              </td>
-              <td className="py-1.5 font-mono text-gray-500">{item.optionGroup ?? "-"}</td>
-              <td className="py-1.5 text-right font-mono text-gray-300">
-                {fmt(item.selectionCount)}
-              </td>
-              <td className="py-1.5 text-right font-mono text-gray-500">
-                {fmt(item.uniqueUsers)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ────────── Menu × Option Table ──────────
-
-function MenuOptionAnalysisTable({
-  menuOptions,
-  loading,
-}: {
-  menuOptions: AnalyticsMenuOptions | null;
-  loading: boolean;
-}) {
-  if (loading) {
-    return <p className="text-sm text-gray-500">불러오는 중...</p>;
-  }
-  if (!menuOptions) {
-    return <p className="text-sm text-gray-500">메뉴를 선택하세요.</p>;
-  }
-  if (menuOptions.options.length === 0) {
-    return (
-      <p className="text-sm text-gray-500">
-        선택 기간 내 옵션 선택 데이터가 없습니다. (옵션 시트 진입 {fmt(menuOptions.engagedUsers)}명)
-      </p>
-    );
-  }
-
-  return (
-    <table className="min-w-full text-xs">
-      <thead className="text-[11px] text-gray-500">
-        <tr>
-          <th className="pb-1 text-left font-medium">옵션</th>
-          <th className="pb-1 text-left font-medium">그룹</th>
-          <th className="pb-1 text-right font-medium">선택률</th>
-          <th className="pb-1 text-right font-medium">선택 사용자</th>
-        </tr>
-      </thead>
-      <tbody>
-        {menuOptions.options.map((item) => (
-          <tr key={`${item.optionId}-${item.optionGroup ?? "none"}`} className="border-t border-white/5">
-            <td className="py-1.5 text-gray-200">{item.optionName}</td>
-            <td className="py-1.5 font-mono text-gray-500">{item.optionGroup ?? "-"}</td>
-            <td className="py-1.5 text-right font-mono text-indigo-200">{pct(item.selectionRate)}</td>
-            <td className="py-1.5 text-right font-mono text-gray-300">{fmt(item.selectedUsers)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-// ────────── Main Page ──────────
 
 export default function DeveloperAnalyticsPage() {
   const [preset, setPreset] = useState<PeriodPreset>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [tab, setTab] = useState<AnalyticsTab>("overview");
 
-  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
-  const [funnel, setFunnel] = useState<AnalyticsFunnel | null>(null);
-  const [menus, setMenus] = useState<AnalyticsMenus | null>(null);
-  const [options, setOptions] = useState<AnalyticsOptions | null>(null);
-  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null);
-  const [menuOptions, setMenuOptions] = useState<AnalyticsMenuOptions | null>(null);
-  const [menuOptionsLoading, setMenuOptionsLoading] = useState(false);
+  const [overview, setOverview] = useState<ControlCenterOverview | null>(null);
+  const [sales, setSales] = useState<ControlCenterSales | null>(null);
+  const [funnel, setFunnel] = useState<ControlCenterFunnel | null>(null);
+  const [menus, setMenus] = useState<ControlCenterMenus | null>(null);
+  const [payments, setPayments] = useState<ControlCenterPayments | null>(null);
+  const [operations, setOperations] = useState<ControlCenterOperations | null>(null);
+  const [performance, setPerformance] = useState<ControlCenterPerformance | null>(null);
+  const [reliability, setReliability] = useState<ControlCenterReliability | null>(null);
+  const [insights, setInsights] = useState<ControlCenterInsights | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -290,23 +159,26 @@ export default function DeveloperAnalyticsPage() {
     try {
       setLoading(true);
       setError(null);
-      const [ov, fn, mn, op] = await Promise.all([
+      const [ov, sl, fn, mn, py, op, pf, rl, ig] = await Promise.all([
         developerAnalyticsService.overview(range.from, range.to),
+        developerAnalyticsService.sales(range.from, range.to),
         developerAnalyticsService.funnel(range.from, range.to),
         developerAnalyticsService.menus(range.from, range.to),
-        developerAnalyticsService.options(range.from, range.to),
+        developerAnalyticsService.payments(range.from, range.to),
+        developerAnalyticsService.operations(range.from, range.to),
+        developerAnalyticsService.performance(range.from, range.to),
+        developerAnalyticsService.reliability(range.from, range.to),
+        developerAnalyticsService.insights(range.from, range.to),
       ]);
       setOverview(ov);
+      setSales(sl);
       setFunnel(fn);
       setMenus(mn);
-      setOptions(op);
-      const firstMenuId = mn.topMenusByViews[0]?.menuId ?? null;
-      setSelectedMenuId((prev) => {
-        if (prev != null && mn.topMenusByViews.some((m) => m.menuId === prev)) {
-          return prev;
-        }
-        return firstMenuId;
-      });
+      setPayments(py);
+      setOperations(op);
+      setPerformance(pf);
+      setReliability(rl);
+      setInsights(ig);
     } catch (err) {
       console.error(err);
       setError("분석 데이터를 불러오지 못했습니다.");
@@ -322,227 +194,543 @@ export default function DeveloperAnalyticsPage() {
     })();
   }, [load, preset, customFrom, customTo]);
 
-  if (selectedMenuId == null && menuOptions !== null) {
-    setMenuOptions(null);
-  }
-
-  useEffect(() => {
-    if (selectedMenuId == null) return;
-    const range = resolveRange(preset, customFrom, customTo);
-    let cancelled = false;
-    void (async () => {
-      await Promise.resolve();
-      try {
-        setMenuOptionsLoading(true);
-        const data = await developerAnalyticsService.menuOptions(
-          selectedMenuId,
-          range.from,
-          range.to,
-        );
-        if (!cancelled) setMenuOptions(data);
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setMenuOptions(null);
-      } finally {
-        if (!cancelled) setMenuOptionsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedMenuId, preset, customFrom, customTo]);
-
-  const menuChoices = menus?.topMenusByViews ?? [];
-
-  const PRESETS: { value: PeriodPreset; label: string }[] = [
-    { value: "today", label: "오늘" },
-    { value: "7d", label: "최근 7일" },
-    { value: "30d", label: "최근 30일" },
-    { value: "custom", label: "직접 선택" },
-  ];
-
   return (
     <DeveloperShell>
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* 헤더 */}
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-100">분석</h2>
-            <p className="text-sm text-gray-500">사용자 행동 기반 Analytics</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {PRESETS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPreset(p.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  preset === p.value
-                    ? "bg-indigo-500/25 text-indigo-200"
-                    : "border border-white/10 text-gray-400 hover:bg-white/5"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-            {preset === "custom" && (
-              <>
-                <input
-                  type="datetime-local"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  className="rounded-md border border-white/10 bg-[#0f1117] px-2 py-1 text-xs text-gray-100"
-                />
-                <span className="text-gray-600">~</span>
-                <input
-                  type="datetime-local"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  className="rounded-md border border-white/10 bg-[#0f1117] px-2 py-1 text-xs text-gray-100"
-                />
-              </>
-            )}
-          </div>
+      <div className="space-y-4">
+        <section>
+          <h2 className="text-lg font-semibold text-gray-100">Analytics Control Center</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            사용량 · 매출 · 퍼널 · 운영 · 성능 · 오류 · 정합성
+          </p>
+        </section>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-gray-400">
+            기간
+            <select
+              className="ml-2 rounded border border-white/10 bg-[#0f131a] px-2 py-1.5 text-sm text-gray-100"
+              value={preset}
+              onChange={(e) => setPreset(e.target.value as PeriodPreset)}
+            >
+              <option value="today">오늘 (KST)</option>
+              <option value="7d">7일</option>
+              <option value="30d">30일</option>
+              <option value="custom">직접 지정</option>
+            </select>
+          </label>
+          {preset === "custom" && (
+            <>
+              <input
+                type="datetime-local"
+                className="rounded border border-white/10 bg-[#0f131a] px-2 py-1.5 text-sm text-gray-100"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+              <input
+                type="datetime-local"
+                className="rounded border border-white/10 bg-[#0f131a] px-2 py-1.5 text-sm text-gray-100"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </>
+          )}
+          <button
+            type="button"
+            className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white"
+            onClick={() => void load(preset, customFrom, customTo)}
+          >
+            {DEV_LABELS.refresh}
+          </button>
         </div>
 
-        {error && <p className="text-sm text-rose-300">{error}</p>}
-
-        {/* KPI */}
-        <section>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            KPI
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard
-              title="방문자 (메뉴 조회 기준)"
-              value={loading ? null : (overview?.uniqueVisitors ?? 0)}
-              sub="고유 사용자"
-            />
-            <KpiCard
-              title="메뉴 조회"
-              value={loading ? null : (overview?.menuViews ?? 0)}
-              sub={overview ? `${fmt(overview.uniqueVisitors)}명` : undefined}
-            />
-            <KpiCard
-              title="장바구니 추가"
-              value={loading ? null : (overview?.cartAdds ?? 0)}
-            />
-            <KpiCard
-              title="결제 화면 진입"
-              value={loading ? null : (overview?.checkoutViews ?? 0)}
-            />
-            <KpiCard
-              title="결제 시작"
-              value={loading ? null : (overview?.paymentStarts ?? 0)}
-            />
-            <KpiCard
-              title="결제 성공"
-              value={loading ? null : (overview?.paymentSuccesses ?? 0)}
-            />
-            <KpiCard
-              title="주문 생성"
-              value={loading ? null : (overview?.ordersCreated ?? 0)}
-            />
-            <KpiCard
-              title="주문 완료"
-              value={loading ? null : (overview?.ordersCompleted ?? 0)}
-            />
-          </div>
-        </section>
-
-        {/* Funnel */}
-        <section className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            주문 퍼널
-          </p>
-          {loading ? (
-            <p className="text-sm text-gray-500">불러오는 중...</p>
-          ) : (
-            <FunnelChart steps={funnel?.steps ?? []} />
-          )}
-          <p className="mt-3 text-[11px] text-gray-600">
-            * 단계별 고유 사용자 수 비교 (기간 내, session-based funnel 아님)
-          </p>
-        </section>
-
-        {/* 메뉴 분석 */}
-        <section className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-            {loading ? (
-              <p className="text-sm text-gray-500">불러오는 중...</p>
-            ) : (
-              <MenuTable
-                title="메뉴 조회 순위"
-                items={menus?.topMenusByViews ?? []}
-                valueKey="views"
-                valueLabel="조회 수"
-              />
-            )}
-          </div>
-          <div className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-            {loading ? (
-              <p className="text-sm text-gray-500">불러오는 중...</p>
-            ) : (
-              <MenuTable
-                title="장바구니 추가 순위"
-                items={menus?.topMenusByCartAdds ?? []}
-                valueKey="cartAdds"
-                valueLabel="추가 수"
-              />
-            )}
-          </div>
-        </section>
-
-        {/* Menu × Option 분석 */}
-        <section className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            메뉴별 옵션 선택 패턴
-          </p>
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <label className="text-xs text-gray-400" htmlFor="menu-option-select">
-              메뉴
-            </label>
-            <select
-              id="menu-option-select"
-              value={selectedMenuId ?? ""}
-              onChange={(e) => setSelectedMenuId(e.target.value ? Number(e.target.value) : null)}
-              disabled={loading || menuChoices.length === 0}
-              className="rounded-md border border-white/10 bg-[#0f1117] px-3 py-1.5 text-xs text-gray-100"
+        <div className="flex flex-wrap gap-1 border-b border-white/10 pb-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`rounded px-3 py-1.5 text-xs ${
+                tab === t.id
+                  ? "bg-indigo-600/80 text-white"
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
             >
-              {menuChoices.length === 0 ? (
-                <option value="">메뉴 데이터 없음</option>
-              ) : (
-                menuChoices.map((menu) => (
-                  <option key={menu.menuId} value={menu.menuId}>
-                    {menu.menuName}
-                  </option>
-                ))
-              )}
-            </select>
-            {menuOptions && !menuOptionsLoading && (
-              <span className="text-[11px] text-gray-500">
-                옵션 시트 진입 {fmt(menuOptions.engagedUsers)}명 기준
-              </span>
-            )}
-          </div>
-          <MenuOptionAnalysisTable menuOptions={menuOptions} loading={loading || menuOptionsLoading} />
-          <p className="mt-3 text-[11px] text-gray-600">
-            * 분모: MENU_OPTION_OPEN + menuId 기준 고유 사용자. 시간순 추론 없이 OPTION_SELECTED metadata.menuId 사용.
-          </p>
-        </section>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        {/* 옵션 분석 (전체 순위) */}
-        <section className="rounded-lg border border-white/10 bg-[#171b24] p-4">
-          {loading ? (
-            <p className="text-sm text-gray-500">불러오는 중...</p>
-          ) : (
-            <OptionTable items={options?.topOptions ?? []} />
-          )}
-          <p className="mt-3 text-[11px] text-gray-600">
-            * 전체 옵션 선택 횟수 순위 (메뉴별 선택률은 위 섹션 참고)
-          </p>
-        </section>
+        {loading && <p className="text-sm text-gray-500">{DEV_LABELS.loading}</p>}
+        {error && <p className="text-sm text-rose-400">{error}</p>}
+
+        {!loading && !error && tab === "overview" && overview && (
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <SectionTitle>주요</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Kpi
+                  title="결제 주문"
+                  value={fmt(overview.paidOrders)}
+                  sub={DEV_LABELS.paidOrdersHelp}
+                />
+                <Kpi title="매출" value={`${fmt(overview.revenue)}원`} />
+                <Kpi
+                  title={DEV_LABELS.paymentProgressSuccessRate}
+                  value={pct(overview.paymentSuccessRate)}
+                  sub={DEV_LABELS.paymentProgressSuccessRateHelp}
+                />
+                <Kpi
+                  title="주문 처리시간"
+                  value={sec(overview.avgProcessingSeconds, overview.processingSampleCount)}
+                  sub={
+                    overview.processingSampleCount > 0
+                      ? `${DEV_LABELS.processingTimeHelp} · 분석 주문 수 ${fmt(overview.processingSampleCount)}`
+                      : DEV_LABELS.processingTimeHelp
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SectionTitle>보조</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Kpi
+                  title="평균 주문 금액"
+                  value={
+                    overview.averageOrderValue != null
+                      ? `${fmt(overview.averageOrderValue)}원`
+                      : "—"
+                  }
+                />
+                <Kpi title="주문당 평균 메뉴 수" value={fmt(overview.averageItemsPerOrder)} />
+                <Kpi
+                  title="고유 방문자"
+                  value={fmt(overview.uniqueVisitors)}
+                  sub="메뉴 조회 기준"
+                />
+                <Kpi
+                  title="결제 시작 이벤트"
+                  value={fmt(overview.paymentStarts)}
+                  sub={`성공 이벤트 ${fmt(overview.paymentSuccessEvents)}`}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SectionTitle>시스템</SectionTitle>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Kpi
+                  title="API p95"
+                  value={
+                    overview.apiP95LatencyMs != null
+                      ? `${fmt(overview.apiP95LatencyMs)}ms`
+                      : DEV_LABELS.noAnalyticsData
+                  }
+                />
+                <Kpi
+                  title="5xx"
+                  value={`${fmt(overview.status5xxCount)} · ${pct(overview.status5xxRate)}`}
+                />
+                <Kpi title="클라이언트 오류" value={fmt(overview.clientErrorCount)} />
+                <Kpi title="서버 오류" value={fmt(overview.backendErrorCount)} />
+                <Kpi
+                  title="정합성 미해결"
+                  value={fmt(overview.reconciliationOpenCount)}
+                  sub="결제 정합성 이슈"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && tab === "sales" && sales && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Kpi title="결제 주문" value={fmt(sales.paidOrders)} sub={DEV_LABELS.paidOrdersHelp} />
+              <Kpi title="매출" value={`${fmt(sales.revenue)}원`} />
+              <Kpi
+                title="평균 주문 금액"
+                value={
+                  sales.averageOrderValue != null ? `${fmt(sales.averageOrderValue)}원` : "—"
+                }
+              />
+              <Kpi title="주문당 평균 메뉴 수" value={fmt(sales.averageItemsPerOrder)} />
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <HourBars
+                label="시간대별 결제 주문"
+                rows={sales.byHour.map((h) => ({ hour: h.hour, value: h.paidOrders }))}
+              />
+              <HourBars
+                label="시간대별 매출"
+                rows={sales.byHour.map((h) => ({ hour: h.hour, value: h.revenue }))}
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              메뉴별 판매·전환율은 「메뉴 분석」 탭에서 확인합니다.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && tab === "funnel" && funnel && (
+          <div className="space-y-6">
+            {funnel.largestDropOffStage ? (
+              <p className="text-sm text-amber-300">
+                최대 이탈: {formatDropOffStage(funnel.largestDropOffStage)}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">퍼널 분석 데이터 없음</p>
+            )}
+            <FunnelTable
+              title="집계 퍼널 (고유 사용자)"
+              help={DEV_LABELS.aggregateFunnelHelp}
+              steps={funnel.aggregateByAnonymous}
+            />
+            <FunnelTable
+              title="순차 진행 세션"
+              help={DEV_LABELS.sequentialFunnelHelp}
+              steps={funnel.sequentialBySession}
+            />
+            <Link className="text-sm text-indigo-300 underline" to="/dev/events">
+              → 사용자 이벤트에서 확인
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && tab === "menus" && menus && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              전환율은 조회 {menus.minViewsForConversion}회 이상인 메뉴만 표시합니다. 결제 지표는
+              완료된 결제(DONE) 기준입니다.
+            </p>
+            <div className="overflow-x-auto rounded border border-white/10">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-white/5 text-xs text-gray-400">
+                  <tr>
+                    <th className="px-3 py-2">메뉴</th>
+                    <th className="px-3 py-2 text-right">조회</th>
+                    <th className="px-3 py-2 text-right">장바구니 추가</th>
+                    <th className="px-3 py-2 text-right">판매 수량</th>
+                    <th className="px-3 py-2 text-right">매출</th>
+                    <th className="px-3 py-2 text-right">조회→장바구니</th>
+                    <th className="px-3 py-2 text-right">조회→구매</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {menus.menus.map((m) => (
+                    <tr key={`${m.menuId}-${m.menuName}`} className="border-t border-white/5">
+                      <td className="px-3 py-2 text-gray-200">{m.menuName}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(m.views)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(m.cartAdds)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(m.paidQuantity)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(m.paidRevenue)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{pct(m.viewToCartRate)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{pct(m.viewToPurchaseRate)}</td>
+                    </tr>
+                  ))}
+                  {menus.menus.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-4 text-gray-500">
+                        {DEV_LABELS.noData}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && tab === "payments" && payments && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <Kpi title="결제 시작 이벤트" value={fmt(payments.paymentStartEvents)} sub="행동" />
+              <Kpi title="결제 성공 이벤트" value={fmt(payments.paymentSuccessEvents)} sub="행동" />
+              <Kpi title="결제 실패 이벤트" value={fmt(payments.paymentFailEvents)} sub="행동" />
+              <Kpi
+                title={DEV_LABELS.paymentProgressSuccessRate}
+                value={pct(payments.behaviorSuccessRate)}
+                sub={DEV_LABELS.paymentProgressSuccessRateHelp}
+              />
+              <Kpi title="완료 결제 (DONE)" value={fmt(payments.donePayments)} sub="거래" />
+              <Kpi title="취소 (CANCELED)" value={fmt(payments.canceledPayments)} />
+              <Kpi title="부분 취소" value={fmt(payments.partialCanceledPayments)} />
+              <Kpi title="DONE 비중" value={pct(payments.transactionalDoneShare)} />
+              <Kpi title="정합성 미해결" value={fmt(payments.reconciliationOpenCount)} />
+              <Kpi title="정합성 해결됨" value={fmt(payments.reconciliationResolvedCount)} />
+            </div>
+            <Link className="text-sm text-indigo-300 underline" to="/dev/reconciliation">
+              → 결제 정합성에서 이슈 확인
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && tab === "operations" && operations && (
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">{DEV_LABELS.processingTimeHelp}</p>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <Kpi title="현재 대기 주문" value={fmt(operations.activeQueueSizeToday)} />
+              <Kpi title="준비 중" value={fmt(operations.preparingCountToday)} />
+              <Kpi title="준비 완료" value={fmt(operations.readyCountToday)} />
+              <Kpi
+                title="주문 처리시간 (평균)"
+                value={sec(operations.avgProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi
+                title="p50"
+                value={sec(operations.p50ProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi
+                title="p95"
+                value={sec(operations.p95ProcessingSeconds, operations.processingSampleCount)}
+              />
+              <Kpi title="분석 주문 수" value={fmt(operations.processingSampleCount)} />
+              <Kpi title="10분 이상" value={fmt(operations.slowProcessingCount)} />
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <HourBars
+                label="시간대별 대기열 진입"
+                rows={operations.queueEntriesByHour.map((h) => ({ hour: h.hour, value: h.count }))}
+              />
+              <HourBars
+                label="시간대별 평균 처리시간 (초)"
+                rows={operations.processingAvgByHour.map((h) => ({
+                  hour: h.hour,
+                  value: Math.round(h.avgSeconds ?? 0),
+                }))}
+              />
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && tab === "performance" && performance && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <Kpi title="API 요청" value={fmt(performance.totalRequests)} />
+              <Kpi title="4xx 비율" value={pct(performance.rate4xx)} />
+              <Kpi title="5xx 비율" value={pct(performance.rate5xx)} />
+              <Kpi
+                title="p50"
+                value={
+                  performance.p50LatencyMs != null
+                    ? `${fmt(performance.p50LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
+              <Kpi
+                title="p95"
+                value={
+                  performance.p95LatencyMs != null
+                    ? `${fmt(performance.p95LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
+              <Kpi
+                title="p99"
+                value={
+                  performance.p99LatencyMs != null
+                    ? `${fmt(performance.p99LatencyMs)}ms`
+                    : DEV_LABELS.noAnalyticsData
+                }
+              />
+            </div>
+            <HourBars
+              label="시간대별 API 요청"
+              rows={performance.byHour.map((h) => ({ hour: h.hour, value: h.requests }))}
+            />
+            <div className="overflow-x-auto rounded border border-white/10">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-white/5 text-xs text-gray-400">
+                  <tr>
+                    <th className="px-3 py-2">endpoint</th>
+                    <th className="px-3 py-2 text-right">요청</th>
+                    <th className="px-3 py-2 text-right">평균</th>
+                    <th className="px-3 py-2 text-right">p95</th>
+                    <th className="px-3 py-2 text-right">5xx</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {performance.topEndpoints.map((e) => (
+                    <tr key={e.path} className="border-t border-white/5">
+                      <td className="max-w-md truncate px-3 py-2 font-mono text-xs text-gray-300">
+                        {e.path}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(e.requests)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(Math.round(e.avgMs))}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(e.p95Ms)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(e.status5xx)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Link className="text-sm text-indigo-300 underline" to="/dev/requests">
+              → 요청에서 확인
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && tab === "reliability" && reliability && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <Kpi title="클라이언트 오류" value={fmt(reliability.clientErrorCount)} />
+              <Kpi title="서버 오류" value={fmt(reliability.backendErrorCount)} />
+              <Kpi
+                title="클라이언트 오류 /1k 요청"
+                value={fmt(reliability.clientErrorPer1kRequests)}
+              />
+              <Kpi
+                title="서버 오류 /1k 요청"
+                value={fmt(reliability.backendErrorPer1kRequests)}
+              />
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <NamedList title="주요 클라이언트 출처" rows={reliability.topClientSources} />
+              <NamedList title="주요 클라이언트 경로" rows={reliability.topClientRoutes} />
+              <NamedList title="주요 서버 예외" rows={reliability.topBackendExceptions} />
+              <NamedList title="주요 서버 경로" rows={reliability.topBackendPaths} />
+            </div>
+            <Link className="text-sm text-indigo-300 underline" to="/dev/errors">
+              → 오류에서 확인
+            </Link>
+          </div>
+        )}
+
+        {!loading && !error && tab === "insights" && insights && (
+          <InsightsPanel insights={insights} />
+        )}
       </div>
     </DeveloperShell>
+  );
+}
+
+function formatDropOffStage(raw: string): string {
+  return raw
+    .split(" → ")
+    .map((part) => funnelStepLabelKo(part.trim(), part.trim()))
+    .join(" → ");
+}
+
+function FunnelTable({
+  title,
+  help,
+  steps,
+}: {
+  title: string;
+  help: string;
+  steps: ControlCenterFunnel["aggregateByAnonymous"];
+}) {
+  const max = Math.max(0, ...steps.map((s) => s.uniqueCount));
+  return (
+    <div>
+      <p className="mb-0.5 text-sm text-gray-300">{title}</p>
+      <p className="mb-2 text-xs text-gray-500">{help}</p>
+      <div className="space-y-2">
+        {steps.map((s) => (
+          <div key={s.eventType}>
+            <div className="mb-0.5 flex justify-between text-xs text-gray-400">
+              <span>{funnelStepLabelKo(s.eventType, s.label)}</span>
+              <span className="font-mono">
+                {fmt(s.uniqueCount)} · 이벤트 {fmt(s.eventCount)} · 전환 {pct(s.stepConversion)} ·
+                이탈 {pct(s.dropOffRate)}
+              </span>
+            </div>
+            <div className="h-2 rounded bg-white/5">
+              <div
+                className="h-2 rounded bg-emerald-500/60"
+                style={{ width: barWidth(s.uniqueCount, max) }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NamedList({ title, rows }: { title: string; rows: { name: string; count: number }[] }) {
+  return (
+    <div className="rounded border border-white/10 p-3">
+      <p className="mb-2 text-xs text-gray-500">{title}</p>
+      <ul className="space-y-1 text-sm">
+        {rows.map((r) => (
+          <li key={r.name} className="flex justify-between gap-2 font-mono text-xs text-gray-300">
+            <span className="truncate">{r.name}</span>
+            <span>{fmt(r.count)}</span>
+          </li>
+        ))}
+        {rows.length === 0 && <li className="text-gray-500">없음</li>}
+      </ul>
+    </div>
+  );
+}
+
+function InsightsPanel({ insights }: { insights: ControlCenterInsights }) {
+  const [openEvidence, setOpenEvidence] = useState<Record<number, boolean>>({});
+
+  if (insights.insights.length === 0) {
+    return (
+      <p className="text-sm text-gray-500">
+        기간 내 규칙 기반 인사이트가 없습니다 (표본/임계값 미충족).
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {insights.insights.map((ig, idx) => (
+        <InsightCard
+          key={`${ig.type}-${idx}`}
+          item={ig}
+          evidenceOpen={!!openEvidence[idx]}
+          onToggleEvidence={() =>
+            setOpenEvidence((prev) => ({ ...prev, [idx]: !prev[idx] }))
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+function InsightCard({
+  item,
+  evidenceOpen,
+  onToggleEvidence,
+}: {
+  item: InsightItem;
+  evidenceOpen: boolean;
+  onToggleEvidence: () => void;
+}) {
+  const evidenceSummary = formatInsightEvidenceSummary(item.metric, item.evidence);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#171b24] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-gray-300">
+          {insightSeverityLabelKo(item.severity)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-medium text-gray-100">{item.title}</p>
+      <p className="mt-1 text-sm text-gray-400">{item.description}</p>
+      {evidenceSummary && (
+        <p className="mt-2 text-xs text-gray-500">핵심 근거: {evidenceSummary}</p>
+      )}
+      <button
+        type="button"
+        className="mt-2 text-xs text-indigo-300 underline"
+        onClick={onToggleEvidence}
+      >
+        {evidenceOpen ? "근거 접기" : "근거 보기"}
+      </button>
+      {evidenceOpen && (
+        <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-gray-400">
+          {JSON.stringify(
+            {
+              metric: item.metric,
+              evidence: item.evidence,
+            },
+            null,
+            2,
+          )}
+        </pre>
+      )}
+    </div>
   );
 }

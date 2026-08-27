@@ -2,17 +2,15 @@
 
 export const DEV_LABELS = {
   consoleTitle: "개발자 콘솔",
-  consoleSubtitle: "오류 · 요청 · 이벤트 · 정합성 · 분석",
+  consoleSubtitle: "개요 · 분석 · 이벤트 · 요청 · 오류 · 정합성",
   observability: "운영 관측",
 
   overview: "개요",
-  monitoring: "모니터링",
   analytics: "분석",
   errors: "오류",
   requests: "요청",
   reconciliation: "결제 정합성",
   events: "사용자 이벤트",
-  funnelAnalytics: "주문 퍼널 / 분석",
 
   search: "검색",
   filter: "필터",
@@ -25,6 +23,7 @@ export const DEV_LABELS = {
   copied: "복사됨",
   loading: "불러오는 중...",
   noData: "데이터 없음",
+  noAnalyticsData: "분석 데이터 없음",
   notFound: "찾을 수 없음",
 
   ready: "준비됨",
@@ -52,9 +51,9 @@ export const DEV_LABELS = {
   frontend: "프론트엔드",
   backend: "백엔드",
 
-  errorMonitoring: "오류 모니터링",
+  errorMonitoring: "오류",
   errorDetail: "오류 상세",
-  requestMonitoring: "요청 모니터링",
+  requestMonitoring: "요청",
   requestDetail: "요청 상세",
   eventMonitoring: "사용자 이벤트",
   eventDetail: "사용자 이벤트 상세",
@@ -66,6 +65,17 @@ export const DEV_LABELS = {
   viewRelatedRequest: "관련 요청 보기",
   allEventTypes: "전체 이벤트",
 
+  /** Metric help (한 번만 노출하는 짧은 설명) */
+  processingTimeHelp:
+    "결제 완료 후 매장 대기열 진입부터 최초 고객 호출까지 걸린 시간",
+  paidOrdersHelp: "실제 결제가 완료된 주문",
+  paymentProgressSuccessRate: "결제 진행 성공률",
+  paymentProgressSuccessRateHelp:
+    "결제 진행을 시작한 세션 중 결제 성공까지 도달한 비율",
+  sequentialFunnelHelp:
+    "메뉴 조회 → 장바구니 → 주문 확인 → 결제 단계를 실제 순서대로 진행한 세션",
+  aggregateFunnelHelp: "기간 내 각 단계를 한 번 이상 수행한 고유 사용자(비순차)",
+
   pageOf: (page: number, total: number) => `${page} / ${total} 페이지`,
   totalErrors: (n: number) => `${n}건`,
   totalRequests: (n: number) => `${n}건`,
@@ -74,4 +84,16 @@ export const DEV_LABELS = {
 
 export function sourceLabelKo(source: "FRONTEND" | "BACKEND"): string {
   return source === "FRONTEND" ? DEV_LABELS.frontend : DEV_LABELS.backend;
+}
+
+/** Funnel step primary labels (ClientEventType → 한국어) */
+export const FUNNEL_STEP_LABELS: Record<string, string> = {
+  MENU_VIEW: "메뉴 조회",
+  ADD_TO_CART: "장바구니 추가",
+  CHECKOUT_VIEW: "주문 확인",
+  PAYMENT_START: "결제 진행",
+};
+
+export function funnelStepLabelKo(eventType: string, fallback?: string): string {
+  return FUNNEL_STEP_LABELS[eventType] ?? fallback ?? eventType;
 }

@@ -1,10 +1,14 @@
 import { adminApi } from "../../api/client";
 import type {
-  AnalyticsFunnel,
-  AnalyticsMenuOptions,
-  AnalyticsMenus,
-  AnalyticsOptions,
-  AnalyticsOverview,
+  ControlCenterFunnel,
+  ControlCenterInsights,
+  ControlCenterMenus,
+  ControlCenterOperations,
+  ControlCenterOverview,
+  ControlCenterPayments,
+  ControlCenterPerformance,
+  ControlCenterReliability,
+  ControlCenterSales,
 } from "../../types/developerAnalytics";
 
 function buildQuery(from: string, to: string): string {
@@ -13,38 +17,44 @@ function buildQuery(from: string, to: string): string {
 }
 
 export const developerAnalyticsService = {
-  overview(from: string, to: string): Promise<AnalyticsOverview> {
-    return adminApi.get<AnalyticsOverview>(`/api/dev/analytics/overview${buildQuery(from, to)}`);
+  overview(from: string, to: string): Promise<ControlCenterOverview> {
+    return adminApi.get(`/api/dev/analytics/overview${buildQuery(from, to)}`);
   },
-
-  funnel(from: string, to: string): Promise<AnalyticsFunnel> {
-    return adminApi.get<AnalyticsFunnel>(`/api/dev/analytics/funnel${buildQuery(from, to)}`);
+  sales(from: string, to: string): Promise<ControlCenterSales> {
+    return adminApi.get(`/api/dev/analytics/sales${buildQuery(from, to)}`);
   },
-
-  menus(from: string, to: string): Promise<AnalyticsMenus> {
-    return adminApi.get<AnalyticsMenus>(`/api/dev/analytics/menus${buildQuery(from, to)}`);
+  funnel(from: string, to: string): Promise<ControlCenterFunnel> {
+    return adminApi.get(`/api/dev/analytics/funnel${buildQuery(from, to)}`);
   },
-
-  options(from: string, to: string): Promise<AnalyticsOptions> {
-    return adminApi.get<AnalyticsOptions>(`/api/dev/analytics/options${buildQuery(from, to)}`);
+  menus(from: string, to: string): Promise<ControlCenterMenus> {
+    return adminApi.get(`/api/dev/analytics/menus${buildQuery(from, to)}`);
   },
-
-  menuOptions(menuId: number, from: string, to: string): Promise<AnalyticsMenuOptions> {
-    const params = new URLSearchParams({ menuId: String(menuId), from, to });
-    return adminApi.get<AnalyticsMenuOptions>(`/api/dev/analytics/menu-options?${params.toString()}`);
+  payments(from: string, to: string): Promise<ControlCenterPayments> {
+    return adminApi.get(`/api/dev/analytics/payments${buildQuery(from, to)}`);
+  },
+  operations(from: string, to: string): Promise<ControlCenterOperations> {
+    return adminApi.get(`/api/dev/analytics/operations${buildQuery(from, to)}`);
+  },
+  performance(from: string, to: string): Promise<ControlCenterPerformance> {
+    return adminApi.get(`/api/dev/analytics/performance${buildQuery(from, to)}`);
+  },
+  reliability(from: string, to: string): Promise<ControlCenterReliability> {
+    return adminApi.get(`/api/dev/analytics/reliability${buildQuery(from, to)}`);
+  },
+  insights(from: string, to: string): Promise<ControlCenterInsights> {
+    return adminApi.get(`/api/dev/analytics/insights${buildQuery(from, to)}`);
   },
 };
 
 /** Asia/Seoul 기준 오늘 00:00:00 ISO UTC */
 export function seoulTodayStart(): string {
   const now = new Date();
-  const seoulOffset = 9 * 60; // +09:00
+  const seoulOffset = 9 * 60;
   const localMs = now.getTime() + (seoulOffset - now.getTimezoneOffset()) * 60 * 1000;
   const local = new Date(localMs);
   const y = local.getUTCFullYear();
   const m = String(local.getUTCMonth() + 1).padStart(2, "0");
   const d = String(local.getUTCDate()).padStart(2, "0");
-  // 한국 자정 = UTC -9시간
   return new Date(`${y}-${m}-${d}T00:00:00+09:00`).toISOString();
 }
 
