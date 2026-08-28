@@ -1,198 +1,167 @@
-# 바비든든 스마트 오더 (BabiOrder)
+# BabiOrder
 
-**바비든든** 매장 픽업 주문·결제·운영을 위한 **FE + BE 모노레포**입니다.  
-서비스 표시명: **바비오더**
+스마트한 매장 픽업 주문·결제·운영을 위한 웹 플랫폼 · 서비스명 **바비오더**
 
----
+**바비든든** 매장의 고객 주문부터 결제, 매장 운영, Developer observability까지 하나의 모노레포로 관리합니다.
 
-## 문서
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4-6DB33F?logo=springboot&logoColor=white)
+![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)
 
-| 문서 | 용도 |
-|------|------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 시스템·도메인·데이터 흐름 |
-| [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | 코딩·API·테스트 규칙 |
-| [docs/CURRENT_CONTEXT.md](docs/CURRENT_CONTEXT.md) | 현재 개발 상태·최근 변경·리스크 |
+[Architecture](docs/ARCHITECTURE.md) · [Conventions](docs/CONVENTIONS.md) · [Current Context](docs/CURRENT_CONTEXT.md)
 
-**Source of truth는 항상 실제 코드입니다.** 문서와 코드가 다르면 코드를 따릅니다.
-
----
-
-## 프로젝트 소개
-
-| 항목 | 내용 |
-|------|------|
-| 목적 | 매장 픽업 주문 디지털화 (메뉴 → 결제 → 픽업번호 → 상태 추적) |
-| 사용자 | **고객** (`/user`, PWA), **관리자** (`/admin`, JWT), **개발자** (`/dev`, JWT) |
-| 인증 | 고객 로그인 없음 · 관리자/개발자 JWT (`ROLE_ADMIN` / `ROLE_DEVELOPER`) |
+> Source of truth는 항상 실제 코드입니다.
 
 ---
 
-## 주요 기능 (요약)
+## Overview
 
-### 고객 `/user`
+| Actor | 하는 일 |
+|-------|---------|
+| **Customer** (`/user`) | 메뉴 탐색 → 주문 → Toss 결제 → 주문 상태 확인 (PWA) |
+| **Admin** (`/admin`) | 주문 접수·호출·완료 · 메뉴/결제/매출 운영 |
+| **Developer** (`/dev`) | Analytics · 이벤트 · HTTP 요청 · 오류 · 결제 정합성 |
 
-메뉴·옵션·장바구니 · Toss 결제 · 주문 현황(폴링) · Web Push · PWA · 나만의 메뉴 · 리뷰/문의 · 공지
-
-### 관리자 `/admin`
-
-주문 대시보드(SSE) · 메뉴/옵션 CRUD · 결제/취소 · 매출 분석 · 팝업/리뷰 · S3 이미지 · Android 주방티켓 **브릿지 호출**
-
-### 개발자 `/dev`
-
-운영 관측 콘솔: **오류 · 요청 · 이벤트 · Analytics** · Overview Dashboard · Menu×Option 분석  
-(상세: [ARCHITECTURE.md — Observability](docs/ARCHITECTURE.md))
+고객은 로그인 없이 이용합니다. Admin/Developer는 JWT(`ROLE_ADMIN` / `ROLE_DEVELOPER`)로 인증합니다.
 
 ---
 
-## 기술 스택
+## Key Features
+
+| Customer | Admin | Developer |
+|----------|-------|-----------|
+| 메뉴·옵션·장바구니 | 실시간 주문 대시보드 (SSE) | Analytics Control Center |
+| Toss 결제 | 고객 호출 · 상태 처리 | 사용자 행동 이벤트 |
+| 주문 상태 폴링 · Web Push | 메뉴/옵션 CRUD · 매출 | HTTP 요청 / requestId 추적 |
+| 최근 주문 · 나만의 메뉴 | 결제 내역 · 취소/환불 | FE/BE 오류 진단 |
+| PWA 설치 | 팝업/리뷰 · S3 이미지 | 결제 정합성 (Toss 대조) |
+
+---
+
+## System Overview
+
+Production FE(`www.babidndn.shop`)가 API를 호출하는 경로입니다.
+
+```mermaid
+flowchart LR
+  subgraph clients [Clients]
+    U[Customer]
+    A[Admin]
+    D[Developer]
+  end
+
+  V[Vercel PWA<br/>www.babidndn.shop]
+  CF[Cloudflare]
+  API[babidndn.shop<br/>API edge]
+  NGX[Nginx]
+  BE[Spring Boot]
+  DB[(MySQL RDS)]
+
+  U --> V
+  A --> V
+  D --> V
+  V -->|REST / SSE| CF
+  CF --> API --> NGX --> BE --> DB
+  BE --> Toss[Toss Payments]
+  BE --> S3[AWS S3]
+```
+
+- **FE:** Vercel — Cloudflare proxy 대상 아님
+- **API (application):** `babidndn.shop` — production FE가 사용하는 API base
+- dev/prod 상세 topology: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
+
+## Tech Stack
 
 | 영역 | 구성 |
 |------|------|
-| FE | React 19, TypeScript, Vite 8, Tailwind 4, React Router 7, Context, PWA |
-| BE | Java 21, Spring Boot 4.1, JPA, Security(JWT), SSE, Mail, S3, Web Push |
-| DB | MySQL 8.4 · Flyway baseline · Hibernate `ddl-auto: validate` (test: H2 `create-drop`) |
-| 결제 | Toss Payments |
-| 배포 | FE Vercel · BE GitHub Actions → ECR → EC2 Docker |
-
-Toss SDK는 `FE/index.html`의 CDN 스크립트로 로드합니다.
+| FE | React 19, TypeScript, Vite 8, Tailwind 4, React Router 7, PWA |
+| BE | Java 21, Spring Boot 4, JPA, JWT, SSE |
+| DB | MySQL 8, Flyway |
+| Infra | Vercel, GitHub Actions → ECR → EC2 Docker, RDS |
+| Payment | Toss Payments |
 
 ---
 
-## Repository 구조
+## Repository Structure
 
 ```text
 babidndn/
-├── FE/src/
-│   ├── pages/user/          # 고객
-│   ├── pages/owner/         # 관리자 UI (/admin 라우트)
-│   ├── pages/developer/     # Developer Console (/dev)
-│   ├── components/ services/ store/ api/ utils/ types/
-├── BE/src/main/java/com/gdgoc/babi_order/
-│   ├── admin/ menu/ order/ payment/ savedmenu/ sales/ store/ push/
-│   ├── clientevent/ clienterror/ backenderror/ httprequest/  # Observability
-│   ├── dev/                 # Developer Console API
-│   └── config/
-├── BE/scripts/              # seed·운영 1회 SQL
-├── BE/compose.yml           # 로컬 MySQL
-├── .github/workflows/       # BE 배포
-├── vercel.json              # FE 빌드·API rewrite
+├── FE/                 # React PWA (user / admin / dev)
+├── BE/                 # Spring Boot API
+├── .github/workflows/  # BE → ECR → EC2
+├── vercel.json         # FE 빌드·API rewrite
 └── docs/
 ```
 
 ---
 
-## 로컬 실행
+## Local Development
 
-### 사전 요구
-
-- **BE:** Java 21, Docker(Compose), Gradle Wrapper  
-- **FE:** Node.js, npm
-
-### Backend
-
-```bash
-cd BE
-docker compose up -d
-cp .env.example .env    # 값 수정
-./gradlew bootRun       # Windows: gradlew.bat bootRun
-```
-
-- 기본 프로파일: `dev` · 포트: `8080` (미설정 시)  
-- Swagger: `/swagger-ui/index.html`
-
-### Frontend
-
-```bash
-cd FE
-npm install
-npm run dev
-npm run build
-npm run lint
-npm test
-```
-
-- 로컬 BE: `VITE_API_BASE_URL=http://localhost:8080`  
-- 결제 테스트: `VITE_TOSS_CLIENT_KEY` 필요  
-- `VITE_API_BASE_URL` 미설정 시 Vite `/api` 프록시 (`vite.config.ts`)
-
----
-
-## 환경 변수 (이름만)
-
-비밀 값은 README에 넣지 않습니다. 전체 목록: `BE/.env.example`, `BE/src/main/resources/application.yml`
-
-| 구분 | 예시 |
-|------|------|
-| DB | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` |
-| Toss | `TOSS_SECRET_KEY`, `TOSS_BASE_URL` / `VITE_TOSS_CLIENT_KEY` |
-| AWS | `AWS_REGION`, `AWS_S3_BUCKET` |
-| Auth | `JWT_SECRET`, `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD` |
-| Push | `PUSH_ENABLED`, `VAPID_*` |
-| Mail | `MAIL_*` |
-| CORS | `ALLOWED_ORIGINS` |
-
----
-
-## 테스트 · 빌드
+**Prerequisites:** Java 21, Docker Compose, Node.js, npm
 
 ```bash
 # Backend
-cd BE && ./gradlew test
+cd BE && docker compose up -d
+cp .env.example .env    # 값 수정
+./gradlew bootRun
 
 # Frontend
-cd FE && npm run build && npm run lint && npm test
+cd FE && npm install && npm run dev
 ```
 
-테스트·lint 현황은 [CURRENT_CONTEXT.md](docs/CURRENT_CONTEXT.md)를 참고하세요.
+| 변수 | 용도 |
+|------|------|
+| `VITE_API_BASE_URL` | 로컬 BE (`http://localhost:8080`) |
+| `VITE_TOSS_CLIENT_KEY` | 결제 테스트 |
+
+`VITE_API_BASE_URL` 미설정 시 Vite `/api` 프록시 사용 (`vite.config.ts`). Swagger: `/swagger-ui/index.html`
 
 ---
 
-## 데이터베이스
+## Environments
 
-- **Schema ownership:** Flyway (`BE/src/main/resources/db/migration`) · Hibernate는 `validate`만
-- **Existing DB:** startup 시 baseline v100 등록 (`baseline-on-migrate`). 과거 `BE/scripts` 재실행 없음
-- **다음 migration:** `V101__description.sql` 부터
-- **초기 seed / 데이터 보정:** `BE/scripts/` (역할 분류: `BE/scripts/README.md`)
-- **환경 비교:** `BE/scripts/schema-drift-audit.sql` (read-only)
-- **테스트:** H2 + `create-drop`, Flyway disabled
-- **빈 MySQL 신규 bootstrap:** 후속 task (현재는 existing DB 전제)
+| | FE | API (application) | DB |
+|--|-----|-------------------|-----|
+| **Prod** | `www.babidndn.shop` | `babidndn.shop` | `babi_order` |
+| **Dev** | `dev.babidndn.shop` | `dev-api.babidndn.shop` | `babi_order_dev` |
 
----
-
-## 배포
-
-### Backend (`deploy-backend.yml`)
-
-| 브랜치 | Profile | 컨테이너 | DB (기본) |
-|--------|---------|----------|-----------|
-| `main` | `prod` | `babi-order` :8080 | `babi_order` |
-| `dev` | `dev` | `babi-order-dev` :8081 | `babi_order_dev` |
-
-ECR push → EC2 SSH → `docker run`
-
-### Frontend
-
-- 루트 `vercel.json`: `FE` 빌드, 호스트별 `/api` → 백엔드 rewrite, SPA fallback  
-- 도메인 예: `www.babidndn.shop`, `dev.babidndn.shop`, `dev-api.babidndn.shop`
+BE: `main` → prod, `dev` → dev branch push 시 배포. FE: Vercel.
+환경변수 이름: `BE/.env.example` (secret 값은 문서에 기록하지 않음)
 
 ---
 
-## 범위 밖 / 제약
+## Tests
 
-- QR 생성·스캔 코드 없음  
-- WebSocket 없음 (관리자 SSE 사용)  
-- Android **프린터 앱·ESC/POS** 소스 없음 (`window.Android` 브릿지만)  
-- Fresh empty MySQL full schema bootstrap (Flyway snapshot) 미제공 — existing DB baseline만
-- PortOne 미사용  
+```bash
+cd BE && ./gradlew test
+cd FE && npm run lint && npm test && npm run build
+```
 
----
-
-## API 문서
-
-springdoc: `/swagger-ui/index.html`, `/v3/api-docs/**`
+배포·runtime 상태: [docs/CURRENT_CONTEXT.md](docs/CURRENT_CONTEXT.md)
 
 ---
 
-## 라이선스
+## Documentation
+
+| 문서 | 내용 |
+|------|------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | FE/BE/DB/infra 구조, order/payment lifecycle, observability |
+| [CONVENTIONS.md](docs/CONVENTIONS.md) | 구현 위치·책임·코딩 규칙 |
+| [CURRENT_CONTEXT.md](docs/CURRENT_CONTEXT.md) | 현재 배포 상태, pending 작업 |
+
+---
+
+## Out of Scope
+
+QR 코드 · WebSocket(Admin SSE 사용) · Android 프린터 앱 소스 · Fresh empty MySQL bootstrap
+
+---
+
+## License
 
 저장소에 별도 LICENSE 파일 없음.

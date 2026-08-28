@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserData } from "../../store/UserDataContext";
+import { orderService } from "../../services/user/orderService";
+import { isOrderNotFoundError } from "../../utils/orderApiErrors";
 import type { Order, OrderStatus } from "../../types/user";
 import { serverInstantMs } from "../../utils/serverDate";
 
@@ -50,7 +52,7 @@ function summarizeItems(order: Order): string {
 
 export const OrderHistoryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { orders } = useUserData();
+  const { orders, removeOrderFromState } = useUserData();
   const [cutoff] = useState(() => Date.now() - SEVEN_DAYS_MS);
 
   const recentOrders = useMemo(() => {
@@ -74,6 +76,35 @@ export const OrderHistoryPage: React.FC = () => {
         return Number(b.orderId) - Number(a.orderId);
       });
   }, [orders, cutoff]);
+
+  // 최근 주문 화면 진입 시 서버 authority로 stale entry 제거
+  const recentOrderIdsKey = recentOrders.map((order) => order.orderId).join(",");
+  useEffect(() => {
+    if (!recentOrderIdsKey) return;
+
+    let cancelled = false;
+    const orderIds = recentOrderIdsKey.split(",").filter(Boolean);
+
+    const validate = async () => {
+      await Promise.all(
+        orderIds.map(async (orderId) => {
+          try {
+            await orderService.getOrder(orderId);
+          } catch (err) {
+            if (cancelled) return;
+            if (isOrderNotFoundError(err)) {
+              removeOrderFromState(orderId);
+            }
+          }
+        }),
+      );
+    };
+
+    void validate();
+    return () => {
+      cancelled = true;
+    };
+  }, [recentOrderIdsKey, removeOrderFromState]);
 
   const openOrder = (order: Order) => {
     if (order.status === "READY" || order.status === "COMPLETED") {
