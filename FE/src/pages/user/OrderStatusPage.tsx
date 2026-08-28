@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { useUserData } from "../../store/UserDataContext";
 import { orderService, mapOrderDetailToOrder } from "../../services/user/orderService";
+import { isOrderNotFoundError } from "../../utils/orderApiErrors";
 import { formatSelectedOptions } from "../../utils/formatSelectedOptions";
 import { linkPushSubscriptionToOrder } from "../../utils/webPush";
 import { claimReadyCall, claimReadyConfetti } from "../../utils/readyCall";
@@ -12,7 +13,7 @@ import { trackOrderStatusView } from "../../utils/userEvent/eventHelpers";
 export const OrderStatusPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
-  const { getOrderById, readyCallSignal, startConfetti, saveOrderToState } = useUserData();
+  const { getOrderById, readyCallSignal, startConfetti, saveOrderToState, removeOrderFromState } = useUserData();
 
   const order = orderId ? getOrderById(orderId) : null;
   /** 로드 실패는 orderId와 함께 기록 — orderId 변경 시 자동으로 해제 */
@@ -78,6 +79,9 @@ export const OrderStatusPage: React.FC = () => {
           const retryable =
             err instanceof ApiError && (err.status === 404 || err.status >= 500);
           if (!retryable || attempt === 3) {
+            if (isOrderNotFoundError(err)) {
+              removeOrderFromState(orderId);
+            }
             setFailedOrderId(orderId);
             return;
           }
@@ -90,7 +94,7 @@ export const OrderStatusPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [orderId, order, saveOrderToState]);
+  }, [orderId, order, saveOrderToState, removeOrderFromState]);
 
   const noteReadyTransition = useCallback((nextStatus: OrderStatus): boolean => {
     const prev = prevStatusRef.current;

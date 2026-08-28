@@ -3,13 +3,14 @@ import type { CartItem, MenuDetail, MenuOption, Order, OrderStatus, Notification
 import { orderService } from "../services/user/orderService";
 import { trackOrderCreated } from "../utils/userEvent/eventHelpers";
 import type { OrderDetailResponse } from "../types/api";
+import { isOrderNotFoundError } from "../utils/orderApiErrors";
+import { removeOrderAccessToken } from "../utils/orderAccessToken";
 import { claimReadyCall, clearReadyBannerDismiss } from "../utils/readyCall";
+import { readStoredOrders, writeStoredOrders } from "../utils/userOrdersStorage";
 import { useOrderPolling } from "../hooks/useOrderPolling";
 import { useCartState } from "../hooks/useCartState";
 import { useConfettiPlay } from "../hooks/useConfettiPlay";
 import { useUserNotifications } from "../hooks/useUserNotifications";
-
-const ORDERS_STORAGE_KEY = "babi_user_orders";
 
 interface UserDataContextType {
   cart: CartItem[];
@@ -31,6 +32,8 @@ interface UserDataContextType {
   createOrder: () => Promise<OrderDetailResponse>;
   getOrderById: (orderId: string) => Order | null;
   saveOrderToState: (order: Order) => void;
+  /** 서버 ORDER_NOT_FOUND 등으로 확인된 stale 주문을 로컬 저장소에서 제거 */
+  removeOrderFromState: (orderId: string) => void;
   cartTotal: number;
   addNotification: (type: NotificationType, title: string, message: string, orderId: string) => void;
   markAsRead: (id: string) => void;
@@ -42,17 +45,6 @@ interface UserDataContextType {
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
-
-function readStoredOrders(): Order[] {
-  try {
-    const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Order[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 function isActiveStatus(status: OrderStatus): boolean {
   return status === "PREPARING" || status === "READY";
@@ -90,11 +82,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastUpdatedAtRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    try {
-      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
-    } catch {
-      // ignore
-    }
+    writeStoredOrders(orders);
   }, [orders]);
 
   const createOrder = async (): Promise<OrderDetailResponse> => {
@@ -111,6 +99,13 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return [...prevOrders, orderObj];
     });
+  }, []);
+
+  const removeOrderFromState = useCallback((orderId: string) => {
+    removeOrderAccessToken(orderId);
+    setOrders((prevOrders) => prevOrders.filter((o) => o.orderId !== orderId));
+    delete notifiedRef.current[orderId];
+    delete lastUpdatedAtRef.current[orderId];
   }, []);
 
   const getOrderById = useCallback((orderId: string): Order | null => {
@@ -207,6 +202,10 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     enabled: pollableOrderIds.length > 0,
     onOrderUpdate: handleBackgroundOrderUpdate,
     onError: (id, err) => {
+      if (isOrderNotFoundError(err)) {
+        removeOrderFromState(id);
+        return;
+      }
       console.error(`진행 중 주문 폴링 실패 (id=${id}):`, err);
     },
   });
@@ -231,6 +230,7 @@ export const UserDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         createOrder,
         getOrderById,
         saveOrderToState,
+        removeOrderFromState,
         cartTotal,
         addNotification,
         markAsRead,
